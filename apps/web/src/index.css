@@ -64,3 +64,10 @@ h2,
 h3 {
   font-optical-sizing: auto;
 }
+
+/* Keyboard-only focus ring (mouse clicks stay clean). Inputs keep their own
+   border-highlight via Tailwind's outline-none + focus:border. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

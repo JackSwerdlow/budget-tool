@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
-import { Panel, Segmented } from '../components/ui';
+import { Kbd, Panel, Segmented } from '../components/ui';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
@@ -13,9 +13,20 @@ export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
   const net = monthNet(data, ym);
   const inc = income(data, ym);
   const avg = averageNet(data);
+  const noData = data.entries.length === 0 && data.lists.length === 0 && data.income.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
+      {noData && (
+        <div className="rounded-lg border border-dashed border-hairline-strong bg-panel p-5 text-center">
+          <p className="font-serif text-lg text-ink">Welcome to your Ledger</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            Record your first spend under <span className="text-ink">+ Add</span> (or press <Kbd>a</Kbd>). Every total,
+            chart and comparison below updates live.
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Panel>
           <div className="text-xs uppercase tracking-wide text-ink-faint">This month</div>

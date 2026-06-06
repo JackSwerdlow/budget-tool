@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useData } from './data';
 import { monthLabel, todayISO } from './lib/dates';
-import { Code, MonthPicker, Panel, Segmented } from './components/ui';
+import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
@@ -22,6 +22,28 @@ export function App() {
   const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
+
+  // Global hotkeys — adding is never more than a keystroke (ignored while typing).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+      if (e.key === 'a') {
+        e.preventDefault(); // don't let the keystroke leak into the now-focused amount field
+        setTab('add');
+        setAddView('single');
+      } else if (e.key === 'o') {
+        e.preventDefault();
+        setTab('overview');
+      } else if (e.key === 'm') {
+        e.preventDefault();
+        setTab('manage');
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6">
@@ -100,8 +122,13 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-hairline py-4 text-xs text-ink-faint">
-        Ledger · a local, single-user budget book — everything updates live
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint">
+        <span>Ledger · a local, single-user budget book — everything updates live</span>
+        <span className="flex items-center gap-2">
+          <Kbd>a</Kbd> add
+          <Kbd>o</Kbd> overview
+          <Kbd>m</Kbd> manage
+        </span>
       </footer>
     </div>
   );
