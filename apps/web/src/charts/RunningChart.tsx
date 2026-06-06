@@ -11,12 +11,40 @@ import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
 type Pt = { day: number; value: number };
 
 const W = 720;
-const H = 220;
-const PAD_X = 18;
+const H = 230;
+const PAD_LEFT = 46;
+const PAD_RIGHT = 16;
 const PAD_TOP = 22;
-const PAD_BOTTOM = 26;
-const INNER_W = W - PAD_X * 2;
+const PAD_BOTTOM = 28;
+const INNER_W = W - PAD_LEFT - PAD_RIGHT;
 const INNER_H = H - PAD_TOP - PAD_BOTTOM;
+
+function axisGBP(pence: number): string {
+  return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
+}
+
+// Round "nice" y-axis ticks (0, £250, £500, …) spanning up to maxPence.
+function niceTicks(maxPence: number, count: number): number[] {
+  if (maxPence <= 0) return [0];
+  const rawStep = maxPence / count;
+  const mag = 10 ** Math.floor(Math.log10(rawStep));
+  const norm = rawStep / mag;
+  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  const step = nice * mag;
+  const ticks: number[] = [];
+  for (let v = 0; v <= maxPence; v += step) ticks.push(v);
+  return ticks;
+}
+
+// Weekly x ticks (1, 8, 15, …) with the last one snapped to the month's final day.
+function dayTicks(days: number): number[] {
+  const ticks: number[] = [];
+  for (let d = 1; d <= days; d += 7) ticks.push(d);
+  const last = ticks[ticks.length - 1];
+  if (days - last >= 3) ticks.push(days);
+  else ticks[ticks.length - 1] = days;
+  return ticks;
+}
 
 export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
   const points = runningCumulative(data, ym);
@@ -24,9 +52,13 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
   const days = daysInMonth(ym);
   const current = points.length > 0 ? points[points.length - 1].cumulativePence : 0;
 
-  const yMax = Math.max(target, current, 1) * 1.15;
-  const x = (day: number) => PAD_X + ((day - 1) / Math.max(days - 1, 1)) * INNER_W;
+  const dataMax = Math.max(target, current);
+  const yMax = Math.max(dataMax, 1) * 1.15;
+  const x = (day: number) => PAD_LEFT + ((day - 1) / Math.max(days - 1, 1)) * INNER_W;
   const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
+
+  const yTicks = dataMax > 0 ? niceTicks(yMax, 5) : [0];
+  const xTicks = dayTicks(days);
 
   const series: Pt[] = [{ day: 1, value: 0 }, ...points.map((p) => ({ day: dayOfMonth(p.date), value: p.cumulativePence }))];
 
@@ -47,22 +79,37 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Running total this month, excluding Rent">
-        {/* baseline */}
-        <line x1={PAD_X} y1={y(0)} x2={W - PAD_X} y2={y(0)} className="stroke-hairline" strokeWidth={1} />
+        {/* y-axis gridlines + £ labels */}
+        {yTicks.map((t) => (
+          <g key={`y${t}`}>
+            <line x1={PAD_LEFT} y1={y(t)} x2={W - PAD_RIGHT} y2={y(t)} className="stroke-hairline/60" strokeWidth={1} />
+            <text x={PAD_LEFT - 8} y={y(t) + 3} textAnchor="end" className="fill-ink-faint text-[10px] tabular-nums">
+              {axisGBP(t)}
+            </text>
+          </g>
+        ))}
+
+        {/* x-axis day ticks + labels */}
+        {xTicks.map((d) => (
+          <g key={`x${d}`}>
+            <line x1={x(d)} y1={PAD_TOP} x2={x(d)} y2={y(0)} className="stroke-hairline/40" strokeWidth={1} />
+            <text x={x(d)} y={H - 9} textAnchor="middle" className="fill-ink-faint text-[10px] tabular-nums">{d}</text>
+          </g>
+        ))}
 
         {/* last month's ex-Rent target */}
         {target > 0 && (
           <>
             <line
-              x1={PAD_X}
+              x1={PAD_LEFT}
               y1={y(target)}
-              x2={W - PAD_X}
+              x2={W - PAD_RIGHT}
               y2={y(target)}
               className="stroke-ink-faint"
               strokeWidth={1}
               strokeDasharray="4 4"
             />
-            <text x={W - PAD_X} y={y(target) - 6} textAnchor="end" className="fill-ink-muted text-[11px]">
+            <text x={W - PAD_RIGHT} y={y(target) - 6} textAnchor="end" className="fill-ink-muted text-[11px]">
               last month {formatGBP(target)}
             </text>
           </>
@@ -70,7 +117,7 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
 
         {/* today marker */}
         {todayDay !== null && (
-          <line x1={x(todayDay)} y1={PAD_TOP - 6} x2={x(todayDay)} y2={y(0)} className="stroke-hairline" strokeWidth={1} strokeDasharray="2 3" />
+          <line x1={x(todayDay)} y1={PAD_TOP - 6} x2={x(todayDay)} y2={y(0)} className="stroke-accent/40" strokeWidth={1} strokeDasharray="2 3" />
         )}
 
         <path d={areaPath} className="fill-accent/10" />
@@ -78,10 +125,6 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
 
         {/* final dot */}
         {current > 0 && <circle cx={x(series[series.length - 1].day)} cy={y(current)} r={3.5} className="fill-accent" />}
-
-        {/* day axis ends */}
-        <text x={PAD_X} y={H - 8} className="fill-ink-faint text-[11px]">1</text>
-        <text x={W - PAD_X} y={H - 8} textAnchor="end" className="fill-ink-faint text-[11px]">{days}</text>
       </svg>
     </div>
   );
