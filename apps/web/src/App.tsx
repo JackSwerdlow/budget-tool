@@ -3,6 +3,7 @@ import { useData } from './data';
 import { monthLabel, todayISO } from './lib/dates';
 import { Code, MonthPicker, Panel, Segmented, Stub } from './components/ui';
 import { AddSingle } from './features/AddSingle';
+import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
 
 type Tab = 'overview' | 'add' | 'manage';
@@ -90,7 +91,7 @@ export function App() {
                 ]}
               />
             </div>
-            {addView === 'single' ? <AddSingle data={data} /> : <Stub title="Add an itemised list" phase="Phase 2" />}
+            {addView === 'single' ? <AddSingle data={data} /> : <AddList data={data} />}
           </div>
         ) : (
           <Stub title="Manage entries, taxonomy & income" phase="Phase 4" />
@@ -98,7 +99,7 @@ export function App() {
       </main>
 
       <footer className="border-t border-hairline py-4 text-xs text-ink-faint">
-        Phase 1 · add an entry and watch the overview update live
+        Ledger · a local, single-user budget book — everything updates live
       </footer>
     </div>
   );

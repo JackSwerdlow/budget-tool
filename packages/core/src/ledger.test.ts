@@ -67,3 +67,39 @@ describe('runningCumulative (always ex-Rent)', () => {
     expect(runningCumulative(makeData(), '2026-04')).toEqual([]);
   });
 });
+
+describe('with itemised lists (fan-out into the ledger)', () => {
+  function dataWithList(): LedgerData {
+    return {
+      ...makeData(),
+      lists: [
+        {
+          id: 1,
+          date: '2026-06-05',
+          note: null,
+          delivery_fee_pence: 0,
+          delivery_share_pct: 0,
+          delivery_category_id: 11,
+          created_at: '2026-06-05T10:00:00Z',
+          items: [
+            { id: 1, list_id: 1, name: 'milk', price_pence: 500, quantity: 1, share_pct: 0, category_id: 11, sort_order: 1 },
+            { id: 2, list_id: 1, name: 'soap', price_pence: 200, quantity: 1, share_pct: 50, category_id: 11, sort_order: 2 },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('adds each list per-category my-share into categoryTotals', () => {
+    // entries cat11 = 4000 + 2000 = 6000; list cat11 = 500 + (200 - round(100)) = 600 -> 6600
+    expect(Object.fromEntries(categoryTotals(dataWithList(), '2026-06'))).toEqual({ 10: 120000, 11: 6600, 20: 1500 });
+  });
+
+  it('includes list spend (ex-Rent) in the running cumulative on the list date', () => {
+    expect(runningCumulative(dataWithList(), '2026-06')).toEqual([
+      { date: '2026-06-03', cumulativePence: 5500 },
+      { date: '2026-06-05', cumulativePence: 6100 },
+      { date: '2026-06-10', cumulativePence: 8100 },
+    ]);
+  });
+});

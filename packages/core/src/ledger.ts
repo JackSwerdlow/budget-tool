@@ -1,15 +1,20 @@
+import { listCategorySubtotals } from './list';
 import type { LedgerData } from './types';
 import { ymOf } from './time';
 
-// Phase 1 combines entries only. Phase 2 adds each list's per-category my-share
-// subtotals here (computed via the `list` module) — callers already pass the whole
-// LedgerData, so that change stays local to this file.
+// Combines normal entries with each itemised list's per-category my-share subtotals.
 
 export function categoryTotals(data: LedgerData, ym: string): Map<number, number> {
   const totals = new Map<number, number>();
   for (const entry of data.entries) {
     if (ymOf(entry.date) !== ym) continue;
     totals.set(entry.category_id, (totals.get(entry.category_id) ?? 0) + entry.amount_pence);
+  }
+  for (const list of data.lists) {
+    if (ymOf(list.date) !== ym) continue;
+    for (const [categoryId, pence] of listCategorySubtotals(list)) {
+      totals.set(categoryId, (totals.get(categoryId) ?? 0) + pence);
+    }
   }
   return totals;
 }
@@ -50,6 +55,15 @@ export function runningCumulative(data: LedgerData, ym: string): CumulativePoint
     if (ymOf(entry.date) !== ym) continue;
     if (excluded.has(entry.category_id)) continue;
     byDate.set(entry.date, (byDate.get(entry.date) ?? 0) + entry.amount_pence);
+  }
+  for (const list of data.lists) {
+    if (ymOf(list.date) !== ym) continue;
+    let pence = 0;
+    for (const [categoryId, p] of listCategorySubtotals(list)) {
+      if (excluded.has(categoryId)) continue;
+      pence += p;
+    }
+    if (pence !== 0) byDate.set(list.date, (byDate.get(list.date) ?? 0) + pence);
   }
 
   let running = 0;

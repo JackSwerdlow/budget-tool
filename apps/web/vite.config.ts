@@ -10,7 +10,7 @@ export default defineConfig({
     port: 5173,
     // This platform is reached at http://lab14102.labs.decoded.com:<PORT> (never localhost),
     // so the dev server must allow that Host header.
-    allowedHosts: ['lab14102.labs.decoded.com'],
+    allowedHosts: ['lab14102.labs.decoded.com', 'code-lab14102.labs.decoded.com'],
     proxy: {
       // Dev only: forward /api to the Hono server. Keep the /api prefix (no rewrite).
       '/api': {
