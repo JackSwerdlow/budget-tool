@@ -43,12 +43,17 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
   };
 
   const onDeleteCategory = async (c: Category) => {
-    const result = await deleteCategory(c.id);
-    if (result.inUse) {
-      setReassign(c);
-      return;
+    try {
+      const result = await deleteCategory(c.id);
+      if (result.inUse) {
+        setReassign(c);
+        return;
+      }
+      await refresh();
+      setError(null);
+    } catch (e) {
+      setError(String(e));
     }
-    await refresh();
   };
 
   return (
@@ -182,18 +187,28 @@ function ReassignDialog({ category, data, onCancel, onConfirm }: { category: Cat
       <div className="w-full max-w-sm rounded-lg border border-hairline bg-panel p-5 shadow-xl">
         <h4 className="font-serif text-base text-ink">Reassign before deleting</h4>
         <p className="mt-1 text-sm text-ink-muted">
-          <span className="text-ink">{category.name}</span> is still used by entries or lists. Move them to:
+          <span className="text-ink">{category.name}</span> is still used by entries or lists.{' '}
+          {options.length === 0 ? 'Add another category to move them to first.' : 'Move them to:'}
         </p>
-        <select value={target} onChange={(e) => setTarget(Number(e.target.value))} className="mt-3 w-full rounded-md border border-hairline bg-paper px-2 py-2 text-sm text-ink outline-none">
-          {options.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {options.length > 0 && (
+          <select value={target} onChange={(e) => setTarget(Number(e.target.value))} className="mt-3 w-full rounded-md border border-hairline bg-paper px-2 py-2 text-sm text-ink outline-none">
+            {options.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="mt-4 flex justify-end gap-3">
           <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">Cancel</button>
-          <button type="button" onClick={() => onConfirm(target)} className="rounded-md bg-accent px-3 py-1.5 text-sm text-paper hover:opacity-90">Reassign &amp; delete</button>
+          <button
+            type="button"
+            disabled={options.length === 0}
+            onClick={() => onConfirm(target)}
+            className="rounded-md bg-accent px-3 py-1.5 text-sm text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Reassign &amp; delete
+          </button>
         </div>
       </div>
     </div>

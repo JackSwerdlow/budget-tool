@@ -24,4 +24,8 @@ describe('comparePct (this-to-date vs last-month full total)', () => {
     expect(comparePct(5000, 0)).toBeNull();
     expect(comparePct(0, 0)).toBeNull();
   });
+
+  it('treats a non-positive (refund) baseline as "new" rather than a sign-flipped %', () => {
+    expect(comparePct(5000, -10000)).toBeNull();
+  });
 });

@@ -60,13 +60,22 @@ export function getEntry(db: DatabaseSync, id: number) {
 
 export function createEntry(db: DatabaseSync, input: NewEntry) {
   const createdAt = new Date().toISOString();
-  const { lastInsertRowid } = db
-    .prepare(
-      `INSERT INTO entries (amount_pence, category_id, date, note, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .run(input.amount_pence, input.category_id, input.date, input.note, createdAt);
-  return getEntry(db, Number(lastInsertRowid));
+  // Transaction so a read-back failure can never leave an orphan committed row.
+  db.exec('BEGIN');
+  try {
+    const { lastInsertRowid } = db
+      .prepare(
+        `INSERT INTO entries (amount_pence, category_id, date, note, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(input.amount_pence, input.category_id, input.date, input.note, createdAt);
+    const entry = getEntry(db, Number(lastInsertRowid));
+    db.exec('COMMIT');
+    return entry;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function deleteEntry(db: DatabaseSync, id: number): { deleted: boolean } {

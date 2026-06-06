@@ -47,7 +47,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function AddList({ data }: { data: LedgerData }) {
   const { refresh } = useData();
   const groceriesId = useMemo(
-    () => data.categories.find((c) => c.name === 'Groceries')?.id ?? data.categories[0].id,
+    () => data.categories.find((c) => c.name === 'Groceries')?.id ?? data.categories[0]?.id ?? 0,
     [data.categories],
   );
 
@@ -74,6 +74,7 @@ export function AddList({ data }: { data: LedgerData }) {
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : rs));
   }
 
+  const deliveryFeeInvalid = deliveryOpen && deliveryFeeText.trim() !== '' && parsePence(deliveryFeeText) === null;
   const deliveryFeePence = deliveryOpen ? parsePence(deliveryFeeText) ?? 0 : 0;
 
   const draft: BudgetList = useMemo(() => {
@@ -92,7 +93,7 @@ export function AddList({ data }: { data: LedgerData }) {
 
   const totals = listTotals(draft);
   const subtotals = [...listCategorySubtotals(draft).entries()].sort((a, b) => b[1] - a[1]);
-  const canSave = draft.items.length > 0 && DATE_RE.test(date) && !submitting;
+  const canSave = draft.items.length > 0 && DATE_RE.test(date) && !deliveryFeeInvalid && !submitting;
 
   async function onSave() {
     if (!canSave) return;
@@ -121,6 +122,10 @@ export function AddList({ data }: { data: LedgerData }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (data.categories.length === 0) {
+    return <p className="py-8 text-center text-sm text-ink-muted">Create a category in ⚙ Manage first.</p>;
   }
 
   return (
@@ -249,8 +254,17 @@ export function AddList({ data }: { data: LedgerData }) {
               <label className="mb-1 block text-[10px] uppercase tracking-wide text-ink-faint">Fee</label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint">£</span>
-                <input value={deliveryFeeText} onChange={(e) => setDeliveryFeeText(e.target.value)} inputMode="decimal" placeholder="0.00" className="w-28 rounded-md border border-hairline bg-paper py-1.5 pl-5 pr-2 text-sm text-ink outline-none focus:border-ink/40" />
+                <input
+                  value={deliveryFeeText}
+                  onChange={(e) => setDeliveryFeeText(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className={`w-28 rounded-md border bg-paper py-1.5 pl-5 pr-2 text-sm text-ink outline-none focus:border-ink/40 ${
+                    deliveryFeeInvalid ? 'border-over' : 'border-hairline'
+                  }`}
+                />
               </div>
+              {deliveryFeeInvalid && <p className="mt-0.5 text-[10px] text-over">invalid</p>}
             </div>
             <div>
               <label className="mb-1 block text-[10px] uppercase tracking-wide text-ink-faint">Share</label>

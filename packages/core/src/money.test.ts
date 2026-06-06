@@ -84,3 +84,22 @@ describe('evalSum', () => {
     expect(() => evalSum('   ')).toThrow();
   });
 });
+
+describe('money safety (review hardening)', () => {
+  it('rejects a decimal comma rather than silently misreading it as thousands (no 10x/100x)', () => {
+    expect(() => parsePounds('1,5')).toThrow();
+    expect(() => parsePounds('1,50')).toThrow();
+    expect(() => evalSum('8,5+1')).toThrow();
+  });
+
+  it('still accepts valid thousands grouping', () => {
+    expect(parsePounds('1,000')).toBe(100000);
+    expect(parsePounds('2,500.00')).toBe(250000);
+    expect(parsePounds('1,234,567.89')).toBe(123456789);
+    expect(evalSum('1,000+5')).toBe(100500);
+  });
+
+  it('rejects amounts beyond safe-integer pence instead of losing precision', () => {
+    expect(() => parsePounds('99999999999999.99')).toThrow();
+  });
+});

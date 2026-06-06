@@ -25,8 +25,23 @@ import {
 } from './repo.ts';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_PENCE = 1_000_000_000; // £10,000,000 — a generous cap that rejects unsafe/absurd values
+const MAX_QTY = 1_000_000;
 
 const isPct = (n: number) => Number.isInteger(n) && n >= 0 && n <= 100;
+// Number.isSafeInteger (not isInteger) so an oversized value can't pass validation, get
+// INSERTed, then make node:sqlite throw on read-back and 500 every /api/bootstrap.
+const isPence = (n: number) => Number.isSafeInteger(n) && n >= 0 && n <= MAX_PENCE;
+const isQty = (n: number) => Number.isSafeInteger(n) && n >= 1 && n <= MAX_QTY;
+
+// Reject impossible calendar dates (e.g. 2026-02-30) that would create phantom month
+// buckets. Date.UTC is round-trip only here — month bucketing stays a string slice.
+function isValidDate(s: string): boolean {
+  if (!DATE_RE.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
 
 async function readJson(c: Context): Promise<Record<string, unknown> | null> {
   try {
@@ -38,12 +53,12 @@ async function readJson(c: Context): Promise<Record<string, unknown> | null> {
 
 function asListInput(body: Record<string, unknown>): NewList | null {
   const date = String(body.date ?? '');
-  if (!DATE_RE.test(date)) return null;
+  if (!isValidDate(date)) return null;
 
   const fee = Number(body.delivery_fee_pence ?? 0);
   const deliveryPct = Number(body.delivery_share_pct ?? 0);
   const deliveryCat = Number(body.delivery_category_id);
-  if (!Number.isInteger(fee) || fee < 0 || !isPct(deliveryPct) || !Number.isInteger(deliveryCat)) {
+  if (!isPence(fee) || !isPct(deliveryPct) || !Number.isInteger(deliveryCat)) {
     return null;
   }
   if (!Array.isArray(body.items)) return null;
@@ -57,15 +72,7 @@ function asListInput(body: Record<string, unknown>): NewList | null {
     const qty = Number(it.quantity ?? 1);
     const pct = Number(it.share_pct ?? 0);
     const cat = Number(it.category_id);
-    if (
-      name === '' ||
-      !Number.isInteger(price) ||
-      price < 0 ||
-      !Number.isInteger(qty) ||
-      qty < 1 ||
-      !isPct(pct) ||
-      !Number.isInteger(cat)
-    ) {
+    if (name === '' || !isPence(price) || !isQty(qty) || !isPct(pct) || !Number.isInteger(cat)) {
       return null;
     }
     items.push({ name, price_pence: price, quantity: qty, share_pct: pct, category_id: cat });
@@ -97,7 +104,7 @@ export function createApp(db: DatabaseSync): Hono {
     const amount = Number(body.amount_pence);
     const categoryId = Number(body.category_id);
     const date = String(body.date ?? '');
-    if (!Number.isInteger(amount) || !Number.isInteger(categoryId) || !DATE_RE.test(date)) {
+    if (!isPence(amount) || !Number.isInteger(categoryId) || !isValidDate(date)) {
       return c.json({ error: 'invalid entry' }, 400);
     }
     const note = body.note == null ? null : String(body.note);
@@ -118,7 +125,7 @@ export function createApp(db: DatabaseSync): Hono {
     const p: EntryPatch = {};
     if ('amount_pence' in body) {
       const a = Number(body.amount_pence);
-      if (!Number.isInteger(a)) return c.json({ error: 'invalid amount' }, 400);
+      if (!isPence(a)) return c.json({ error: 'invalid amount' }, 400);
       p.amount_pence = a;
     }
     if ('category_id' in body) {
@@ -128,7 +135,7 @@ export function createApp(db: DatabaseSync): Hono {
     }
     if ('date' in body) {
       const d = String(body.date);
-      if (!DATE_RE.test(d)) return c.json({ error: 'invalid date' }, 400);
+      if (!isValidDate(d)) return c.json({ error: 'invalid date' }, 400);
       p.date = d;
     }
     if ('note' in body) p.note = body.note == null ? null : String(body.note);
@@ -248,7 +255,7 @@ export function createApp(db: DatabaseSync): Hono {
     const bodyJson = await readJson(c);
     if (!bodyJson) return c.json({ error: 'invalid JSON' }, 400);
     const amount = Number(bodyJson.amount_pence);
-    if (!Number.isInteger(amount) || amount < 0) return c.json({ error: 'invalid amount' }, 400);
+    if (!isPence(amount)) return c.json({ error: 'invalid amount' }, 400);
     return c.json(setIncome(db, year, month, amount));
   });
 

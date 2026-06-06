@@ -256,3 +256,26 @@ describe('income', () => {
     expect(boot.income).toContainEqual({ year: 2026, month: 6, amount_pence: 250000 });
   });
 });
+
+describe('input hardening', () => {
+  it('rejects an oversized amount and stays queryable (no orphan row, no 500 brick)', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/entries', json({ amount_pence: 2 ** 60, category_id: 3, date: '2026-06-06' }));
+    expect(res.status).toBe(400);
+    const boot = await app.request('/api/bootstrap');
+    expect(boot.status).toBe(200);
+    expect((await body<Boot>(boot)).entries).toEqual([]);
+  });
+
+  it('rejects a negative entry amount (no negative entries)', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/entries', json({ amount_pence: -500, category_id: 3, date: '2026-06-06' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an impossible calendar date', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/entries', json({ amount_pence: 500, category_id: 3, date: '2026-02-30' }));
+    expect(res.status).toBe(400);
+  });
+});
