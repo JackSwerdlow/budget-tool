@@ -19,7 +19,6 @@
 3. **TDD the core** (§4, §8): the pure-logic layer holds all the money maths and must be tested first.
 4. **Do not build anything in §9 (deferred) or §10 (rejected).** They are recorded so they are not accidentally added.
 5. Verify exact library syntax/versions via **Context7 MCP** before writing framework code (per `CLAUDE.md`).
-6. Web servers on this machine bind `0.0.0.0` and are reached at `http://lab14102.labs.decoded.com:<PORT>` — never `localhost`.
 
 ---
 
@@ -73,7 +72,7 @@ Everything else follows the idea spec faithfully.
 | Run | One command (`npm run dev`) launches client + API together | "One demo app to run." |
 | Node | **≥ 22.13** (built-in stable `node:sqlite`); here **v24.15.0** | — |
 
-**Process shape (dev):** Vite serves the client (`:5001`, host `0.0.0.0`/`lab14102…`); the Node API runs on a second port (`:8100`); Vite proxies `/api/*` → the API. `npm run dev` runs both (e.g. via `npm-run-all`/`concurrently`). For a built demo, the API also serves the static client. **DB path comes from an env var** (`BUDGET_DB`), enabling the empty-vs-demo switch (§6.7, §7).
+**Process shape (dev):** Vite serves the client (`:5001`, host `0.0.0.0`); the Node API runs on a second port (`:8100`); Vite proxies `/api/*` → the API. `npm run dev` runs both (e.g. via `npm-run-all`/`concurrently`). For a built demo, the API also serves the static client. **DB path comes from an env var** (`BUDGET_DB`), enabling the empty-vs-demo switch (§6.7, §7).
 
 **Mobile later (non-goal now, kept cheap):** because *all* logic is in the framework-agnostic core and the store is SQLite, a future mobile build is **Expo + `expo-sqlite`** reusing the core + schema, rebuilding only the view layer. Nothing in v1 should block this (no server-only logic leaking into views).
 
@@ -90,10 +89,10 @@ budget-tool/
 ```
 
 **Scripts (root):**
-- `npm run dev` — API (`:8100`, `BUDGET_DB=data/budget.db`) + web (`:5001`, host `0.0.0.0`) concurrently; Vite proxies `/api` → `:8100`. Open `http://lab14102.labs.decoded.com:5001`.
+- `npm run dev` — API (`:8100`, `BUDGET_DB=data/budget.db`) + web (`:5001`, host `0.0.0.0`) concurrently; Vite proxies `/api` → `:8100`.
 - `npm run dev:demo` — same, but the **API** uses `BUDGET_DB=data/budget-demo.db` (the only difference). Use `cross-env`/Node `--env-file` so it isn't bash-only.
 - `npm run build` — `vite build` (web) + compile API.
-- `npm start` — production demo: the API serves the built web `dist/` (SPA fallback) **and** `/api` on one port (`:8100`); open `http://lab14102.labs.decoded.com:8100`.
+- `npm start` — production demo: the API serves the built web `dist/` (SPA fallback) **and** `/api` on one port (`:8100`).
 - `npm test` — Vitest (core + integration).
 
 **Resolved forks / defaults:** server = **Hono** over `node:http`; **no** TanStack Query initially (a small data-context that loads `/api/bootstrap` and re-fetches on mutation suffices — add caching only if pain appears); open every DB connection with **`PRAGMA foreign_keys = ON`**.
@@ -296,7 +295,7 @@ A standalone package with **no React/DB/DOM**. Everything is a pure function of 
 
 Each phase ends **runnable, tested, committed**. The app is clickable from Phase 1 onward.
 
-- **Phase 0 — Scaffold.** Vite+React+TS+Tailwind; design tokens (palette, Fraunces/Hanken); `core` package + Vitest; Node API with `node:sqlite` and `BUDGET_DB` env; schema + **seed groups/categories** (with explicit shade hexes); `npm run dev` (client+API, bound for `lab14102…`). Empty `budget.db`. Tab shell (Overview/Add/Manage) with placeholders. Stand up the **npm workspaces** layout and wire `npm run build` / `npm start` (API serves built `dist/`) + the `dev:demo` switch per §2.1 now, so the "built demo" path exists from day one.
+- **Phase 0 — Scaffold.** Vite+React+TS+Tailwind; design tokens (palette, Fraunces/Hanken); `core` package + Vitest; Node API with `node:sqlite` and `BUDGET_DB` env; schema + **seed groups/categories** (with explicit shade hexes); `npm run dev` (client+API). Empty `budget.db`. Tab shell (Overview/Add/Manage) with placeholders. Stand up the **npm workspaces** layout and wire `npm run build` / `npm start` (API serves built `dist/`) + the `dev:demo` switch per §2.1 now, so the "built demo" path exists from day one.
 - **Phase 1 — Single entry + Month overview (vertical slice).** Core `money`, `shares`, `ledger`, `netBalance` (TDD). Add·Single (grid, sum-helper, save-and-clear). Overview·Month: both totals, running chart (ex-Rent, target line), grouping donut (±Rent), net balance. **Add an entry → watch the overview update live.**
 - **Phase 2 — Itemised lists.** Core `list` logic (TDD, incl. the rounding example). Add·List editor (rows, any-% share, three totals, delivery fee, fan-out). Lists feed the ledger; donut **explode-on-click**.
 - **Phase 3 — Comparison + Trends.** Core `comparison` + `trends` (TDD, incl. row-heat + flat-muting). Overview comparison bars (±Rent, expandable). Trends matrix (per-row heat, signed diagonal arrows scaled by swing, fixed cells).
