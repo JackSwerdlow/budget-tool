@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useData } from './data';
 import { monthLabel, todayISO } from './lib/dates';
-import { Code, MonthPicker, Panel, Segmented, Stub } from './components/ui';
+import { Code, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
+import { Manage } from './features/manage/Manage';
 import { TrendsMatrix } from './charts/TrendsMatrix';
 
 type Tab = 'overview' | 'add' | 'manage';
@@ -95,7 +96,7 @@ export function App() {
             {addView === 'single' ? <AddSingle data={data} /> : <AddList data={data} />}
           </div>
         ) : (
-          <Stub title="Manage entries, taxonomy & income" phase="Phase 4" />
+          <Manage data={data} />
         )}
       </main>
 

@@ -160,3 +160,98 @@ describe('DELETE /api/lists/:id', () => {
     expect(boot.lists).toEqual([]);
   });
 });
+
+const patch = (b: unknown) => ({ method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+
+type Cats = { categories: Array<{ id: number; name: string; group_id: number }> };
+
+describe('PATCH /api/entries/:id', () => {
+  it('edits the entry', async () => {
+    const app = freshApp();
+    const created = await body<Entry>(await app.request('/api/entries', json({ amount_pence: 1000, category_id: 3, date: '2026-06-05' })));
+    const res = await app.request(`/api/entries/${created.id}`, patch({ amount_pence: 1500, category_id: 14, date: '2026-06-06', note: 'fixed' }));
+    expect(res.status).toBe(200);
+    const boot = await body<Boot>(await app.request('/api/bootstrap'));
+    expect(boot.entries[0]).toMatchObject({ amount_pence: 1500, category_id: 14, date: '2026-06-06', note: 'fixed' });
+  });
+});
+
+describe('categories management', () => {
+  it('adds a category', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/categories', json({ name: 'Gifts', group_id: 5, color: '#b15a48' }));
+    expect(res.status).toBe(201);
+    const boot = await body<Cats>(await app.request('/api/bootstrap'));
+    expect(boot.categories.some((c) => c.name === 'Gifts')).toBe(true);
+  });
+
+  it('renames a category — history follows by id', async () => {
+    const app = freshApp();
+    await app.request('/api/entries', json({ amount_pence: 500, category_id: 14, date: '2026-06-01' }));
+    const res = await app.request('/api/categories/14', patch({ name: 'Vapes' }));
+    expect(res.status).toBe(200);
+    const boot = await body<Cats & { entries: Array<{ category_id: number }> }>(await app.request('/api/bootstrap'));
+    expect(boot.categories.find((c) => c.id === 14)?.name).toBe('Vapes');
+    expect(boot.entries[0].category_id).toBe(14);
+  });
+
+  it('moves a category to another group', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/categories/14', patch({ group_id: 3 }));
+    expect(res.status).toBe(200);
+    const boot = await body<Cats>(await app.request('/api/bootstrap'));
+    expect(boot.categories.find((c) => c.id === 14)?.group_id).toBe(3);
+  });
+
+  it('refuses to delete a category in use without reassignment (inUse flag)', async () => {
+    const app = freshApp();
+    await app.request('/api/entries', json({ amount_pence: 500, category_id: 3, date: '2026-06-01' }));
+    const res = await app.request('/api/categories/3', { method: 'DELETE' });
+    expect(res.status).toBe(200);
+    const result = await body<{ deleted: boolean; inUse?: boolean }>(res);
+    expect(result).toEqual({ deleted: false, inUse: true });
+    const boot = await body<Cats>(await app.request('/api/bootstrap'));
+    expect(boot.categories.some((c) => c.id === 3)).toBe(true); // not deleted
+  });
+
+  it('reassigns entries then deletes the category', async () => {
+    const app = freshApp();
+    await app.request('/api/entries', json({ amount_pence: 500, category_id: 3, date: '2026-06-01' }));
+    const res = await app.request('/api/categories/3?reassignTo=4', { method: 'DELETE' });
+    expect(res.status).toBe(200);
+    const boot = await body<Cats & { entries: Array<{ category_id: number }> }>(await app.request('/api/bootstrap'));
+    expect(boot.categories.some((c) => c.id === 3)).toBe(false);
+    expect(boot.entries[0].category_id).toBe(4);
+  });
+
+  it('deletes an unused category directly', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/categories/15', { method: 'DELETE' });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('groups management', () => {
+  it('refuses to delete a non-empty group (400)', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/groups/2', { method: 'DELETE' });
+    expect(res.status).toBe(400);
+  });
+
+  it('adds then deletes an empty group', async () => {
+    const app = freshApp();
+    const created = await body<{ id: number }>(await app.request('/api/groups', json({ name: 'Travel Fund', color: '#6b7d5e' })));
+    const del = await app.request(`/api/groups/${created.id}`, { method: 'DELETE' });
+    expect(del.status).toBe(200);
+  });
+});
+
+describe('income', () => {
+  it('PUT upserts a month income; bootstrap reflects it', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/income/2026/6', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_pence: 250000 }) });
+    expect(res.status).toBe(200);
+    const boot = await body<{ income: Array<{ year: number; month: number; amount_pence: number }> }>(await app.request('/api/bootstrap'));
+    expect(boot.income).toContainEqual({ year: 2026, month: 6, amount_pence: 250000 });
+  });
+});

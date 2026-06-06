@@ -173,3 +173,138 @@ export function deleteList(db: DatabaseSync, id: number): { deleted: boolean } {
   const { changes } = db.prepare('DELETE FROM lists WHERE id = ?').run(id);
   return { deleted: Number(changes) > 0 };
 }
+
+// ── Manage: edit entries ─────────────────────────────────────────────────────
+type EntryRow = { amount_pence: number; category_id: number; date: string; note: string | null };
+export type EntryPatch = Partial<EntryRow>;
+
+export function updateEntry(db: DatabaseSync, id: number, patch: EntryPatch) {
+  const existing = getEntry(db, id) as EntryRow | undefined;
+  if (!existing) return undefined;
+  const amount = patch.amount_pence ?? existing.amount_pence;
+  const categoryId = patch.category_id ?? existing.category_id;
+  const date = patch.date ?? existing.date;
+  const note = patch.note !== undefined ? patch.note : existing.note;
+  db.prepare('UPDATE entries SET amount_pence = ?, category_id = ?, date = ?, note = ? WHERE id = ?').run(
+    amount,
+    categoryId,
+    date,
+    note,
+    id,
+  );
+  return getEntry(db, id);
+}
+
+// ── Manage: taxonomy ─────────────────────────────────────────────────────────
+type CategoryRow = { id: number; name: string; group_id: number; color: string };
+type GroupRow = { id: number; name: string; color: string };
+
+export function getCategory(db: DatabaseSync, id: number) {
+  return db
+    .prepare('SELECT id, name, group_id, sort_order, color, exclude_from_discretionary FROM categories WHERE id = ?')
+    .get(id);
+}
+
+export function createCategory(db: DatabaseSync, input: { name: string; group_id: number; color: string }) {
+  const { m } = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories').get() as { m: number };
+  const { lastInsertRowid } = db
+    .prepare(
+      'INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) VALUES (?, ?, ?, ?, 0)',
+    )
+    .run(input.name, input.group_id, m + 1, input.color);
+  return getCategory(db, Number(lastInsertRowid));
+}
+
+export function updateCategory(
+  db: DatabaseSync,
+  id: number,
+  patch: { name?: string; group_id?: number; color?: string },
+) {
+  const existing = getCategory(db, id) as CategoryRow | undefined;
+  if (!existing) return undefined;
+  db.prepare('UPDATE categories SET name = ?, group_id = ?, color = ? WHERE id = ?').run(
+    patch.name ?? existing.name,
+    patch.group_id ?? existing.group_id,
+    patch.color ?? existing.color,
+    id,
+  );
+  return getCategory(db, id);
+}
+
+export function categoryUsage(db: DatabaseSync, id: number): number {
+  const q = (sql: string) => (db.prepare(sql).get(id) as { n: number }).n;
+  return (
+    q('SELECT COUNT(*) AS n FROM entries WHERE category_id = ?') +
+    q('SELECT COUNT(*) AS n FROM list_items WHERE category_id = ?') +
+    q('SELECT COUNT(*) AS n FROM lists WHERE delivery_category_id = ?')
+  );
+}
+
+// Reassign all three references then delete — in one transaction (PLAN §3/§6.6).
+export function deleteCategory(
+  db: DatabaseSync,
+  id: number,
+  reassignTo: number | null,
+): { deleted: boolean; inUse?: boolean } {
+  if (categoryUsage(db, id) > 0) {
+    if (reassignTo == null || reassignTo === id) return { deleted: false, inUse: true };
+    db.exec('BEGIN');
+    try {
+      db.prepare('UPDATE entries SET category_id = ? WHERE category_id = ?').run(reassignTo, id);
+      db.prepare('UPDATE list_items SET category_id = ? WHERE category_id = ?').run(reassignTo, id);
+      db.prepare('UPDATE lists SET delivery_category_id = ? WHERE delivery_category_id = ?').run(reassignTo, id);
+      db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { deleted: true };
+  }
+  const { changes } = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  return { deleted: Number(changes) > 0 };
+}
+
+export function getGroup(db: DatabaseSync, id: number) {
+  return db.prepare('SELECT id, name, sort_order, color FROM groups WHERE id = ?').get(id);
+}
+
+export function createGroup(db: DatabaseSync, input: { name: string; color: string }) {
+  const { m } = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM groups').get() as { m: number };
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO groups (name, sort_order, color) VALUES (?, ?, ?)')
+    .run(input.name, m + 1, input.color);
+  return getGroup(db, Number(lastInsertRowid));
+}
+
+export function updateGroup(db: DatabaseSync, id: number, patch: { name?: string; color?: string }) {
+  const existing = getGroup(db, id) as GroupRow | undefined;
+  if (!existing) return undefined;
+  db.prepare('UPDATE groups SET name = ?, color = ? WHERE id = ?').run(
+    patch.name ?? existing.name,
+    patch.color ?? existing.color,
+    id,
+  );
+  return getGroup(db, id);
+}
+
+export function deleteGroup(db: DatabaseSync, id: number): { deleted: boolean; nonEmpty?: boolean } {
+  const { n } = db.prepare('SELECT COUNT(*) AS n FROM categories WHERE group_id = ?').get(id) as { n: number };
+  if (n > 0) return { deleted: false, nonEmpty: true };
+  const { changes } = db.prepare('DELETE FROM groups WHERE id = ?').run(id);
+  return { deleted: Number(changes) > 0 };
+}
+
+// ── Manage: income ───────────────────────────────────────────────────────────
+export function setIncome(db: DatabaseSync, year: number, month: number, amountPence: number) {
+  db.prepare(
+    `INSERT INTO monthly_income (year, month, amount_pence) VALUES (?, ?, ?)
+     ON CONFLICT(year, month) DO UPDATE SET amount_pence = excluded.amount_pence`,
+  ).run(year, month, amountPence);
+  return { year, month, amount_pence: amountPence };
+}
+
+export function deleteIncome(db: DatabaseSync, year: number, month: number): { deleted: boolean } {
+  const { changes } = db.prepare('DELETE FROM monthly_income WHERE year = ? AND month = ?').run(year, month);
+  return { deleted: Number(changes) > 0 };
+}
