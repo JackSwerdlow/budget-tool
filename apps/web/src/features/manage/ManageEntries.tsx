@@ -1,10 +1,14 @@
 import { type FormEvent, useState } from 'react';
-import { evalSum, formatGBP, listTotals, ymOf, type Entry, type LedgerData } from '@budget/core';
+import { evalSum, formatGBP, listTotals, ymOf, type BudgetList, type Entry, type LedgerData } from '@budget/core';
 import { deleteEntry, deleteList, updateEntry } from '../../api';
 import { useData } from '../../data';
 import { MonthPicker } from '../../components/ui';
 import { CategorySelect } from '../../components/CategorySelect';
-import { todayISO } from '../../lib/dates';
+import { dayHeading, todayISO } from '../../lib/dates';
+
+type EntryRow = { kind: 'entry'; date: string; created_at: string; entry: Entry };
+type ListRow = { kind: 'list'; date: string; created_at: string; list: BudgetList };
+type DayRow = EntryRow | ListRow;
 
 export function ManageEntries({ data }: { data: LedgerData }) {
   const { refresh } = useData();
@@ -12,8 +16,24 @@ export function ManageEntries({ data }: { data: LedgerData }) {
   const [editing, setEditing] = useState<number | null>(null);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
-  const entries = data.entries.filter((e) => ymOf(e.date) === ym);
-  const lists = data.lists.filter((l) => ymOf(l.date) === ym);
+
+  // Entries and lists share one date-ordered stream, newest day first; within a day,
+  // most recently added first.
+  const rows: DayRow[] = [
+    ...data.entries
+      .filter((e) => ymOf(e.date) === ym)
+      .map((e): EntryRow => ({ kind: 'entry', date: e.date, created_at: e.created_at, entry: e })),
+    ...data.lists
+      .filter((l) => ymOf(l.date) === ym)
+      .map((l): ListRow => ({ kind: 'list', date: l.date, created_at: l.created_at, list: l })),
+  ].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
+
+  const days: { date: string; rows: DayRow[] }[] = [];
+  for (const r of rows) {
+    const last = days[days.length - 1];
+    if (last && last.date === r.date) last.rows.push(r);
+    else days.push({ date: r.date, rows: [r] });
+  }
 
   const onDeleteEntry = async (id: number) => {
     if (!window.confirm('Delete this entry?')) return;
@@ -33,33 +53,40 @@ export function ManageEntries({ data }: { data: LedgerData }) {
         <MonthPicker ym={ym} onChange={setYm} />
       </div>
 
-      {entries.length === 0 && lists.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">Nothing recorded this month.</p>
       ) : (
-        <div className="divide-y divide-hairline">
-          {entries.map((e) =>
-            editing === e.id ? (
-              <EntryEditor key={e.id} entry={e} data={data} onDone={() => setEditing(null)} />
-            ) : (
-              <div key={e.id} className="flex items-center gap-3 py-2 text-sm">
-                <span className="w-20 shrink-0 text-ink-faint tabular-nums">{e.date.slice(5)}</span>
-                <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: cat(e.category_id)?.color }} />
-                <span className="text-ink">{cat(e.category_id)?.name}</span>
-                {e.note && <span className="truncate text-ink-muted">· {e.note}</span>}
-                <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(e.amount_pence)}</span>
-                <button type="button" onClick={() => setEditing(e.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
-                <button type="button" onClick={() => onDeleteEntry(e.id)} aria-label="Delete" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+        <div className="space-y-3">
+          {days.map((day) => (
+            <div key={day.date} className="overflow-hidden rounded-lg border border-hairline bg-panel">
+              <div className="border-b border-hairline bg-raised/40 px-3 py-1.5 text-xs uppercase tracking-wide text-ink-faint">
+                {dayHeading(day.date)}
               </div>
-            ),
-          )}
-          {lists.map((l) => (
-            <div key={`l${l.id}`} className="flex items-center gap-3 py-2 text-sm">
-              <span className="w-20 shrink-0 text-ink-faint tabular-nums">{l.date.slice(5)}</span>
-              <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">list</span>
-              <span className="truncate text-ink">{l.note || `${l.items.length} items`}</span>
-              <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(listTotals(l).mine)}</span>
-              <span className="shrink-0 text-xs text-ink-faint">edit on Add · List</span>
-              <button type="button" onClick={() => onDeleteList(l.id)} aria-label="Delete list" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+              <div className="divide-y divide-hairline px-3">
+                {day.rows.map((r) =>
+                  r.kind === 'entry' ? (
+                    editing === r.entry.id ? (
+                      <EntryEditor key={r.entry.id} entry={r.entry} data={data} onDone={() => setEditing(null)} />
+                    ) : (
+                      <div key={r.entry.id} className="flex items-center gap-3 py-2 text-sm">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: cat(r.entry.category_id)?.color }} />
+                        <span className="text-ink">{cat(r.entry.category_id)?.name}</span>
+                        {r.entry.note && <span className="truncate text-ink-muted">· {r.entry.note}</span>}
+                        <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(r.entry.amount_pence)}</span>
+                        <button type="button" onClick={() => setEditing(r.entry.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
+                        <button type="button" onClick={() => onDeleteEntry(r.entry.id)} aria-label="Delete" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+                      </div>
+                    )
+                  ) : (
+                    <div key={`l${r.list.id}`} className="flex items-center gap-3 py-2 text-sm">
+                      <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">list</span>
+                      <span className="truncate text-ink">{r.list.note || `${r.list.items.length} items`}</span>
+                      <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(listTotals(r.list).mine)}</span>
+                      <button type="button" onClick={() => onDeleteList(r.list.id)} aria-label="Delete list" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
           ))}
         </div>

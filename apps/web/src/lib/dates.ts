@@ -39,6 +39,17 @@ export function fullDate(date: string): string {
   return `${Number(date.slice(8, 10))} ${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
 }
 
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// "Fri 4 Jun" — weekday + day + month, from a YYYY-MM-DD string. The Date is built
+// from numeric components (no string parse), so there's no timezone shift.
+export function dayHeading(date: string): string {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  return `${WEEKDAY_ABBR[new Date(year, month - 1, day).getDay()]} ${day} ${MONTH_ABBR[month - 1]}`;
+}
+
 export function daysInMonth(ym: string): number {
   const year = Number(ym.slice(0, 4));
   const month = Number(ym.slice(5, 7));
