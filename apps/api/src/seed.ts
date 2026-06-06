@@ -1,4 +1,4 @@
-import { db } from './db.ts';
+import type { DatabaseSync } from 'node:sqlite';
 
 type SeedCategory = { name: string; color: string; excludeFromDiscretionary?: boolean };
 type SeedGroup = { name: string; color: string; categories: SeedCategory[] };
@@ -52,7 +52,7 @@ const TAXONOMY: SeedGroup[] = [
   },
 ];
 
-export function seedIfEmpty(): void {
+export function seedIfEmpty(db: DatabaseSync): void {
   const existing = db.prepare('SELECT COUNT(*) AS n FROM groups').get() as { n: number };
   if (existing.n > 0) return;
 

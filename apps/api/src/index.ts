@@ -1,19 +1,18 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { Hono } from 'hono';
+import { openDatabase } from './db.ts';
 import { migrate } from './migrate.ts';
 import { seedIfEmpty } from './seed.ts';
-import { getBootstrap } from './repo.ts';
+import { createApp } from './app.ts';
 
-migrate();
-seedIfEmpty();
+const dbPath = process.env.BUDGET_DB;
+if (!dbPath) throw new Error('BUDGET_DB env var is required');
 
-const app = new Hono();
+const db = openDatabase(dbPath);
+migrate(db);
+seedIfEmpty(db);
 
-const api = new Hono();
-api.get('/health', (c) => c.json({ ok: true }));
-api.get('/bootstrap', (c) => c.json(getBootstrap()));
-app.route('/api', api);
+const app = createApp(db);
 
 // In production the API also serves the built web client (single-origin demo).
 if (process.env.NODE_ENV === 'production') {
@@ -23,5 +22,5 @@ if (process.env.NODE_ENV === 'production') {
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
-  console.log(`[api] listening on http://0.0.0.0:${info.port} (db=${process.env.BUDGET_DB})`);
+  console.log(`[api] listening on http://0.0.0.0:${info.port} (db=${dbPath})`);
 });

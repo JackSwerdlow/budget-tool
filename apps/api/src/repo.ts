@@ -1,8 +1,8 @@
-import { db } from './db.ts';
+import type { DatabaseSync } from 'node:sqlite';
 
 // The API is a thin store: it returns raw rows and lets @budget/core derive every
 // view client-side. /api/bootstrap ships the whole ledger in one shot.
-export function getBootstrap() {
+export function getBootstrap(db: DatabaseSync) {
   const groups = db
     .prepare('SELECT id, name, sort_order, color FROM groups ORDER BY sort_order, id')
     .all();
@@ -40,4 +40,36 @@ export function getBootstrap() {
     .all();
 
   return { groups, categories, entries, lists: listsWithItems, income };
+}
+
+export type NewEntry = {
+  amount_pence: number;
+  category_id: number;
+  date: string;
+  note: string | null;
+};
+
+export function getEntry(db: DatabaseSync, id: number) {
+  return db
+    .prepare(
+      `SELECT id, amount_pence, category_id, date, note, created_at
+       FROM entries WHERE id = ?`,
+    )
+    .get(id);
+}
+
+export function createEntry(db: DatabaseSync, input: NewEntry) {
+  const createdAt = new Date().toISOString();
+  const { lastInsertRowid } = db
+    .prepare(
+      `INSERT INTO entries (amount_pence, category_id, date, note, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(input.amount_pence, input.category_id, input.date, input.note, createdAt);
+  return getEntry(db, Number(lastInsertRowid));
+}
+
+export function deleteEntry(db: DatabaseSync, id: number): { deleted: boolean } {
+  const { changes } = db.prepare('DELETE FROM entries WHERE id = ?').run(id);
+  return { deleted: Number(changes) > 0 };
 }

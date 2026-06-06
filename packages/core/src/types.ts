@@ -1,3 +1,6 @@
+// Canonical domain rows (mirror the SQLite schema, PLAN §3). The API returns these
+// raw; @budget/core derives every view from them; the web imports them for typing.
+
 export type Group = {
   id: number;
   name: string;
@@ -51,7 +54,8 @@ export type MonthlyIncome = {
   amount_pence: number;
 };
 
-export type Bootstrap = {
+// The whole ledger, as returned by GET /api/bootstrap.
+export type LedgerData = {
   groups: Group[];
   categories: Category[];
   entries: Entry[];
