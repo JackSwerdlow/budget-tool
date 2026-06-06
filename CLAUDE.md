@@ -8,7 +8,7 @@ flatmate, and wants live monthly breakdowns, month-vs-month comparisons, and tre
 
 **The idea — and every design decision with its reasoning — lives in the concept spec:**
 
-> `docs/superpowers/specs/2026-06-06-budget-tool-idea.md`
+> `docs/SPEC.md`
 
 Read that spec before making any design or implementation decision. It defines *what* we're
 building and *why* — the category taxonomy, entry model, itemised grocery lists, views,
