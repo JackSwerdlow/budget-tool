@@ -233,9 +233,9 @@ export function createApp(db: DatabaseSync): Hono {
   api.delete('/groups/:id', (c) => {
     const id = Number(c.req.param('id'));
     if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
-    const result = deleteGroup(db, id);
-    if (result.nonEmpty) return c.json({ error: 'group not empty', nonEmpty: true }, 400);
-    return c.json(result);
+    // 200 with { deleted:false, nonEmpty:true } when it still has categories (the UI
+    // surfaces the message) — a normal response, not a console-noisy 4xx.
+    return c.json(deleteGroup(db, id));
   });
 
   // ── Income ─────────────────────────────────────────────────────────────────

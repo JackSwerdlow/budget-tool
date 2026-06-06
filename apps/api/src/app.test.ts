@@ -232,10 +232,11 @@ describe('categories management', () => {
 });
 
 describe('groups management', () => {
-  it('refuses to delete a non-empty group (400)', async () => {
+  it('refuses to delete a non-empty group (nonEmpty flag)', async () => {
     const app = freshApp();
     const res = await app.request('/api/groups/2', { method: 'DELETE' });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(await body<{ deleted: boolean; nonEmpty?: boolean }>(res)).toEqual({ deleted: false, nonEmpty: true });
   });
 
   it('adds then deletes an empty group', async () => {
