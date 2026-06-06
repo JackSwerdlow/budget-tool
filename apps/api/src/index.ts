@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', serveStatic({ path: './apps/web/dist/index.html' }));
 }
 
-const port = Number(process.env.PORT ?? 8787);
+const port = Number(process.env.PORT ?? 8100);
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`[api] listening on http://0.0.0.0:${info.port} (db=${dbPath})`);
 });

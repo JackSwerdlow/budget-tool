@@ -73,7 +73,7 @@ Everything else follows the idea spec faithfully.
 | Run | One command (`npm run dev`) launches client + API together | "One demo app to run." |
 | Node | **≥ 22.13** (built-in stable `node:sqlite`); here **v24.15.0** | — |
 
-**Process shape (dev):** Vite serves the client (`:5173`, host `0.0.0.0`/`lab14102…`); the Node API runs on a second port (`:8787`); Vite proxies `/api/*` → the API. `npm run dev` runs both (e.g. via `npm-run-all`/`concurrently`). For a built demo, the API also serves the static client. **DB path comes from an env var** (`BUDGET_DB`), enabling the empty-vs-demo switch (§6.7, §7).
+**Process shape (dev):** Vite serves the client (`:5001`, host `0.0.0.0`/`lab14102…`); the Node API runs on a second port (`:8100`); Vite proxies `/api/*` → the API. `npm run dev` runs both (e.g. via `npm-run-all`/`concurrently`). For a built demo, the API also serves the static client. **DB path comes from an env var** (`BUDGET_DB`), enabling the empty-vs-demo switch (§6.7, §7).
 
 **Mobile later (non-goal now, kept cheap):** because *all* logic is in the framework-agnostic core and the store is SQLite, a future mobile build is **Expo + `expo-sqlite`** reusing the core + schema, rebuilding only the view layer. Nothing in v1 should block this (no server-only logic leaking into views).
 
@@ -90,10 +90,10 @@ budget-tool/
 ```
 
 **Scripts (root):**
-- `npm run dev` — API (`:8787`, `BUDGET_DB=data/budget.db`) + web (`:5173`, host `0.0.0.0`) concurrently; Vite proxies `/api` → `:8787`. Open `http://lab14102.labs.decoded.com:5173`.
+- `npm run dev` — API (`:8100`, `BUDGET_DB=data/budget.db`) + web (`:5001`, host `0.0.0.0`) concurrently; Vite proxies `/api` → `:8100`. Open `http://lab14102.labs.decoded.com:5001`.
 - `npm run dev:demo` — same, but the **API** uses `BUDGET_DB=data/budget-demo.db` (the only difference). Use `cross-env`/Node `--env-file` so it isn't bash-only.
 - `npm run build` — `vite build` (web) + compile API.
-- `npm start` — production demo: the API serves the built web `dist/` (SPA fallback) **and** `/api` on one port (`:8787`); open `http://lab14102.labs.decoded.com:8787`.
+- `npm start` — production demo: the API serves the built web `dist/` (SPA fallback) **and** `/api` on one port (`:8100`); open `http://lab14102.labs.decoded.com:8100`.
 - `npm test` — Vitest (core + integration).
 
 **Resolved forks / defaults:** server = **Hono** over `node:http`; **no** TanStack Query initially (a small data-context that loads `/api/bootstrap` and re-fetches on mutation suffices — add caching only if pain appears); open every DB connection with **`PRAGMA foreign_keys = ON`**.

@@ -59,26 +59,19 @@ Requires **Node ≥ 22.13** (built-in stable `node:sqlite`; no native build step
 ```bash
 npm install
 
-npm run dev        # API (:8787) + web dev server (:5173) with an empty local DB
+npm run dev        # API (:8100) + web dev server (:5001) with an empty local DB
 npm run dev:demo   # same, but served from the committed demo database
 npm test           # Vitest — core unit tests + API integration tests
 npm run typecheck  # tsc --noEmit across all workspaces
 npm run lint       # ESLint (flat config)
 
 npm run build      # build the web client
-npm start          # production server (built web + API on one port, :8787) — your data
+npm start          # production server (built web + API on one port, :8100) — your data
 npm run start:demo # production server on the demo database
 npm run seed:demo  # rebuild data/budget-demo.db from apps/api/src/seed-demo.ts
 ```
 
-Open the dev server at `http://<host>:5173` and the production server at `http://<host>:8787`.
-
-> **This environment:** reach the servers at `http://lab14102.labs.decoded.com:<PORT>`
-> (not `localhost`). Behind the VDE gateway, use the **built** server — the bundle uses a
-> relative base and resolves `/api` against the page URL, so it works under the sub-path:
-> `npm run build && npm run start:demo`, then open
-> `https://code-lab14102.labs.decoded.com/proxy/8787/`. (The Vite **dev** server ignores a
-> relative base, so use the direct `:5173` URL for live dev.)
+Open the dev server at `http://<host>:5001` and the production server at `http://<host>:8100`.
 
 ## Testing
 

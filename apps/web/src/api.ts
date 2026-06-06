@@ -1,7 +1,7 @@
 import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome } from '@budget/core';
 
 // Resolve the API root relative to where the app is actually served, so it works at
-// the origin root AND behind a sub-path reverse proxy (e.g. /proxy/8787/api/…).
+// the origin root AND behind a sub-path reverse proxy (e.g. /proxy/8100/api/…).
 const API = new URL('api/', document.baseURI).toString();
 
 export async function fetchBootstrap(): Promise<LedgerData> {
