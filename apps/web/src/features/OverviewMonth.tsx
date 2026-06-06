@@ -3,6 +3,7 @@ import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } 
 import { Panel, Segmented } from '../components/ui';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
+import { ComparisonBars } from '../charts/ComparisonBars';
 
 export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
   const [donutRent, setDonutRent] = useState<'incl' | 'excl'>('excl');
@@ -58,6 +59,10 @@ export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
           />
         </div>
         <GroupingDonut data={data} ym={ym} excludeRent={donutRent === 'excl'} />
+      </Panel>
+
+      <Panel>
+        <ComparisonBars data={data} ym={ym} />
       </Panel>
     </div>
   );

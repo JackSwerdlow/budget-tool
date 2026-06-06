@@ -5,4 +5,6 @@ export * from './shares';
 export * from './list';
 export * from './time';
 export * from './ledger';
+export * from './comparison';
+export * from './trends';
 export * from './netBalance';

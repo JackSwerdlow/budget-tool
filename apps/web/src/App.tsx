@@ -5,6 +5,7 @@ import { Code, MonthPicker, Panel, Segmented, Stub } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
+import { TrendsMatrix } from './charts/TrendsMatrix';
 
 type Tab = 'overview' | 'add' | 'manage';
 
@@ -76,7 +77,7 @@ export function App() {
             {overviewView === 'month' ? (
               <OverviewMonth data={data} ym={ym} />
             ) : (
-              <Stub title="Trends matrix" phase="Phase 3" />
+              <TrendsMatrix data={data} />
             )}
           </div>
         ) : tab === 'add' ? (
