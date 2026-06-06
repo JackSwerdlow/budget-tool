@@ -35,11 +35,11 @@ function compactGBP(pence: number): string {
 
 function DeltaArrow({ pct }: { pct: number | null }) {
   if (pct === null) return null;
-  if (pct === 0) return <span className="text-ink-faint" style={{ fontSize: 9 }}>0%</span>;
+  if (pct === 0) return <span className="text-ink-muted" style={{ fontSize: 11 }}>0%</span>;
   const up = pct > 0;
-  const size = Math.min(17, 9 + Math.abs(pct) / 25);
+  const size = Math.min(19, 11 + Math.abs(pct) / 25);
   return (
-    <span className="leading-none text-ink-muted" style={{ fontSize: size }}>
+    <span className="leading-none text-ink" style={{ fontSize: size }}>
       {up ? '↗' : '↘'}
       {up ? '+' : ''}
       {pct}%
@@ -130,13 +130,13 @@ export function TrendsMatrix({ data }: { data: LedgerData }) {
           <div className="overflow-x-auto">
             <div
               className="grid min-w-max gap-px bg-hairline"
-              style={{ gridTemplateColumns: `9.5rem repeat(${months.length}, minmax(68px, 1fr))` }}
+              style={{ gridTemplateColumns: `10.5rem repeat(${months.length}, minmax(88px, 1fr))` }}
             >
-              <div className="flex h-8 items-center bg-panel px-2 text-[10px] uppercase tracking-wide text-ink-faint">
+              <div className="flex h-9 items-center bg-panel px-2 text-[11px] uppercase tracking-wide text-ink-faint">
                 Group
               </div>
               {months.map((m) => (
-                <div key={m} className="flex h-8 items-center justify-center bg-panel text-[11px] text-ink-faint">
+                <div key={m} className="flex h-9 items-center justify-center bg-panel text-xs text-ink-faint">
                   {monthShort(m)}
                   {m === currentYm && <span className="ml-0.5 text-accent">*</span>}
                 </div>
@@ -159,7 +159,7 @@ export function TrendsMatrix({ data }: { data: LedgerData }) {
 function Row({ row, months, onToggle }: { row: RenderRow; months: string[]; onToggle: () => void }) {
   return (
     <>
-      <div className="flex h-12 items-center gap-1.5 bg-panel px-2 text-sm">
+      <div className="flex h-14 items-center gap-1.5 bg-panel px-2 text-[15px]">
         {row.expandable ? (
           <button type="button" onClick={onToggle} aria-label="Expand row" className="text-ink-faint hover:text-ink">
             {row.open ? '▾' : '▸'}
@@ -167,17 +167,17 @@ function Row({ row, months, onToggle }: { row: RenderRow; months: string[]; onTo
         ) : (
           <span className="inline-block w-[1ch]" />
         )}
-        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
+        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
         <span className={`truncate text-ink ${row.strong ? 'font-medium' : ''}`}>{row.name}</span>
       </div>
       {row.cells.map((cell, j) => (
         <div
           key={months[j]}
-          className="flex h-12 flex-col items-center justify-center gap-0.5 px-1 text-center"
+          className="flex h-14 items-center justify-center gap-1.5 px-1.5 text-center"
           style={{ backgroundColor: heatColor(cell.heat) }}
           title={`${row.name} · ${monthLabel(months[j])}: ${formatGBP(cell.amountPence)}`}
         >
-          <span className="text-[11px] leading-none text-ink tabular-nums">{compactGBP(cell.amountPence)}</span>
+          <span className="text-[13px] leading-none text-ink tabular-nums">{compactGBP(cell.amountPence)}</span>
           <DeltaArrow pct={cell.pctVsPrevMonth} />
         </div>
       ))}
