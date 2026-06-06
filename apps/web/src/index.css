@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* ── The "Ledger" design tokens (PLAN §6) ──────────────────────────────────
+   Defined in @theme so each becomes BOTH a utility (bg-paper, text-ink, …)
+   and a real :root CSS variable (var(--color-paper)). One source of truth. */
+@theme {
+  --font-serif: "Fraunces Variable", Georgia, serif;
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Paper & ink */
+  --color-paper: #efe6d2;
+  --color-panel: #f6efdd;
+  --color-raised: #ece3cf;
+  --color-ink: #2b2620;
+  --color-ink-muted: #7c6f5b;
+  --color-ink-faint: #9a8b6e;
+  --color-hairline: #d9c9a6;
+  --color-hairline-strong: #ddccaa;
+
+  /* Accent + semantic */
+  --color-accent: #8c3b2e;
+  --color-under: #5f7d54;
+  --color-over: #a8432f;
+
+  /* Group hues */
+  --color-essentials: #6b7d5e;
+  --color-social: #b08537;
+  --color-health: #4a6b6f;
+  --color-subscriptions: #9c8a73;
+  --color-personal: #8c3b2e;
+
+  /* Trend matrix heat ramp (less -> more, per row) */
+  --color-heat-1: #8aa861;
+  --color-heat-2: #aec188;
+  --color-heat-3: #eadfc8;
+  --color-heat-4: #e3c3b3;
+  --color-heat-5: #c07a5c;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display serif with optical sizing tracking the font-size. */
+.font-serif,
+h1,
+h2,
+h3 {
+  font-optical-sizing: auto;
+}

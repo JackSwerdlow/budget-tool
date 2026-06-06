@@ -1,0 +1,38 @@
+{
+  "name": "budget-tool",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cross-env BUDGET_DB=data/budget.db PORT=8787 node --watch apps/api/src/index.ts",
+    "dev:web": "npm -w @budget/web run dev",
+    "dev:demo": "concurrently -k -n api,web -c blue,magenta \"npm:dev:demo:api\" \"npm:dev:web\"",
+    "dev:demo:api": "cross-env BUDGET_DB=data/budget-demo.db PORT=8787 node --watch apps/api/src/index.ts",
+    "build": "npm -w @budget/web run build",
+    "start": "cross-env NODE_ENV=production BUDGET_DB=data/budget.db PORT=8787 node apps/api/src/index.ts",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

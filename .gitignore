@@ -219,3 +219,18 @@ __marimo__/
 
 # Brainstorming visual-companion scratch
 .superpowers/
+
+# Node / JS
+node_modules/
+.playwright-mcp/
+*.tsbuildinfo
+.vite/
+npm-debug.log*
+.DS_Store
+
+# App data — live DB is local-only; the demo DB is committed (Phase 6)
+/data/budget.db
+/data/budget.db-journal
+/data/budget.db-wal
+/data/budget.db-shm
+!/data/budget-demo.db
