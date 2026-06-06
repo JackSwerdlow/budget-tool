@@ -77,7 +77,7 @@ export function ComparisonBars({ data, ym }: { data: LedgerData; ym: string }) {
             const cats = categoryRows(row.id);
             return (
               <div key={row.id}>
-                <BarRow row={row} strong expandable={cats.length > 0} open={open} onToggle={() => toggle(row.id)} />
+                <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={() => toggle(row.id)} />
                 {open && (
                   <div className="ml-3 border-l border-hairline pl-3">
                     {cats.map((c) => (
@@ -111,17 +111,31 @@ function BarRow({
   const over = pct !== null && pct > 100;
   const fill = pct === null ? 0 : Math.min(pct, 100);
 
+  const label = (
+    <>
+      <span className="w-3 shrink-0 text-center text-base leading-none text-ink-faint">
+        {expandable ? (open ? '▾' : '▸') : ''}
+      </span>
+      <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
+      <span className={`truncate ${strong ? 'font-medium' : ''}`}>{row.name}</span>
+    </>
+  );
+
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm">
-        {expandable && (
-          <button type="button" onClick={onToggle} aria-label="Expand" className="text-ink-faint hover:text-ink">
-            {open ? '▾' : '▸'}
-          </button>
-        )}
-        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
-        <span className={`truncate text-ink ${strong ? 'font-medium' : ''}`}>{row.name}</span>
-      </div>
+      {expandable ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-label={`${open ? 'Collapse' : 'Expand'} ${row.name}`}
+          className="flex w-32 shrink-0 items-center gap-1.5 text-left text-sm text-ink hover:text-accent"
+        >
+          {label}
+        </button>
+      ) : (
+        <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">{label}</div>
+      )}
 
       <div className="relative h-2.5 flex-1 rounded-full bg-raised">
         {pct !== null && (
