@@ -15,6 +15,8 @@
     "dev:demo:api": "cross-env BUDGET_DB=data/budget-demo.db PORT=8787 node --watch apps/api/src/index.ts",
     "build": "npm -w @budget/web run build",
     "start": "cross-env NODE_ENV=production BUDGET_DB=data/budget.db PORT=8787 node apps/api/src/index.ts",
+    "start:demo": "cross-env NODE_ENV=production BUDGET_DB=data/budget-demo.db PORT=8787 node apps/api/src/index.ts",
+    "seed:demo": "cross-env BUDGET_DB=data/budget-demo.db node apps/api/src/seed-demo.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint ."

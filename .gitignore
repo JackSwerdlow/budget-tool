@@ -228,9 +228,10 @@ node_modules/
 npm-debug.log*
 .DS_Store
 
-# App data — live DB is local-only; the demo DB is committed (Phase 6)
+# App data — live DB is local-only; the demo DB is committed (Phase 6).
+# Ignore the live DB and ALL transient SQLite sidecars; keep the demo DB.
 /data/budget.db
-/data/budget.db-journal
-/data/budget.db-wal
-/data/budget.db-shm
+/data/*.db-wal
+/data/*.db-shm
+/data/*.db-journal
 !/data/budget-demo.db
