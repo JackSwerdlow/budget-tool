@@ -3,7 +3,7 @@
 > **Status:** FINAL pre-implementation artifact. This is the last planning document before code.
 > A coding agent should read this top-to-bottom and build from it, phase by phase.
 >
-> **Read first:** [`docs/superpowers/specs/2026-06-06-budget-tool-idea.md`](docs/superpowers/specs/2026-06-06-budget-tool-idea.md)
+> **Read first:** [`docs/SPEC.md`](docs/SPEC.md)
 > — the *what & why* (category taxonomy, entry model, views, scope, deferred features). It is the
 > source of truth for the **product idea** and is not re-litigated here. **This** document is the
 > *how*: tech stack, data model, app structure, visual/UX system, and the build plan.

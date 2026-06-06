@@ -10,8 +10,8 @@ The visual direction is **"Ledger"**: a warm, editorial account-book aesthetic (
 Hanken Grotesk on paper tones). Everything updates live as you record.
 
 > **Design docs:** the *what & why* lives in
-> [`docs/superpowers/specs/2026-06-06-budget-tool-idea.md`](docs/superpowers/specs/2026-06-06-budget-tool-idea.md);
-> the *how* (tech, data model, visual system, phased build) lives in [`PLAN.md`](PLAN.md).
+> [`docs/SPEC.md`](docs/SPEC.md);
+> the *how* (tech, data model, visual system, phased build) lives in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Features
 
@@ -89,8 +89,8 @@ integration tests round-tripping against an in-memory SQLite database. Run `npm 
 
 ## Scope
 
-`PLAN.md` §1.5 records three user-approved deviations from the idea spec (the running line
+`docs/PLAN.md` §1.5 records three user-approved deviations from the idea spec (the running line
 is always ex-Rent with both totals as headline figures; the trends matrix uses a per-row
-heatmap plus a signed diagonal `±%`; the delivery/bag-fee line). `PLAN.md` §9 lists features
+heatmap plus a signed diagonal `±%`; the delivery/bag-fee line). `docs/PLAN.md` §9 lists features
 deliberately **deferred** (item price-history, CSV import, cross-time item analysis, pacing,
 seasonal/yearly views, mobile) and §10 the non-goals — none of which are built here.

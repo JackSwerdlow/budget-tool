@@ -18,13 +18,13 @@ or visual-style decisions.
 **The HOW — tech stack, data model, app structure, visual/UX system, and the phased build plan
 — lives in:**
 
-> `PLAN.md` (repo root)
+> `docs/PLAN.md` (repo root)
 
-`PLAN.md` is the **final pre-implementation artifact**: read the idea spec first, then `PLAN.md`
+`docs/PLAN.md` is the **final pre-implementation artifact**: read the idea spec first, then `docs/PLAN.md`
 top-to-bottom, and build from it phase by phase. It also records §1.5 deviations from the idea
 spec (all user-approved) and the §9 deferred features that must **not** be built yet.
 
-**Current stage:** idea settled, **design + plan complete (`PLAN.md`)**. Next stage is
+**Current stage:** idea settled, **design + plan complete (`docs/PLAN.md`)**. Next stage is
 **implementation** from that plan — no code has been written yet.
 
 ## Git Repository
