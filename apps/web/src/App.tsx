@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useData } from './data';
-import { monthLabel, todayISO } from './lib/dates';
+import { fullDate, todayISO } from './lib/dates';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
@@ -22,6 +22,10 @@ export function App() {
   const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
+
+  const lastEntryDate = data
+    ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
+    : null;
 
   // Global hotkeys — adding is never more than a keystroke (ignored while typing).
   useEffect(() => {
@@ -52,7 +56,12 @@ export function App() {
           <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Ledger</h1>
           <p className="mt-1 text-sm text-ink-muted">A personal budget account book</p>
         </div>
-        <span className="font-serif text-sm text-ink-faint">{monthLabel(todayISO().slice(0, 7))}</span>
+        <div className="text-right">
+          <div className="font-serif text-sm text-ink-faint">{fullDate(todayISO())}</div>
+          {lastEntryDate && (
+            <div className="mt-0.5 text-xs text-ink-faint">last entry · {fullDate(lastEntryDate)}</div>
+          )}
+        </div>
       </header>
 
       <nav className="flex gap-1 border-b border-hairline">

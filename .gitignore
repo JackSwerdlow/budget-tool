@@ -228,6 +228,11 @@ node_modules/
 npm-debug.log*
 .DS_Store
 
+# This is a TS/Node project: the Python template's bare `lib/` rule (above) wrongly
+# excludes the web source under src/lib. Keep that source tracked.
+!apps/web/src/lib/
+!apps/web/src/lib/**
+
 # App data — live DB is local-only; the demo DB is committed (Phase 6).
 # Ignore the live DB and ALL transient SQLite sidecars; keep the demo DB.
 /data/budget.db
