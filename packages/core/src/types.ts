@@ -61,4 +61,7 @@ export type LedgerData = {
   entries: Entry[];
   lists: BudgetList[];
   income: MonthlyIncome[];
+  // Optional default monthly income: fills the current and future months that have no
+  // explicit figure (never a past one). null when no default is set.
+  defaultIncomePence: number | null;
 };

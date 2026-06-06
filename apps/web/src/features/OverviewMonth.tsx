@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
 import { Kbd, Panel, Segmented } from '../components/ui';
+import { todayISO } from '../lib/dates';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
@@ -8,11 +9,12 @@ import { ComparisonBars } from '../charts/ComparisonBars';
 export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
   const [donutRent, setDonutRent] = useState<'incl' | 'excl'>('excl');
 
+  const currentYm = todayISO().slice(0, 7);
   const inclTotal = monthTotal(data, ym);
   const exclTotal = monthTotal(data, ym, { excludeRent: true });
-  const net = monthNet(data, ym);
-  const inc = income(data, ym);
-  const avg = averageNet(data);
+  const net = monthNet(data, ym, currentYm);
+  const inc = income(data, ym, currentYm);
+  const avg = averageNet(data, currentYm);
   const noData = data.entries.length === 0 && data.lists.length === 0 && data.income.length === 0;
 
   return (

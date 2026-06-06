@@ -114,3 +114,11 @@ export async function deleteIncome(year: number, month: number): Promise<void> {
   const res = await fetch(`${API}income/${year}/${month}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`delete income failed: ${res.status}`);
 }
+
+export const setDefaultIncome = (amountPence: number) =>
+  send<{ defaultIncomePence: number }>('income/default', 'PUT', { amount_pence: amountPence });
+
+export async function clearDefaultIncome(): Promise<void> {
+  const res = await fetch(`${API}income/default`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`clear default income failed: ${res.status}`);
+}

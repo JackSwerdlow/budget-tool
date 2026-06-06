@@ -257,6 +257,40 @@ describe('income', () => {
   });
 });
 
+describe('default income', () => {
+  type BootDefault = { defaultIncomePence: number | null };
+
+  it('is null in a fresh bootstrap', async () => {
+    const app = freshApp();
+    const boot = await body<BootDefault>(await app.request('/api/bootstrap'));
+    expect(boot.defaultIncomePence).toBeNull();
+  });
+
+  it('PUT sets it and bootstrap reflects it; the month-income route is untouched', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/income/default', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_pence: 250000 }) });
+    expect(res.status).toBe(200);
+    const boot = await body<BootDefault & { income: unknown[] }>(await app.request('/api/bootstrap'));
+    expect(boot.defaultIncomePence).toBe(250000);
+    expect(boot.income).toEqual([]); // the default is NOT a monthly_income row
+  });
+
+  it('DELETE clears it', async () => {
+    const app = freshApp();
+    await app.request('/api/income/default', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_pence: 250000 }) });
+    const res = await app.request('/api/income/default', { method: 'DELETE' });
+    expect(res.status).toBe(200);
+    const boot = await body<BootDefault>(await app.request('/api/bootstrap'));
+    expect(boot.defaultIncomePence).toBeNull();
+  });
+
+  it('rejects an invalid amount', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/income/default', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_pence: -1 }) });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('input hardening', () => {
   it('rejects an oversized amount and stays queryable (no orphan row, no 500 brick)', async () => {
     const app = freshApp();

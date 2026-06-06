@@ -60,6 +60,13 @@ CREATE TABLE IF NOT EXISTS monthly_income (
   PRIMARY KEY (year, month)
 );
 
+-- Key/value app settings. Currently holds only 'default_income_pence' (optional): the
+-- fallback income for the current and future months that have no explicit figure.
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_entries_date       ON entries(date);
 CREATE INDEX IF NOT EXISTS idx_entries_category   ON entries(category_id);
 CREATE INDEX IF NOT EXISTS idx_lists_date         ON lists(date);

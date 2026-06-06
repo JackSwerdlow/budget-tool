@@ -39,7 +39,14 @@ export function getBootstrap(db: DatabaseSync) {
     .prepare('SELECT year, month, amount_pence FROM monthly_income ORDER BY year, month')
     .all();
 
-  return { groups, categories, entries, lists: listsWithItems, income };
+  return {
+    groups,
+    categories,
+    entries,
+    lists: listsWithItems,
+    income,
+    defaultIncomePence: getDefaultIncome(db),
+  };
 }
 
 export type NewEntry = {
@@ -316,4 +323,27 @@ export function setIncome(db: DatabaseSync, year: number, month: number, amountP
 export function deleteIncome(db: DatabaseSync, year: number, month: number): { deleted: boolean } {
   const { changes } = db.prepare('DELETE FROM monthly_income WHERE year = ? AND month = ?').run(year, month);
   return { deleted: Number(changes) > 0 };
+}
+
+// Default monthly income — a single optional value in `settings`.
+export function getDefaultIncome(db: DatabaseSync): number | null {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'default_income_pence'").get() as
+    | { value: string }
+    | undefined;
+  if (!row) return null;
+  const n = Number(row.value);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+export function setDefaultIncome(db: DatabaseSync, amountPence: number) {
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES ('default_income_pence', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(String(amountPence));
+  return { defaultIncomePence: amountPence };
+}
+
+export function clearDefaultIncome(db: DatabaseSync): { cleared: boolean } {
+  const { changes } = db.prepare("DELETE FROM settings WHERE key = 'default_income_pence'").run();
+  return { cleared: Number(changes) > 0 };
 }

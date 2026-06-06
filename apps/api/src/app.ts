@@ -6,6 +6,7 @@ import {
   createEntry,
   createGroup,
   createList,
+  clearDefaultIncome,
   deleteCategory,
   deleteEntry,
   deleteGroup,
@@ -14,6 +15,7 @@ import {
   getBootstrap,
   getGroup,
   getList,
+  setDefaultIncome,
   setIncome,
   updateCategory,
   updateEntry,
@@ -246,6 +248,18 @@ export function createApp(db: DatabaseSync): Hono {
   });
 
   // ── Income ─────────────────────────────────────────────────────────────────
+  // Default income lives at a distinct path (different segment count from
+  // /income/:year/:month, so the two never collide).
+  api.put('/income/default', async (c) => {
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const amount = Number(body.amount_pence);
+    if (!isPence(amount)) return c.json({ error: 'invalid amount' }, 400);
+    return c.json(setDefaultIncome(db, amount));
+  });
+
+  api.delete('/income/default', (c) => c.json(clearDefaultIncome(db)));
+
   api.put('/income/:year/:month', async (c) => {
     const year = Number(c.req.param('year'));
     const month = Number(c.req.param('month'));
