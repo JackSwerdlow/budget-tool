@@ -220,7 +220,7 @@ A standalone package with **no React/DB/DOM**. Everything is a pure function of 
   and `±Rent` variants (drop categories where `exclude_from_discretionary`). Running cumulative is a sorted scan of (entries + list dates) within a month, **always ex-Rent**. *(Month bucketing uses `date.slice(0,7)` everywhere — entries, lists, income. Two distinct baselines live nearby: the running chart's dashed target is **last month's ex-Rent total**, whereas the comparison bars use **last month's full per-row totals** — don't conflate them.)*
 - **`comparison`** — `vsLastMonth(thisToDatePence, lastMonthFullPence) → pct`, computed **per row** (each category vs *its own* last-month full total, each group vs *its own*); pct rounded to a whole number; flags over/under 100%. **Zero-baseline:** when `lastMonthFullPence === 0` (a brand-new category, or the first ever month) return a `null`/"new" result — render a "new" chip and no bar, never `Infinity`/`NaN`.
 - **`trends`** — `matrix(months, rows)` producing, per cell: `amountPence`, `pctVsPrevMonth` (signed; `null` for the first column), and a **row-relative heat level** (normalise each row between its own min/max → bucket to the green→red ramp). Starting params: **6 heat buckets**; a row is **muted** (held neutral) when its spread `(max − min)` is `< 12%` of its `max`, so a £2 wobble doesn't blaze red.
-- **`netBalance`** — `monthNet(ym) = income(ym) − totalInclRent(ym)` (missing income = £0 that month). `averageNet()` = mean of `monthNet` over **every month with any activity** (≥1 entry/list, or an income figure); a truly empty gap month is skipped (not counted as £0). *(This concretises the spec's "mean across all months" — flagged in §11 to confirm.)*
+- **`netBalance`** — `monthNet(ym) = income(ym) − totalInclRent(ym)` (missing income = £0 that month). `averageNet()` = mean of `monthNet` over **every month with any activity** (≥1 entry/list, or an income figure); a truly empty gap month is skipped (not counted as £0). *(This concretises the spec's "mean across all months" — confirmed with the user: skip empty months, don't count them as £0.)*
 
 ---
 
@@ -333,6 +333,4 @@ Two-axis/tag categorisation · spend **forecasting/projection** · flatmate **de
 ## 11. Open items (resolve during build)
 
 - **Demo data values** — gather from the user at Phase 6.
-- **Average-net denominator** — confirm the gap-month rule (current default: skip truly-empty months rather than count them as £0).
 - Exact category shade hexes — **hand-pick & seed** during Phase 0 (must read clearly when a slice is exploded and in the matrix).
-- The **delivery/bag-fee line** is a user-requested addition beyond the idea spec (see §1.5).
