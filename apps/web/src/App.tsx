@@ -63,6 +63,7 @@ export function App() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
+              aria-current={active ? 'page' : undefined}
               className={`relative -mb-px px-4 py-3 text-sm transition-colors ${
                 active ? 'font-medium text-accent' : 'text-ink-muted hover:text-ink'
               }`}

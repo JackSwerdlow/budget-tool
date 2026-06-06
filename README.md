@@ -23,7 +23,8 @@ Hanken Grotesk on paper tones). Everything updates live as you record.
   heaviest), an inline signed `±%` vs the previous month sized to the swing, near-flat rows
   muted, incl/excl-Rent toggle.
 - **+ Add · Single** — a fast amount field with a sum-helper (`8+8+8+5` → £29.00), an
-  always-visible colour grid of all 15 categories, and a save-and-clear loop.
+  always-visible colour grid of all 15 categories (type to filter — `nic` ⏎ → Nicotine),
+  and a save-and-clear loop.
 - **+ Add · List** — itemised grocery receipts: per-item quantity, price, flatmate share
   (any %), and category; live three totals (full / your share / flatmate); a collapsible
   delivery/bag fee; and a fan-out preview of how the list files into the ledger.

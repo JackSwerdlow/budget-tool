@@ -43,6 +43,7 @@ export function Segmented<T extends string>({
             key={o.id}
             type="button"
             onClick={() => onChange(o.id)}
+            aria-pressed={active}
             className={`rounded-md transition-colors ${pad} ${
               active ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
             }`}

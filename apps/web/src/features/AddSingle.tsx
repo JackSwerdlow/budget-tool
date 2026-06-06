@@ -16,7 +16,12 @@ export function AddSingle({ data }: { data: LedgerData }) {
   const [session, setSession] = useState<Entry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
+
+  const filterMatches = data.categories.filter(
+    (c) => categoryFilter.trim() === '' || c.name.toLowerCase().includes(categoryFilter.trim().toLowerCase()),
+  );
 
   const amountPence = useMemo(() => {
     if (amountText.trim() === '') return null;
@@ -102,12 +107,30 @@ export function AddSingle({ data }: { data: LedgerData }) {
         </div>
 
         <div>
-          <span className="mb-2 block text-xs uppercase tracking-wide text-ink-faint">Category</span>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-xs uppercase tracking-wide text-ink-faint">Category</span>
+            <input
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter selects the (first) filtered match — type "nic" ⏎ → Nicotine.
+                if (e.key === 'Enter' && filterMatches.length > 0) {
+                  e.preventDefault();
+                  setCategoryId(filterMatches[0].id);
+                  setCategoryFilter('');
+                }
+              }}
+              aria-label="Filter categories"
+              placeholder="type to filter…"
+              className="w-40 rounded-md border border-hairline bg-paper px-2 py-1 text-xs text-ink outline-none focus:border-ink/40"
+            />
+          </div>
           <CategoryGrid
             groups={data.groups}
             categories={data.categories}
             selectedId={categoryId}
             onSelect={setCategoryId}
+            filter={categoryFilter}
           />
         </div>
 
