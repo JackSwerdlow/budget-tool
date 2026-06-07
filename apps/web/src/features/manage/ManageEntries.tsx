@@ -57,10 +57,16 @@ export function ManageEntries({ data }: { data: LedgerData }) {
         <p className="py-6 text-center text-sm text-ink-muted">Nothing recorded this month.</p>
       ) : (
         <div className="space-y-3">
-          {days.map((day) => (
+          {days.map((day) => {
+            const dayTotal = day.rows.reduce(
+              (sum, r) => sum + (r.kind === 'entry' ? r.entry.amount_pence : listTotals(r.list).mine),
+              0,
+            );
+            return (
             <div key={day.date} className="overflow-hidden rounded-lg border border-hairline bg-panel">
-              <div className="border-b border-hairline bg-raised/40 px-3 py-1.5 text-xs uppercase tracking-wide text-ink-faint">
-                {dayHeading(day.date)}
+              <div className="flex items-center justify-between gap-3 border-b border-hairline bg-raised/40 px-3 py-1.5 text-xs uppercase tracking-wide text-ink-faint">
+                <span>{dayHeading(day.date)}</span>
+                <span className="tabular-nums text-ink-muted">{formatGBP(dayTotal)}</span>
               </div>
               <div className="divide-y divide-hairline px-3">
                 {day.rows.map((r) =>
@@ -88,7 +94,8 @@ export function ManageEntries({ data }: { data: LedgerData }) {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

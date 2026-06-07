@@ -41,12 +41,12 @@ export function ManageIncome({ data }: { data: LedgerData }) {
 
   const onSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (text.trim() === '') return;
     setError(null);
     const year = Number(ym.slice(0, 4));
     const month = Number(ym.slice(5, 7));
     try {
-      if (text.trim() === '') await deleteIncome(year, month);
-      else await setIncome(year, month, evalSum(text));
+      await setIncome(year, month, evalSum(text));
       await refresh();
     } catch (err) {
       setError(String(err));
@@ -109,8 +109,12 @@ export function ManageIncome({ data }: { data: LedgerData }) {
               />
             </div>
           </div>
-          <button type="submit" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-paper hover:opacity-90">
-            {text.trim() === '' ? 'Clear month' : 'Save income'}
+          <button
+            type="submit"
+            disabled={text.trim() === ''}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-paper hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Save income
           </button>
         </form>
         {usingDefault && (

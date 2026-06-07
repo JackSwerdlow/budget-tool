@@ -37,12 +37,15 @@ function DeltaArrow({ pct }: { pct: number | null }) {
   if (pct === null) return null;
   if (pct === 0) return <span className="text-ink-muted" style={{ fontSize: 11 }}>0%</span>;
   const up = pct > 0;
-  const size = Math.min(19, 11 + Math.abs(pct) / 25);
+  // The number stays a constant size; only the arrow grows with the swing.
+  const arrowSize = Math.min(20, 11 + Math.abs(pct) / 25);
   return (
-    <span className="leading-none text-ink" style={{ fontSize: size }}>
-      {up ? '↗' : '↘'}
-      {up ? '+' : ''}
-      {pct}%
+    <span className="inline-flex items-center gap-0.5 leading-none text-ink">
+      <span style={{ fontSize: 11 }}>
+        {up ? '+' : ''}
+        {pct}%
+      </span>
+      <span className="leading-none" style={{ fontSize: arrowSize }}>{up ? '↗' : '↘'}</span>
     </span>
   );
 }
