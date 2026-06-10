@@ -76,12 +76,12 @@ export function ComparisonBars({ data, ym }: { data: LedgerData; ym: string }) {
             const open = expanded.has(row.id);
             const cats = categoryRows(row.id);
             return (
-              <div key={row.id}>
-                <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={() => toggle(row.id)} />
+              <div key={row.id} className="overflow-hidden rounded-lg border border-hairline bg-raised">
+                <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={ cats.length > 1 ? () => toggle(row.id) : undefined} />
                 {open && (
-                  <div className="ml-3 border-l border-hairline pl-3">
+                  <div className="bg-panel">
                     {cats.map((c) => (
-                      <BarRow key={c.id} row={c} />
+                      <BarRow key={c.id} row={c} onToggle={() => toggle(row.id)} />
                     ))}
                   </div>
                 )}
@@ -109,6 +109,7 @@ function BarRow({
 }) {
   const pct = comparePct(row.thisPence, row.lastFullPence);
   const over = pct !== null && pct > 100;
+  const warn = pct !== null && pct >= 75 && pct <= 100;
   const fill = pct === null ? 0 : Math.min(pct, 100);
 
   const label = (
@@ -117,44 +118,38 @@ function BarRow({
         {expandable ? (open ? '▾' : '▸') : ''}
       </span>
       <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
-      <span className={`truncate ${strong ? 'font-medium' : ''}`}>{row.name}</span>
+      <span className={`truncate ${strong ? 'font-semibold group-hover:font-bold' : 'group-hover:font-semibold'} ${expandable ? 'group-hover:text-accent' : ''}`}>{row.name}</span>
     </>
   );
 
   return (
-    <div className="flex items-center gap-3 py-1">
-      {expandable ? (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-label={`${open ? 'Collapse' : 'Expand'} ${row.name}`}
-          className="flex w-32 shrink-0 items-center gap-1.5 text-left text-sm text-ink hover:text-accent"
-        >
-          {label}
-        </button>
-      ) : (
-        <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">{label}</div>
-      )}
+    <button
+      type="button"
+      className="group flex w-full items-center gap-3 py-1 text-left"
+      onClick={onToggle}
+      aria-expanded={expandable ? open : undefined}
+      aria-label={expandable ? `${open ? 'Collapse' : 'Expand'} ${row.name}` : undefined}
+    >
+      <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">{label}</div>
 
-      <div className="relative h-2.5 flex-1 rounded-full bg-raised">
+      <div className={`relative h-2.5 flex-1 rounded-full ${strong ? 'bg-ink/10' : 'bg-ink/8'} group-hover:opacity-80`}>
         {pct !== null && (
           <div
-            className={`absolute inset-y-0 left-0 rounded-full ${over ? 'bg-over' : 'bg-under'}`}
+            className={`absolute inset-y-0 left-0 rounded-full ${over ? 'bg-over' : warn ? 'bg-warn' : 'bg-under'}`}
             style={{ width: `${fill}%` }}
           />
         )}
-        <div className="absolute inset-y-[-2px] right-0 w-px bg-ink/30" title="100% of last month" />
+        <div className="absolute inset-y-[-2px] right-0 w-px bg-ink/40" title="100% of last month" />
       </div>
 
-      <div className="w-28 shrink-0 text-right text-sm tabular-nums">
-        <span className="text-ink">{formatGBP(row.thisPence)}</span>{' '}
+      <div className="w-28 shrink-0 text-right text-sm tabular-nums group-hover:font-semibold pr-1">
+        <span className={`text-ink ${expandable ? 'group-hover:text-accent' : ''}`}>{formatGBP(row.thisPence)}</span>{' '}
         {pct === null ? (
           <span className="rounded bg-raised px-1 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">new</span>
         ) : (
           <span className={over ? 'text-over' : 'text-under'}>{pct}%</span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
