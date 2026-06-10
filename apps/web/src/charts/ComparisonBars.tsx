@@ -53,10 +53,30 @@ export function ComparisonBars({ data, ym }: { data: LedgerData; ym: string }) {
       return n;
     });
 
+  const expandableIds = groupRows.filter((r) => categoryRows(r.id).length > 1).map((r) => r.id);
+  const hasExpandable = expandableIds.length > 0;
+  const allExpanded = hasExpandable && expandableIds.every((id) => expanded.has(id));
+  const expandAll = () => setExpanded(new Set(expandableIds));
+  const collapseAll = () => setExpanded(new Set());
+
+  const totalThis = groupRows.reduce((s, r) => s + r.thisPence, 0);
+  const totalLast = groupRows.reduce((s, r) => s + r.lastFullPence, 0);
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-serif text-base text-ink">Vs last month</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-serif text-base text-ink">Vs last month</h3>
+          {hasExpandable && (
+            <button
+              type="button"
+              className="text-xs text-ink-muted transition-colors hover:text-accent"
+              onClick={allExpanded ? collapseAll : expandAll}
+            >
+              {allExpanded ? 'Collapse all' : 'Expand all'}
+            </button>
+          )}
+        </div>
         <Segmented
           size="sm"
           value={rent}
@@ -71,25 +91,66 @@ export function ComparisonBars({ data, ym }: { data: LedgerData; ym: string }) {
       {groupRows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">Nothing to compare yet.</p>
       ) : (
-        <div className="space-y-0.5">
-          {groupRows.map((row) => {
-            const open = expanded.has(row.id);
-            const cats = categoryRows(row.id);
-            return (
-              <div key={row.id} className="overflow-hidden rounded-lg border border-hairline bg-raised">
-                <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={ cats.length > 1 ? () => toggle(row.id) : undefined} />
-                {open && (
-                  <div className="bg-panel">
-                    {cats.map((c) => (
-                      <BarRow key={c.id} row={c} onToggle={() => toggle(row.id)} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="overflow-hidden rounded-t">
+            <TotalRow thisPence={totalThis} lastFullPence={totalLast} />
+          </div>
+          <div>
+            {groupRows.map((row, index) => {
+              const open = expanded.has(row.id);
+              const cats = categoryRows(row.id);
+              return (
+                <div key={row.id} className={`overflow-hidden border-t border-hairline bg-raised/60 ${index === groupRows.length - 1 ? 'rounded-b' : ''}`}>
+                  <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={ cats.length > 1 ? () => toggle(row.id) : undefined} />
+                  {open && (
+                    <div className="bg-panel">
+                      {cats.map((c) => (
+                        <BarRow key={c.id} row={c} onToggle={() => toggle(row.id)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function TotalRow({ thisPence, lastFullPence }: { thisPence: number; lastFullPence: number }) {
+  const pct = comparePct(thisPence, lastFullPence);
+  const over = pct !== null && pct > 100;
+  const warn = pct !== null && pct >= 75 && pct <= 100;
+  const fill = pct === null ? 0 : Math.min(pct, 100);
+
+  return (
+    <div className="flex w-full items-center gap-3 py-0.5 text-left bg-raised">
+      <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">
+        <span className="w-3 shrink-0" />
+        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: 'black' }} />
+        <span className="truncate font-extrabold tracking-wide">Total</span>
+      </div>
+
+      <div className="relative h-2.5 flex-1 rounded-full bg-ink/10">
+        {pct !== null && (
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full ${over ? 'bg-over' : warn ? 'bg-warn' : 'bg-under'}`}
+            style={{ width: `${fill}%` }}
+          />
+        )}
+        <div className="absolute inset-y-[-2px] right-0 w-px bg-ink/40" title="100% of last month" />
+      </div>
+
+      <div className="w-28 shrink-0 pr-1 text-right text-sm tabular-nums">
+        <span className="text-ink font-extrabold">{formatGBP(thisPence)}</span>{' '}
+        {pct === null ? (
+          <span className="rounded bg-raised px-1 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">new</span>
+        ) : (
+          <span className={over ? 'text-over' : warn ? 'text-warn' : 'text-under'}>{pct}%</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -118,7 +179,7 @@ function BarRow({
         {expandable ? (open ? '▾' : '▸') : ''}
       </span>
       <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: row.color }} />
-      <span className={`truncate ${strong ? 'font-semibold group-hover:font-bold' : 'group-hover:font-semibold'} ${expandable ? 'group-hover:text-accent' : ''}`}>{row.name}</span>
+      <span className={`truncate ${strong ? 'font-semibold group-hover:font-bold' : 'group-hover:font-bold'} ${expandable ? 'group-hover:text-accent' : ''}`}>{row.name}</span>
     </>
   );
 
@@ -147,7 +208,7 @@ function BarRow({
         {pct === null ? (
           <span className="rounded bg-raised px-1 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">new</span>
         ) : (
-          <span className={over ? 'text-over' : 'text-under'}>{pct}%</span>
+          <span className={over ? 'text-over' : warn ? 'text-warn' : 'text-under'}>{pct}%</span>
         )}
       </div>
     </button>
