@@ -17,7 +17,9 @@ export function GroupingDonut({
   excludeRent: boolean;
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   useEffect(() => setExpanded(null), [ym, excludeRent]);
+  useEffect(() => setHoveredId(null), [expanded]);
 
   const catTotals = categoryTotals(data, ym);
   const groupValue = (groupId: number) =>
@@ -44,6 +46,7 @@ export function GroupingDonut({
   const drilled = expandedGroup !== null && categorySlices.length > 0;
   const slices = drilled ? categorySlices : groupSlices;
   const total = slices.reduce((sum, s) => sum + s.value, 0);
+  const allGroupsTotal = groupSlices.reduce((sum, s) => sum + s.value, 0);
 
   if (groupSlices.length === 0) {
     return <p className="py-8 text-center text-sm text-ink-muted">No spend recorded for this month yet.</p>;
@@ -53,6 +56,7 @@ export function GroupingDonut({
   const arcGen = arc<(typeof arcs)[number]>().innerRadius(R_INNER).outerRadius(R_OUTER).padAngle(0.012).cornerRadius(2);
 
   const collapse = () => setExpanded(null);
+  const hoveredSlice = hoveredId !== null ? slices.find((s) => s.id === hoveredId) ?? null : null;
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
@@ -64,46 +68,64 @@ export function GroupingDonut({
             fill={a.data.color}
             stroke="var(--color-panel)"
             strokeWidth={1}
-            className="cursor-pointer transition-opacity hover:opacity-85"
+            className="cursor-pointer transition-opacity"
+            style={{ opacity: hoveredId !== null && hoveredId !== a.data.id ? 0.35 : 1 }}
             onClick={() => (drilled ? collapse() : setExpanded(a.data.id))}
+            onMouseEnter={() => setHoveredId(a.data.id)}
+            onMouseLeave={() => setHoveredId(null)}
           >
             <title>{a.data.name}</title>
           </path>
         ))}
-        <text textAnchor="middle" y={-2} className="fill-ink font-serif text-[19px]">{formatGBP(total)}</text>
+        <text textAnchor="middle" y={-2} className="fill-ink font-serif text-[19px]">
+          {hoveredSlice ? formatGBP(hoveredSlice.value) : formatGBP(total)}
+        </text>
         <text textAnchor="middle" y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">
-          {drilled ? expandedGroup.name : excludeRent ? 'ex-Rent' : 'total'}
+          {hoveredSlice
+            ? `${hoveredSlice.name} · ${Math.round((hoveredSlice.value / total) * 100)}%`
+            : drilled ? `${expandedGroup.name} · ${Math.round((total / allGroupsTotal) * 100)}%` : excludeRent ? 'ex-Rent' : 'total'}
         </text>
       </svg>
 
-      <ul className="flex-1 space-y-1.5">
-        {drilled && (
-          <li>
-            <button type="button" onClick={collapse} className="mb-1 text-xs text-ink-muted transition-colors hover:text-ink">
-              ‹ all groups
-            </button>
-          </li>
-        )}
-        {slices
-          .slice()
-          .sort((a, b) => b.value - a.value)
-          .map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => (drilled ? collapse() : setExpanded(s.id))}
-                className="flex w-full items-center gap-2 text-left text-sm"
-              >
-                <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.color }} />
-                <span className="text-ink">{s.name}</span>
-                <span className="ml-auto tabular-nums text-ink">{formatGBP(s.value)}</span>
-                <span className="w-10 text-right tabular-nums text-ink-faint">
-                  {Math.round((s.value / total) * 100)}%
-                </span>
+      <div className="flex-1">
+        <ul className="overflow-hidden rounded">
+          {drilled && (
+            <li>
+              <button type="button" onClick={collapse} className="flex w-full items-center gap-3 py-0.5 text-xs text-ink-muted transition-colors hover:text-accent hover:font-semibold bg-raised/40">
+                <span className="shrink-0 pl-5">‹ all groups</span>
               </button>
             </li>
-          ))}
-      </ul>
+          )}
+          {slices.map((s, index) => {
+            const active = hoveredId === s.id;
+            return (
+              <li key={s.id} className={drilled || index > 0 ? 'border-t border-hairline' : ''}>
+                <button
+                  type="button"
+                  onClick={() => (drilled ? collapse() : setExpanded(s.id))}
+                  className="flex w-full items-center gap-3 py-1 text-left text-sm transition-opacity bg-raised/40"
+                  style={{ opacity: hoveredId !== null && !active ? 0.45 : 1 }}
+                  onMouseEnter={() => setHoveredId(s.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                >
+                  <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">
+                    <span className="w-3 shrink-0" />
+                    <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+                    <span className={`truncate ${active ? 'font-semibold text-accent' : ''}`}>{s.name}</span>
+                  </div>
+                  <div className="flex-1" />
+                  <div className="flex w-28 shrink-0 items-center pr-1 text-sm tabular-nums">
+                    <span className={`w-8 text-right ${active ? 'font-semibold text-ink' : 'text-ink-faint'}`}>
+                      {Math.round((s.value / total) * 100)}%
+                    </span>
+                    <span className={`ml-auto text-ink ${active ? (drilled ? 'font-semibold' : 'font-bold') : drilled ? 'font-medium' : 'font-semibold'}`}>{formatGBP(s.value)}</span>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
