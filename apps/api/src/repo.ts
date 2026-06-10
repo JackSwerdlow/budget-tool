@@ -313,20 +313,26 @@ export function deleteGroup(db: DatabaseSync, id: number): { deleted: boolean; n
 
 export function reorderGroups(db: DatabaseSync, ids: number[]) {
   const stmt = db.prepare('UPDATE groups SET sort_order = ? WHERE id = ?');
-  const tx = db.prepare('BEGIN');
-  const commit = db.prepare('COMMIT');
-  tx.run();
-  ids.forEach((id, i) => stmt.run(i * 10, id));
-  commit.run();
+  db.exec('BEGIN');
+  try {
+    ids.forEach((id, i) => stmt.run(i * 10, id));
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function reorderCategories(db: DatabaseSync, items: { id: number; group_id: number }[]) {
   const stmt = db.prepare('UPDATE categories SET sort_order = ?, group_id = ? WHERE id = ?');
-  const tx = db.prepare('BEGIN');
-  const commit = db.prepare('COMMIT');
-  tx.run();
-  items.forEach((item, i) => stmt.run(i * 10, item.group_id, item.id));
-  commit.run();
+  db.exec('BEGIN');
+  try {
+    items.forEach((item, i) => stmt.run(i * 10, item.group_id, item.id));
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 // ── Manage: income ───────────────────────────────────────────────────────────

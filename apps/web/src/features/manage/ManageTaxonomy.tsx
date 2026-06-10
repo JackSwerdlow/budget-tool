@@ -6,6 +6,7 @@ import {
   closestCenter,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -17,6 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useRef } from 'react';
 import type { Category, Group, LedgerData } from '@budget/core';
 import {
   createCategory,
@@ -129,6 +131,7 @@ function SortableGroupCard({
   group,
   cats,
   allGroups,
+  groupDragging,
   onUpdateGroup,
   onDeleteGroup,
   onUpdateCategory,
@@ -139,6 +142,7 @@ function SortableGroupCard({
   group: Group;
   cats: Category[];
   allGroups: Group[];
+  groupDragging: boolean;
   onUpdateGroup: (id: number, patch: { name?: string; color?: string }) => void;
   onDeleteGroup: (id: number) => void;
   onUpdateCategory: (id: number, patch: { name?: string; group_id?: number; color?: string }) => void;
@@ -187,6 +191,17 @@ function SortableGroupCard({
         </button>
       </div>
 
+      {groupDragging ? (
+        <ul className="flex flex-col gap-1">
+          {cats.map((c) => (
+            <li key={c.id} className="flex items-center gap-2 text-sm opacity-60">
+              <span className="w-4" />
+              <span className="inline-block h-4 w-4 shrink-0 rounded" style={{ backgroundColor: c.color }} />
+              <span className="text-ink">{c.name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
       <SortableContext items={catIds} strategy={verticalListSortingStrategy}>
         <ul className="flex flex-col gap-1">
           {cats.map((c) => (
@@ -200,6 +215,7 @@ function SortableGroupCard({
           ))}
         </ul>
       </SortableContext>
+      )}
 
       <AddCategory onAdd={(name) => onAddCategory(name, group.id)} />
     </div>
@@ -222,6 +238,12 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
     setLocalCats([...data.categories]);
   }, [data]);
 
+  // Refs so drag handlers always read the latest state, never a stale closure.
+  const localGroupsRef = useRef(localGroups);
+  const localCatsRef = useRef(localCats);
+  useEffect(() => { localGroupsRef.current = localGroups; }, [localGroups]);
+  useEffect(() => { localCatsRef.current = localCats; }, [localCats]);
+
   // Track what is currently being dragged (for DragOverlay).
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
   const [activeCatId, setActiveCatId] = useState<number | null>(null);
@@ -229,6 +251,19 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
+
+  // Only collide with same-type items: groups↔groups, categories↔categories.
+  // This stops category items interfering with group card sorting.
+  const collisionDetection: CollisionDetection = (args) => {
+    const id = String(args.active.id);
+    const prefix = id.startsWith('g-') ? 'g-' : 'c-';
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((c) =>
+        String(c.id).startsWith(prefix)
+      ),
+    });
+  };
 
   const run = async (p: Promise<unknown>) => {
     try {
@@ -265,25 +300,26 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
     const activeId = String(active.id);
     if (!activeId.startsWith('c-')) return;
 
-    const activeCatId = parseInt(activeId.slice(2));
+    const draggedCatId = parseInt(activeId.slice(2));
     const overId = String(over.id);
+    const cats = localCatsRef.current;
 
     let overGroupId: number;
     if (overId.startsWith('g-')) {
       overGroupId = parseInt(overId.slice(2));
     } else if (overId.startsWith('c-')) {
-      const overCat = localCats.find((c) => c.id === parseInt(overId.slice(2)));
+      const overCat = cats.find((c) => c.id === parseInt(overId.slice(2)));
       if (!overCat) return;
       overGroupId = overCat.group_id;
     } else {
       return;
     }
 
-    const activeCat = localCats.find((c) => c.id === activeCatId);
-    if (!activeCat || activeCat.group_id === overGroupId) return;
+    const draggedCat = cats.find((c) => c.id === draggedCatId);
+    if (!draggedCat || draggedCat.group_id === overGroupId) return;
 
-    setLocalCats((cats) =>
-      cats.map((c) => (c.id === activeCatId ? { ...c, group_id: overGroupId } : c))
+    setLocalCats((prev) =>
+      prev.map((c) => (c.id === draggedCatId ? { ...c, group_id: overGroupId } : c))
     );
   };
 
@@ -296,44 +332,43 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
     const overId = String(over.id);
 
     if (activeId.startsWith('g-') && overId.startsWith('g-')) {
-      // Reorder groups.
-      const fromIdx = localGroups.findIndex((g) => g.id === parseInt(activeId.slice(2)));
-      const toIdx = localGroups.findIndex((g) => g.id === parseInt(overId.slice(2)));
-      const newGroups = arrayMove(localGroups, fromIdx, toIdx);
+      // Reorder groups — use ref so we always have the latest order.
+      const groups = localGroupsRef.current;
+      const fromIdx = groups.findIndex((g) => g.id === parseInt(activeId.slice(2)));
+      const toIdx = groups.findIndex((g) => g.id === parseInt(overId.slice(2)));
+      if (fromIdx === -1 || toIdx === -1) return;
+      const newGroups = arrayMove(groups, fromIdx, toIdx);
       setLocalGroups(newGroups);
       run(reorderGroups(newGroups.map((g) => g.id)));
       return;
     }
 
     if (activeId.startsWith('c-')) {
-      // Reorder categories (within or across groups — cross-group move already
-      // applied optimistically in handleDragOver; here we just fix the position).
       const catId = parseInt(activeId.slice(2));
-      const activeCat = localCats.find((c) => c.id === catId)!;
-      const groupId = activeCat.group_id;
+      // Use ref to get latest cats (includes any cross-group move from handleDragOver).
+      const cats = localCatsRef.current;
+      const draggedCat = cats.find((c) => c.id === catId);
+      if (!draggedCat) return;
+      const groupId = draggedCat.group_id;
 
-      let newLocalCats = [...localCats];
+      let newCats = [...cats];
 
       if (overId.startsWith('c-')) {
         const overCatId = parseInt(overId.slice(2));
-        const groupCats = newLocalCats.filter((c) => c.group_id === groupId);
+        const groupCats = newCats.filter((c) => c.group_id === groupId);
         const fromIdx = groupCats.findIndex((c) => c.id === catId);
         const toIdx = groupCats.findIndex((c) => c.id === overCatId);
         if (fromIdx !== -1 && toIdx !== -1) {
           const reordered = arrayMove(groupCats, fromIdx, toIdx);
-          newLocalCats = [
-            ...newLocalCats.filter((c) => c.group_id !== groupId),
-            ...reordered,
-          ];
+          newCats = [...newCats.filter((c) => c.group_id !== groupId), ...reordered];
         }
       }
 
-      setLocalCats(newLocalCats);
+      setLocalCats(newCats);
 
-      // Persist: send all categories in group-then-position order so the API
-      // assigns consistent sort_order values across all groups.
-      const ordered = localGroups.flatMap((g) =>
-        newLocalCats.filter((c) => c.group_id === g.id).map((c) => ({ id: c.id, group_id: c.group_id }))
+      const groups = localGroupsRef.current;
+      const ordered = groups.flatMap((g) =>
+        newCats.filter((c) => c.group_id === g.id).map((c) => ({ id: c.id, group_id: c.group_id }))
       );
       run(reorderCategories(ordered));
     }
@@ -347,7 +382,7 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -362,6 +397,7 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
               group={group}
               cats={localCats.filter((c) => c.group_id === group.id)}
               allGroups={localGroups}
+              groupDragging={activeGroupId !== null}
               onUpdateGroup={(id, patch) => run(updateGroup(id, patch))}
               onDeleteGroup={(id) =>
                 run(
