@@ -311,6 +311,24 @@ export function deleteGroup(db: DatabaseSync, id: number): { deleted: boolean; n
   return { deleted: Number(changes) > 0 };
 }
 
+export function reorderGroups(db: DatabaseSync, ids: number[]) {
+  const stmt = db.prepare('UPDATE groups SET sort_order = ? WHERE id = ?');
+  const tx = db.prepare('BEGIN');
+  const commit = db.prepare('COMMIT');
+  tx.run();
+  ids.forEach((id, i) => stmt.run(i * 10, id));
+  commit.run();
+}
+
+export function reorderCategories(db: DatabaseSync, items: { id: number; group_id: number }[]) {
+  const stmt = db.prepare('UPDATE categories SET sort_order = ?, group_id = ? WHERE id = ?');
+  const tx = db.prepare('BEGIN');
+  const commit = db.prepare('COMMIT');
+  tx.run();
+  items.forEach((item, i) => stmt.run(i * 10, item.group_id, item.id));
+  commit.run();
+}
+
 // ── Manage: income ───────────────────────────────────────────────────────────
 export function setIncome(db: DatabaseSync, year: number, month: number, amountPence: number) {
   db.prepare(

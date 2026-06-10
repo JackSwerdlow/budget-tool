@@ -21,6 +21,8 @@ import {
   updateEntry,
   updateGroup,
   updateList,
+  reorderCategories,
+  reorderGroups,
   type EntryPatch,
   type NewList,
   type NewListItem,
@@ -173,6 +175,19 @@ export function createApp(db: DatabaseSync): Hono {
     }
   });
 
+  api.patch('/categories/reorder', async (c) => {
+    const body = await readJson(c);
+    if (!body || !Array.isArray(body.items)) return c.json({ error: 'invalid' }, 400);
+    const items = (body.items as { id: unknown; group_id: unknown }[]).map((it) => ({
+      id: Number(it.id),
+      group_id: Number(it.group_id),
+    }));
+    if (items.some((it) => !Number.isInteger(it.id) || !Number.isInteger(it.group_id)))
+      return c.json({ error: 'invalid items' }, 400);
+    reorderCategories(db, items);
+    return c.json({ ok: true });
+  });
+
   api.patch('/categories/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
@@ -220,6 +235,15 @@ export function createApp(db: DatabaseSync): Hono {
     if (name === '') return c.json({ error: 'invalid group' }, 400);
     const color = typeof body.color === 'string' ? body.color : '#9a8b6e';
     return c.json(createGroup(db, { name, color }), 201);
+  });
+
+  api.patch('/groups/reorder', async (c) => {
+    const body = await readJson(c);
+    if (!body || !Array.isArray(body.ids)) return c.json({ error: 'invalid' }, 400);
+    const ids = (body.ids as unknown[]).map(Number);
+    if (ids.some((id) => !Number.isInteger(id))) return c.json({ error: 'invalid ids' }, 400);
+    reorderGroups(db, ids);
+    return c.json({ ok: true });
   });
 
   api.patch('/groups/:id', async (c) => {

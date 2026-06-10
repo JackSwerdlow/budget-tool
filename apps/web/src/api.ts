@@ -107,6 +107,12 @@ export const updateGroup = (id: number, patch: { name?: string; color?: string }
 export const deleteGroup = (id: number) =>
   send<{ deleted: boolean; nonEmpty?: boolean }>(`groups/${id}`, 'DELETE');
 
+export const reorderGroups = (ids: number[]) =>
+  send<{ ok: boolean }>('groups/reorder', 'PATCH', { ids });
+
+export const reorderCategories = (items: { id: number; group_id: number }[]) =>
+  send<{ ok: boolean }>('categories/reorder', 'PATCH', { items });
+
 export const setIncome = (year: number, month: number, amountPence: number) =>
   send<MonthlyIncome>(`income/${year}/${month}`, 'PUT', { amount_pence: amountPence });
 
