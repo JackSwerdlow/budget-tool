@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   categoryTotals,
   comparePct,
@@ -11,9 +11,10 @@ import { Segmented } from '../components/ui';
 
 type Row = { id: number; name: string; color: string; thisPence: number; lastFullPence: number };
 
-export function ComparisonBars({ data, ym }: { data: LedgerData; ym: string }) {
-  const [rent, setRent] = useState<'incl' | 'excl'>('excl');
+export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
+  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  useEffect(() => setRent(defaultRent), [defaultRent]);
   const excludeRent = rent === 'excl';
 
   const thisCat = categoryTotals(data, ym);

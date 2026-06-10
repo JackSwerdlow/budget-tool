@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
 import { Kbd, Panel, Segmented } from '../components/ui';
 import { todayISO } from '../lib/dates';
@@ -6,8 +6,9 @@ import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
 
-export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
-  const [donutRent, setDonutRent] = useState<'incl' | 'excl'>('excl');
+export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
+  const [donutRent, setDonutRent] = useState<'incl' | 'excl'>(defaultRent);
+  useEffect(() => setDonutRent(defaultRent), [defaultRent]);
 
   const currentYm = todayISO().slice(0, 7);
   const inclTotal = monthTotal(data, ym);
@@ -55,7 +56,7 @@ export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
       </div>
 
       <Panel>
-        <RunningChart data={data} ym={ym} />
+        <RunningChart data={data} ym={ym} defaultRent={defaultRent} />
       </Panel>
 
       <Panel>
@@ -75,7 +76,7 @@ export function OverviewMonth({ data, ym }: { data: LedgerData; ym: string }) {
       </Panel>
 
       <Panel>
-        <ComparisonBars data={data} ym={ym} />
+        <ComparisonBars data={data} ym={ym} defaultRent={defaultRent} />
       </Panel>
     </div>
   );

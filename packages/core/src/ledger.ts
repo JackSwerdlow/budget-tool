@@ -46,9 +46,8 @@ export function monthTotal(data: LedgerData, ym: string, options: TotalOptions =
 
 export type CumulativePoint = { date: string; cumulativePence: number };
 
-// Always ex-Rent: Rent's day-1 step otherwise scuffs the running line's shape.
-export function runningCumulative(data: LedgerData, ym: string): CumulativePoint[] {
-  const excluded = excludedCategoryIds(data, true);
+export function runningCumulative(data: LedgerData, ym: string, options: TotalOptions = {}): CumulativePoint[] {
+  const excluded = excludedCategoryIds(data, options.excludeRent ?? true);
 
   const byDate = new Map<string, number>();
   for (const entry of data.entries) {

@@ -22,6 +22,7 @@ export function App() {
   const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
+  const [globalRent, setGlobalRent] = useState<'incl' | 'excl'>('excl');
 
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
@@ -97,20 +98,31 @@ export function App() {
         ) : tab === 'overview' ? (
           <div>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <Segmented
-                value={overviewView}
-                onChange={setOverviewView}
-                options={[
-                  { id: 'month', label: 'Month' },
-                  { id: 'trends', label: 'Trends' },
-                ]}
-              />
+              <div className="flex items-center gap-3">
+                <Segmented
+                  value={overviewView}
+                  onChange={setOverviewView}
+                  options={[
+                    { id: 'month', label: 'Month' },
+                    { id: 'trends', label: 'Trends' },
+                  ]}
+                />
+                <Segmented
+                  size="sm"
+                  value={globalRent}
+                  onChange={setGlobalRent}
+                  options={[
+                    { id: 'incl', label: 'incl. Rent' },
+                    { id: 'excl', label: 'excl. Rent' },
+                  ]}
+                />
+              </div>
               {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
             </div>
             {overviewView === 'month' ? (
-              <OverviewMonth data={data} ym={ym} />
+              <OverviewMonth data={data} ym={ym} defaultRent={globalRent} />
             ) : (
-              <TrendsMatrix data={data} />
+              <TrendsMatrix data={data} defaultRent={globalRent} />
             )}
           </div>
         ) : tab === 'add' ? (

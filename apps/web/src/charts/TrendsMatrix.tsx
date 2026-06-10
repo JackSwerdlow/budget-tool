@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   activeMonths,
   buildMatrix,
@@ -61,9 +61,10 @@ type RenderRow = {
   cells: MatrixCell[];
 };
 
-export function TrendsMatrix({ data }: { data: LedgerData }) {
-  const [rent, setRent] = useState<'incl' | 'excl'>('excl');
+export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData; defaultRent?: 'incl' | 'excl' }) {
+  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  useEffect(() => setRent(defaultRent), [defaultRent]);
   const excludeRent = rent === 'excl';
 
   const currentYm = todayISO().slice(0, 7);

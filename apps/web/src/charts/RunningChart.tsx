@@ -1,3 +1,4 @@
+import { useEffect, useState, type MouseEvent } from 'react';
 import { area, curveMonotoneX, line } from 'd3-shape';
 import {
   formatGBP,
@@ -7,6 +8,7 @@ import {
   type LedgerData,
 } from '@budget/core';
 import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
+import { Segmented } from '../components/ui';
 
 type Pt = { day: number; value: number };
 
@@ -19,66 +21,108 @@ const PAD_BOTTOM = 28;
 const INNER_W = W - PAD_LEFT - PAD_RIGHT;
 const INNER_H = H - PAD_TOP - PAD_BOTTOM;
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const BOX_W = 122;
+const BOX_H = 58;
+
 function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
 }
 
-// Round "nice" y-axis ticks (0, £250, £500, …) spanning up to maxPence.
-function niceTicks(maxPence: number, count: number): number[] {
-  if (maxPence <= 0) return [0];
-  const rawStep = maxPence / count;
-  const mag = 10 ** Math.floor(Math.log10(rawStep));
-  const norm = rawStep / mag;
-  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
-  const step = nice * mag;
-  const ticks: number[] = [];
-  for (let v = 0; v <= maxPence; v += step) ticks.push(v);
-  return ticks;
-}
-
-// Weekly x ticks (1, 8, 15, …) with the last one snapped to the month's final day.
+// Weekly x ticks starting at 0 (0, 7, 14, …), always ending with the last day of the month.
+// Replaces the final weekly tick with the last day if they're only 1 apart (e.g. Feb non-leap).
 function dayTicks(days: number): number[] {
   const ticks: number[] = [];
-  for (let d = 1; d <= days; d += 7) ticks.push(d);
-  const last = ticks[ticks.length - 1];
-  if (days - last >= 3) ticks.push(days);
-  else ticks[ticks.length - 1] = days;
+  for (let d = 0; d <= days; d += 7) ticks.push(d);
+  if (ticks[ticks.length - 1] !== days) {
+    if (days - ticks[ticks.length - 1] <= 1) ticks[ticks.length - 1] = days;
+    else ticks.push(days);
+  }
   return ticks;
 }
 
-export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
-  const points = runningCumulative(data, ym);
-  const target = monthTotal(data, previousMonth(ym), { excludeRent: true });
+export function RunningChart({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
+  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
+  useEffect(() => setRent(defaultRent), [defaultRent]);
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const excludeRent = rent === 'excl';
+
+  const points = runningCumulative(data, ym, { excludeRent });
+  const target = monthTotal(data, previousMonth(ym), { excludeRent });
   const days = daysInMonth(ym);
   const current = points.length > 0 ? points[points.length - 1].cumulativePence : 0;
 
+  const isCurrentMonth = ym === todayISO().slice(0, 7);
+  const todayDay = isCurrentMonth ? dayOfMonth(todayISO()) : null;
+
   const dataMax = Math.max(target, current);
-  const yMax = Math.max(dataMax, 1) * 1.15;
-  const x = (day: number) => PAD_LEFT + ((day - 1) / Math.max(days - 1, 1)) * INNER_W;
+  // Always scale to the next £500 ceiling so grid lines stay consistent across months.
+  const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
+  const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
   const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
 
-  const yTicks = dataMax > 0 ? niceTicks(yMax, 5) : [0];
+  const yTicks: number[] = [];
+  for (let v = 0; v <= yMax; v += 50000) yTicks.push(v);
   const xTicks = dayTicks(days);
 
-  const series: Pt[] = [{ day: 1, value: 0 }, ...points.map((p) => ({ day: dayOfMonth(p.date), value: p.cumulativePence }))];
+  const series: Pt[] = [{ day: 0, value: 0 }, ...points.map((p) => ({ day: dayOfMonth(p.date), value: p.cumulativePence }))];
+
+  // Extend flat line: current month → today; past months → last day of month.
+  const lineEndDay = isCurrentMonth ? (todayDay ?? 1) : days;
+  const lastSeriesDay = series[series.length - 1].day;
+  if (lastSeriesDay < lineEndDay) series.push({ day: lineEndDay, value: series[series.length - 1].value });
 
   const lineGen = line<Pt>().x((d) => x(d.day)).y((d) => y(d.value)).curve(curveMonotoneX);
   const areaGen = area<Pt>().x((d) => x(d.day)).y0(y(0)).y1((d) => y(d.value)).curve(curveMonotoneX);
   const linePath = lineGen(series) ?? '';
   const areaPath = areaGen(series) ?? '';
 
-  const isCurrentMonth = ym === todayISO().slice(0, 7);
-  const todayDay = isCurrentMonth ? dayOfMonth(todayISO()) : null;
+  // Build a dense day-by-day value array (carry-forward on empty days) for hover.
+  const maxHoverDay = lineEndDay;
+  const sparseByDay = new Map(series.map((pt) => [pt.day, pt.value]));
+  const denseByDay: number[] = [];
+  let carry = 0;
+  for (let d = 1; d <= maxHoverDay; d++) {
+    if (sparseByDay.has(d)) carry = sparseByDay.get(d)!;
+    denseByDay[d] = carry;
+  }
+
+  const handleMouseMove = (e: MouseEvent<SVGRectElement>) => {
+    const svgEl = e.currentTarget.closest('svg')!;
+    const rect = svgEl.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const rawDay = ((svgX - PAD_LEFT) / INNER_W) * days;
+    setHoveredDay(Math.max(1, Math.min(Math.round(rawDay), maxHoverDay)));
+  };
+
+  const hoveredPt = hoveredDay !== null ? { day: hoveredDay, value: denseByDay[hoveredDay] } : null;
+  const delta = hoveredDay !== null && hoveredDay > 1
+    ? denseByDay[hoveredDay] - denseByDay[hoveredDay - 1]
+    : null;
+
+  const monthName = MONTH_NAMES[parseInt(ym.split('-')[1]) - 1];
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between">
-        <h3 className="font-serif text-base text-ink">Running total <span className="text-ink-faint">· ex-Rent</span></h3>
-        <span className="text-sm text-ink-muted">
-          {formatGBP(current)} <span className="text-ink-faint">so far</span>
-        </span>
+      <div className="flex items-center justify-between">
+        <h3 className="font-serif text-base text-ink">Running total</h3>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-ink-muted">
+            {formatGBP(current)} <span className="text-ink-faint">so far</span>
+          </span>
+          <Segmented
+            size="sm"
+            value={rent}
+            onChange={setRent}
+            options={[
+              { id: 'incl', label: 'incl. Rent' },
+              { id: 'excl', label: 'excl. Rent' },
+            ]}
+          />
+        </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Running total this month, excluding Rent">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Running total this month, ${excludeRent ? 'excluding' : 'including'} Rent`}>
         {/* y-axis gridlines + £ labels */}
         {yTicks.map((t) => (
           <g key={`y${t}`}>
@@ -97,7 +141,7 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
           </g>
         ))}
 
-        {/* last month's ex-Rent target */}
+        {/* last month's target — label sits at the left end to avoid overlapping the running line */}
         {target > 0 && (
           <>
             <line
@@ -109,9 +153,18 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
               strokeWidth={1}
               strokeDasharray="4 4"
             />
-            <text x={W - PAD_RIGHT} y={y(target) - 6} textAnchor="end" className="fill-ink-muted text-[11px]">
-              last month {formatGBP(target)}
-            </text>
+            {(() => {
+              const label = `Last Month:  ${formatGBP(target)}`;
+              const labelW = Math.ceil(label.length * 5.35);
+              return (
+                <g transform={`translate(${PAD_LEFT + 3.5}, ${y(target) + 2.5})`}>
+                  <rect x={0} y={0} width={labelW} height={14} rx={6} fill="var(--color-raised)" />
+                  <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+                    {label}
+                  </text>
+                </g>
+              );
+            })()}
           </>
         )}
 
@@ -123,8 +176,43 @@ export function RunningChart({ data, ym }: { data: LedgerData; ym: string }) {
         <path d={areaPath} className="fill-accent/10" />
         <path d={linePath} className="stroke-accent" strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* final dot */}
-        {current > 0 && <circle cx={x(series[series.length - 1].day)} cy={y(current)} r={3.5} className="fill-accent" />}
+        {/* final dot — hidden while hovering since the hover dot takes over */}
+        {current > 0 && !hoveredPt && (
+          <circle cx={x(series[series.length - 1].day)} cy={y(current)} r={3.5} className="fill-accent" />
+        )}
+
+        {/* hover: crosshair + dot + tooltip */}
+        {hoveredPt && (() => {
+          const hx = x(hoveredPt.day);
+          const hy = y(hoveredPt.value);
+          const boxX = hx > W / 2 ? hx - BOX_W - 10 : hx + 10;
+          const boxY = Math.max(PAD_TOP + 4, Math.min(hy - BOX_H / 2, H - PAD_BOTTOM - BOX_H));
+          return (
+            <g>
+              <line x1={hx} y1={PAD_TOP} x2={hx} y2={y(0)} className="stroke-ink/20" strokeWidth={1} />
+              <circle cx={hx} cy={hy} r={4.5} className="fill-accent" stroke="var(--color-panel)" strokeWidth={2} />
+              <g transform={`translate(${boxX},${boxY})`}>
+                <rect width={BOX_W} height={BOX_H} rx={4} fill="var(--color-raised)" className="stroke-hairline" strokeWidth={1} />
+                <text x={10} y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">{hoveredPt.day} {monthName}</text>
+                <text x={10} y={35} className="fill-ink text-[14px] tabular-nums" fontWeight={600}>{formatGBP(hoveredPt.value)}</text>
+                {delta !== null && (
+                  <text x={10} y={51} className={`text-[10px] tabular-nums ${delta > 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
+                    {delta > 0 ? '+' : ''}{formatGBP(delta)}
+                  </text>
+                )}
+              </g>
+            </g>
+          );
+        })()}
+
+        {/* invisible overlay — must be last to sit on top */}
+        <rect
+          x={PAD_LEFT} y={PAD_TOP}
+          width={INNER_W} height={INNER_H}
+          fill="transparent"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setHoveredDay(null)}
+        />
       </svg>
     </div>
   );
