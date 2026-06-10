@@ -318,9 +318,11 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
     const draggedCat = cats.find((c) => c.id === draggedCatId);
     if (!draggedCat || draggedCat.group_id === overGroupId) return;
 
-    setLocalCats((prev) =>
-      prev.map((c) => (c.id === draggedCatId ? { ...c, group_id: overGroupId } : c))
-    );
+    // Update ref synchronously so handleDragEnd (which fires before the
+    // re-render) reads the new group_id, not the pre-DragOver value.
+    const updated = cats.map((c) => (c.id === draggedCatId ? { ...c, group_id: overGroupId } : c));
+    localCatsRef.current = updated;
+    setLocalCats(updated);
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -338,6 +340,7 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
       const toIdx = groups.findIndex((g) => g.id === parseInt(overId.slice(2)));
       if (fromIdx === -1 || toIdx === -1) return;
       const newGroups = arrayMove(groups, fromIdx, toIdx);
+      localGroupsRef.current = newGroups;
       setLocalGroups(newGroups);
       run(reorderGroups(newGroups.map((g) => g.id)));
       return;
@@ -364,6 +367,7 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
         }
       }
 
+      localCatsRef.current = newCats;
       setLocalCats(newCats);
 
       const groups = localGroupsRef.current;
