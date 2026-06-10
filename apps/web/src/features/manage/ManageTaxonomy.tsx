@@ -328,13 +328,14 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveGroupId(null);
     setActiveCatId(null);
-    if (!over || active.id === over.id) return;
 
     const activeId = String(active.id);
-    const overId = String(over.id);
 
-    if (activeId.startsWith('g-') && overId.startsWith('g-')) {
-      // Reorder groups — use ref so we always have the latest order.
+    // ── Group reorder ────────────────────────────────────────────────────────
+    if (activeId.startsWith('g-')) {
+      if (!over || active.id === over.id) return;
+      const overId = String(over.id);
+      if (!overId.startsWith('g-')) return;
       const groups = localGroupsRef.current;
       const fromIdx = groups.findIndex((g) => g.id === parseInt(activeId.slice(2)));
       const toIdx = groups.findIndex((g) => g.id === parseInt(overId.slice(2)));
@@ -346,36 +347,47 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
       return;
     }
 
-    if (activeId.startsWith('c-')) {
-      const catId = parseInt(activeId.slice(2));
-      // Use ref to get latest cats (includes any cross-group move from handleDragOver).
-      const cats = localCatsRef.current;
-      const draggedCat = cats.find((c) => c.id === catId);
-      if (!draggedCat) return;
-      const groupId = draggedCat.group_id;
+    // ── Category reorder / move ──────────────────────────────────────────────
+    if (!activeId.startsWith('c-')) return;
 
-      let newCats = [...cats];
+    const catId = parseInt(activeId.slice(2));
+    const cats = localCatsRef.current;
+    const draggedCat = cats.find((c) => c.id === catId);
+    if (!draggedCat) return;
 
-      if (overId.startsWith('c-')) {
-        const overCatId = parseInt(overId.slice(2));
-        const groupCats = newCats.filter((c) => c.group_id === groupId);
+    // The authoritative target group comes from handleDragOver's optimistic
+    // update in the ref — NOT from `over`, which may point to a category in
+    // an adjacent group due to closestCenter geometry.
+    const targetGroupId = draggedCat.group_id;
+    let newCats = [...cats];
+
+    // Only apply within-group ordering when `over` is a category in the SAME
+    // target group.  If `over` is from a different group (common when the
+    // target group has few items), skip ordering — the cat lands at the end.
+    if (over && over.id !== active.id && String(over.id).startsWith('c-')) {
+      const overCatId = parseInt(String(over.id).slice(2));
+      const overCat = newCats.find((c) => c.id === overCatId);
+      if (overCat && overCat.group_id === targetGroupId) {
+        const groupCats = newCats.filter((c) => c.group_id === targetGroupId);
         const fromIdx = groupCats.findIndex((c) => c.id === catId);
         const toIdx = groupCats.findIndex((c) => c.id === overCatId);
-        if (fromIdx !== -1 && toIdx !== -1) {
+        if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
           const reordered = arrayMove(groupCats, fromIdx, toIdx);
-          newCats = [...newCats.filter((c) => c.group_id !== groupId), ...reordered];
+          newCats = [...newCats.filter((c) => c.group_id !== targetGroupId), ...reordered];
         }
       }
-
-      localCatsRef.current = newCats;
-      setLocalCats(newCats);
-
-      const groups = localGroupsRef.current;
-      const ordered = groups.flatMap((g) =>
-        newCats.filter((c) => c.group_id === g.id).map((c) => ({ id: c.id, group_id: c.group_id }))
-      );
-      run(reorderCategories(ordered));
     }
+
+    localCatsRef.current = newCats;
+    setLocalCats(newCats);
+
+    // Always persist — even if `over` is null (pointer released in empty
+    // space), the cross-group move from handleDragOver must be saved.
+    const groups = localGroupsRef.current;
+    const ordered = groups.flatMap((g) =>
+      newCats.filter((c) => c.group_id === g.id).map((c) => ({ id: c.id, group_id: c.group_id }))
+    );
+    run(reorderCategories(ordered));
   };
 
   // ── Active drag overlays ──────────────────────────────────────────────────
