@@ -65,3 +65,57 @@ export type LedgerData = {
   // explicit figure (never a past one). null when no default is set.
   defaultIncomePence: number | null;
 };
+
+export type SalaryConfig = {
+  year: number;
+  month: number;
+  gross_yearly_pence: number;
+  note: string | null;
+  hours_per_week: number;
+  work_weeks_per_year: number;
+  work_days_per_week: number;
+  employee_pension_pct: number;
+  employer_pension_pct: number;
+  personal_allowance_pence: number;
+  basic_rate_band_pence: number;
+  additional_rate_threshold_pence: number;
+  basic_rate_pct: number;
+  higher_rate_pct: number;
+  additional_rate_pct: number;
+  ni_lower_monthly_pence: number;
+  ni_upper_monthly_pence: number;
+  ni_primary_pct: number;
+  ni_upper_pct: number;
+  sl_enabled: boolean;
+  sl_threshold_yearly_pence: number;
+  sl_rate_pct: number;
+  sl_balance_pence: number | null;
+  sl_interest_rate_pct: number | null;
+};
+
+export type SalaryFigures = {
+  yearly: number;
+  monthly: number;
+  weekly: number;
+  daily: number;
+  hourly: number;
+};
+
+export type SalaryRow = {
+  key: string;
+  label: string;
+  isDeduction: boolean;
+  isSummary: boolean;
+  isPercentage: boolean;
+  figures: SalaryFigures;
+};
+
+export type SalaryBreakdown = {
+  rows: SalaryRow[];
+  netMonthlyPence: number;
+};
+
+export type SalaryConfigResponse = {
+  config: SalaryConfig | null;
+  inheritedFrom: { year: number; month: number } | null;
+};
