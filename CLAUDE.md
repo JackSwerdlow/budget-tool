@@ -30,34 +30,24 @@ are now design references — consult them for the rationale behind existing dec
 the §9 deferred-feature boundary before adding anything new. **At the start of a new
 session, run `git log --oneline -20` to understand recent work before making changes.**
 
-## Salary Tab — Next feature (designed, not yet built)
+## Salary Tab — COMPLETE
 
-A full UK salary breakdown tab is fully designed and planned, ready for implementation.
+The UK salary breakdown tab is fully built and shipped. Design and implementation references:
 
-**Design spec:** `docs/SALARY_SPEC.md` — data model, UK tax formulae, config inheritance
-logic, UI structure, API contract. Read this for the *why* behind every decision.
+- **Design spec:** `docs/SALARY_SPEC.md` — data model, UK tax formulae, config inheritance logic, UI structure, API contract.
+- **Implementation notes:** `docs/SALARY_PLAN.md` — 8-task build log with code and decisions.
 
-**Implementation plan:** `docs/SALARY_PLAN.md` — 8 tasks with complete code for every step.
-This is the source of truth for what to build. Follow it task-by-task.
+**Key constraints to preserve if touching this area:**
 
-**Critical implementation notes (do not skip):**
-
-1. **Do NOT `import { calcSalary }` in `apps/api/`** — Node 24's ESM resolver fails on
-   the core package's extensionless internal imports at runtime. `import type` is fine
-   (erased by the type-stripper). The web client sends `net_monthly_pence` in the PUT
-   body instead; the API stores it directly.
-
-2. **`@budget/core` is already in `apps/api/package.json`** — do not add it again.
-
-3. **`PoundInput` / `PctInput` must be defined at module scope** (outside `Salary()`),
-   not inside the component — inline sub-components get new identities on every render,
-   causing input fields to lose focus after each keystroke.
-
-4. **`onGrossChange` must derive the other 4 fields only** — do not overwrite the field
-   being actively typed (would reformat "5" to "5.00" mid-input).
+- **Do NOT `import` (even `import type`) from `@budget/core` in `apps/api/`** — Node 24's
+  ESM resolver (`moduleResolution: nodenext`) walks into core's extensionless relative
+  imports and fails with TS2835. Use local type aliases in `apps/api/src/repo.ts` instead.
+- **`PoundInput` / `PctInput` must stay at module scope** (outside `Salary()`) — inline
+  sub-components get new identities on every render, causing inputs to lose focus.
+- **`onGrossChange` derives the other 4 fields only** — never overwrite the field being typed.
 
 **Deferred (do NOT build yet):** student loan balance/payoff tracker, unpaid days off
-effective rate. Data model already supports both — implementation is follow-on.
+effective rate. The data model (`salary_config` table) already supports both.
 
 ## Future platform targets
 
