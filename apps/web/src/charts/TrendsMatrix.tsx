@@ -34,19 +34,15 @@ function heatColor(heat: number | null, alpha = 1): string {
   return alpha < 1 ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r} ${g} ${b})`;
 }
 
-// Month Totals price colour + size both follow an extremeness curve: vivid & large at the
-// ends (lowest/highest spend), small & muted at the midpoint. Two-segment interpolation:
-//   green side: vivid green → muted warm-grey
-//   red side:   muted warm-grey → vivid red
-// The grey midpoint avoids the muddy olive/brown of a direct green→red path.
 function totalPriceStyle(heat: number | null): { color: string; fontSize: number } {
-  const LOW: [number, number, number] = [22, 160, 80];    // vivid green
-  const MID: [number, number, number] = [140, 130, 120];  // muted warm-grey
-  const HIGH: [number, number, number] = [200, 50, 35];   // vivid red
-  if (heat === null) return { color: `rgb(${MID[0]} ${MID[1]} ${MID[2]})`, fontSize: 12 };
-  const extremeness = Math.abs(2 * heat - 1); // 0 at midpoint, 1 at both ends
-  const fontSize = Math.round(12 + extremeness * 9); // 12px (muted mid) → 22px (vivid extremes)
-  const [from, to, t] = heat <= 0.5 ? [LOW, MID, heat * 2] : [MID, HIGH, (heat - 0.5) * 2];
+  const LOW: [number, number, number] = [22, 160, 80];       
+  const MID_GREEN: [number, number, number] = [80, 140, 90];
+  const MID_RED: [number, number, number] = [190, 110, 100];
+  const HIGH: [number, number, number] = [200, 50, 35];
+  if (heat === null) return { color: 'rgb(140 130 120)', fontSize: 12 };
+  const extremeness = Math.abs(2 * heat - 1);
+  const fontSize = Math.round(12 + extremeness * 9);
+  const [from, to, t] = heat <= 0.5 ? [LOW, MID_GREEN, heat * 2] : [MID_RED, HIGH, (heat - 0.5) * 2];
   const ch = (k: number) => Math.round(from[k] + t * (to[k] - from[k]));
   return { color: `rgb(${ch(0)} ${ch(1)} ${ch(2)})`, fontSize };
 }
