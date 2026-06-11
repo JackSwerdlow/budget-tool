@@ -15,12 +15,14 @@ import {
   getBootstrap,
   getGroup,
   getList,
+  getSalaryConfig,
   setDefaultIncome,
   setIncome,
   updateCategory,
   updateEntry,
   updateGroup,
   updateList,
+  upsertSalaryConfig,
   reorderCategories,
   reorderGroups,
   type EntryPatch,
@@ -92,6 +94,9 @@ function asListInput(body: Record<string, unknown>): NewList | null {
     items,
   };
 }
+
+const isRealPct = (n: number) => Number.isFinite(n) && n >= 0 && n <= 100;
+const isPositive = (n: number) => Number.isFinite(n) && n > 0;
 
 export function createApp(db: DatabaseSync): Hono {
   const app = new Hono();
@@ -337,6 +342,97 @@ export function createApp(db: DatabaseSync): Hono {
     const id = Number(c.req.param('id'));
     if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
     return c.json(deleteList(db, id));
+  });
+
+  // ── Salary config ───────────────────────────────────────────────────────────
+  api.get('/salary-config/:year/:month', (c) => {
+    const year = Number(c.req.param('year'));
+    const month = Number(c.req.param('month'));
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      return c.json({ error: 'invalid month' }, 400);
+    }
+    return c.json(getSalaryConfig(db, year, month));
+  });
+
+  api.put('/salary-config/:year/:month', async (c) => {
+    const year = Number(c.req.param('year'));
+    const month = Number(c.req.param('month'));
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      return c.json({ error: 'invalid month' }, 400);
+    }
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+
+    const gross = Number(body.gross_yearly_pence);
+    const netMonthlyPence = Number(body.net_monthly_pence);
+    const hoursPerWeek = Number(body.hours_per_week);
+    const workWeeks = Number(body.work_weeks_per_year);
+    const workDays = Number(body.work_days_per_week);
+    const empPct = Number(body.employee_pension_pct);
+    const erPct = Number(body.employer_pension_pct);
+    const personalAllowance = Number(body.personal_allowance_pence);
+    const basicBand = Number(body.basic_rate_band_pence);
+    const addThreshold = Number(body.additional_rate_threshold_pence);
+    const basicRate = Number(body.basic_rate_pct);
+    const higherRate = Number(body.higher_rate_pct);
+    const additionalRate = Number(body.additional_rate_pct);
+    const niLower = Number(body.ni_lower_monthly_pence);
+    const niUpper = Number(body.ni_upper_monthly_pence);
+    const niPrimary = Number(body.ni_primary_pct);
+    const niUpperRate = Number(body.ni_upper_pct);
+    const slThreshold = Number(body.sl_threshold_yearly_pence);
+    const slRate = Number(body.sl_rate_pct);
+
+    if (
+      !isPence(gross) || gross === 0 ||
+      !isPence(netMonthlyPence) || netMonthlyPence === 0 ||
+      !isPositive(hoursPerWeek) || !isPositive(workWeeks) || !isPositive(workDays) ||
+      !isRealPct(empPct) || !isRealPct(erPct) ||
+      !isPence(personalAllowance) || !isPence(basicBand) || !isPence(addThreshold) ||
+      !isRealPct(basicRate) || !isRealPct(higherRate) || !isRealPct(additionalRate) ||
+      !isPence(niLower) || !isPence(niUpper) ||
+      !isRealPct(niPrimary) || !isRealPct(niUpperRate) ||
+      !isPence(slThreshold) || !isRealPct(slRate)
+    ) {
+      return c.json({ error: 'invalid salary config' }, 400);
+    }
+
+    const slBalance = body.sl_balance_pence == null ? null : Number(body.sl_balance_pence);
+    const slInterest = body.sl_interest_rate_pct == null ? null : Number(body.sl_interest_rate_pct);
+    if (slBalance !== null && !isPence(slBalance)) return c.json({ error: 'invalid sl_balance_pence' }, 400);
+    if (slInterest !== null && !isRealPct(slInterest)) return c.json({ error: 'invalid sl_interest_rate_pct' }, 400);
+
+    const cfg = {
+      year, month,
+      gross_yearly_pence: gross,
+      note: body.note == null ? null : String(body.note),
+      hours_per_week: hoursPerWeek, work_weeks_per_year: workWeeks, work_days_per_week: workDays,
+      employee_pension_pct: empPct, employer_pension_pct: erPct,
+      personal_allowance_pence: personalAllowance, basic_rate_band_pence: basicBand,
+      additional_rate_threshold_pence: addThreshold,
+      basic_rate_pct: basicRate, higher_rate_pct: higherRate, additional_rate_pct: additionalRate,
+      ni_lower_monthly_pence: niLower, ni_upper_monthly_pence: niUpper,
+      ni_primary_pct: niPrimary, ni_upper_pct: niUpperRate,
+      sl_enabled: Boolean(body.sl_enabled),
+      sl_threshold_yearly_pence: slThreshold, sl_rate_pct: slRate,
+      sl_balance_pence: slBalance, sl_interest_rate_pct: slInterest,
+    };
+
+    const saved = upsertSalaryConfig(db, cfg);
+
+    // net_monthly_pence is computed by the web client (calcSalary) and passed in the body.
+    // The API is a thin store — it does not import @budget/core for value computation.
+    setIncome(db, year, month, netMonthlyPence);
+
+    // Update default income only if this month >= current calendar month
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    if (year > curYear || (year === curYear && month >= curMonth)) {
+      setDefaultIncome(db, netMonthlyPence);
+    }
+
+    return c.json({ config: saved, inheritedFrom: null });
   });
 
   app.route('/api', api);

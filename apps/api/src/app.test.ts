@@ -162,6 +162,7 @@ describe('DELETE /api/lists/:id', () => {
 });
 
 const patch = (b: unknown) => ({ method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+const put = (b: unknown) => ({ method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
 
 type Cats = { categories: Array<{ id: number; name: string; group_id: number }> };
 
@@ -310,6 +311,94 @@ describe('input hardening', () => {
   it('rejects an impossible calendar date', async () => {
     const app = freshApp();
     const res = await app.request('/api/entries', json({ amount_pence: 500, category_id: 3, date: '2026-02-30' }));
+    expect(res.status).toBe(400);
+  });
+});
+
+const SALARY_BODY = {
+  gross_yearly_pence: 5_946_600,
+  net_monthly_pence: 335_995,
+  hours_per_week: 37,
+  work_weeks_per_year: 52,
+  work_days_per_week: 5,
+  employee_pension_pct: 5.45,
+  employer_pension_pct: 28.97,
+  personal_allowance_pence: 1_257_000,
+  basic_rate_band_pence: 3_770_100,
+  additional_rate_threshold_pence: 12_514_000,
+  basic_rate_pct: 20,
+  higher_rate_pct: 40,
+  additional_rate_pct: 45,
+  ni_lower_monthly_pence: 104_750,
+  ni_upper_monthly_pence: 418_917,
+  ni_primary_pct: 8,
+  ni_upper_pct: 2,
+  sl_enabled: true,
+  sl_threshold_yearly_pence: 2_847_000,
+  sl_rate_pct: 9,
+  sl_balance_pence: null,
+  sl_interest_rate_pct: null,
+  note: null,
+};
+
+describe('salary config', () => {
+  it('GET returns null config when no data exists', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/salary-config/2026/6');
+    expect(res.status).toBe(200);
+    const data = await body<{ config: null; inheritedFrom: null }>(res);
+    expect(data.config).toBeNull();
+    expect(data.inheritedFrom).toBeNull();
+  });
+
+  it('PUT saves config and GET returns it; inheritedFrom is null for exact month', async () => {
+    const app = freshApp();
+    const putRes = await app.request('/api/salary-config/2026/6', put(SALARY_BODY));
+    expect(putRes.status).toBe(200);
+
+    const get = await app.request('/api/salary-config/2026/6');
+    const data = await body<{ config: { year: number; month: number; gross_yearly_pence: number }; inheritedFrom: null }>(get);
+    expect(data.config.year).toBe(2026);
+    expect(data.config.month).toBe(6);
+    expect(data.config.gross_yearly_pence).toBe(5_946_600);
+    expect(data.inheritedFrom).toBeNull();
+  });
+
+  it('GET for later month inherits from saved earlier month', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put(SALARY_BODY));
+
+    const get = await app.request('/api/salary-config/2026/8');
+    const data = await body<{ config: { gross_yearly_pence: number }; inheritedFrom: { year: number; month: number } }>(get);
+    expect(data.config.gross_yearly_pence).toBe(5_946_600);
+    expect(data.inheritedFrom).toEqual({ year: 2026, month: 6 });
+  });
+
+  it('GET for earlier month falls forward to saved later month', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put(SALARY_BODY));
+
+    const get = await app.request('/api/salary-config/2026/3');
+    const data = await body<{ config: { gross_yearly_pence: number }; inheritedFrom: { year: number; month: number } }>(get);
+    expect(data.config.gross_yearly_pence).toBe(5_946_600);
+    expect(data.inheritedFrom).toEqual({ year: 2026, month: 6 });
+  });
+
+  it('PUT writes net monthly pay to bootstrap income', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put(SALARY_BODY));
+
+    const boot = await body<{ income: Array<{ year: number; month: number; amount_pence: number }> }>(
+      await app.request('/api/bootstrap'),
+    );
+    const incomeRow = boot.income.find((r) => r.year === 2026 && r.month === 6);
+    expect(incomeRow).toBeDefined();
+    expect(incomeRow!.amount_pence).toBeGreaterThan(0);
+  });
+
+  it('PUT rejects invalid gross', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/salary-config/2026/6', put({ ...SALARY_BODY, gross_yearly_pence: -1 }));
     expect(res.status).toBe(400);
   });
 });
