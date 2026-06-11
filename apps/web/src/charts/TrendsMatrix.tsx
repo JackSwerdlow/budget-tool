@@ -34,6 +34,23 @@ function heatColor(heat: number | null, alpha = 1): string {
   return alpha < 1 ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r} ${g} ${b})`;
 }
 
+// Month Totals price colour + size both follow an extremeness curve: vivid & large at the
+// ends (lowest/highest spend), small & muted at the midpoint. Two-segment interpolation:
+//   green side: vivid green → muted warm-grey
+//   red side:   muted warm-grey → vivid red
+// The grey midpoint avoids the muddy olive/brown of a direct green→red path.
+function totalPriceStyle(heat: number | null): { color: string; fontSize: number } {
+  const LOW: [number, number, number] = [22, 160, 80];    // vivid green
+  const MID: [number, number, number] = [140, 130, 120];  // muted warm-grey
+  const HIGH: [number, number, number] = [200, 50, 35];   // vivid red
+  if (heat === null) return { color: `rgb(${MID[0]} ${MID[1]} ${MID[2]})`, fontSize: 12 };
+  const extremeness = Math.abs(2 * heat - 1); // 0 at midpoint, 1 at both ends
+  const fontSize = Math.round(12 + extremeness * 10); // 12px (muted mid) → 22px (vivid extremes)
+  const [from, to, t] = heat <= 0.5 ? [LOW, MID, heat * 2] : [MID, HIGH, (heat - 0.5) * 2];
+  const ch = (k: number) => Math.round(from[k] + t * (to[k] - from[k]));
+  return { color: `rgb(${ch(0)} ${ch(1)} ${ch(2)})`, fontSize };
+}
+
 function compactGBP(pence: number): string {
   if (pence === 0) return '–';
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
@@ -90,6 +107,9 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
 
   const groupMatrix = buildMatrix(visibleGroups.map((x) => ({ id: x.g.id, amounts: x.amounts })));
   const prevCatTotals = categoryTotals(data, previousMonth(displayStart));
+  const monthTotals = months.map((_, mi) => visibleGroups.reduce((s, x) => s + x.amounts[mi], 0));
+  const monthHasSpend = monthTotals.map((t) => t > 0);
+  const prevMonthTotal = visibleGroups.reduce((s, x) => s + x.cats.reduce((cs, c) => cs + (prevCatTotals.get(c.id) ?? 0), 0), 0);
 
   const toggle = (id: number) =>
     setExpanded((s) => {
@@ -215,9 +235,10 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
                 const topBorder = row.strong && (prevIsSubcat || i === 0);
                 const bottomBorder = row.strong ? true : (!nextIsGroup && !isLast);
                 return (
-                  <Row key={row.key} row={row} months={months} onToggle={() => row.groupId && toggle(row.groupId)} topBorder={topBorder} bottomBorder={bottomBorder} />
+                  <Row key={row.key} row={row} months={months} onToggle={() => row.groupId && toggle(row.groupId)} topBorder={topBorder} bottomBorder={bottomBorder} monthHasSpend={monthHasSpend} />
                 );
               })}
+              <TotalRow months={months} monthTotals={monthTotals} prevMonthTotal={prevMonthTotal} />
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-faint">
@@ -229,7 +250,7 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
   );
 }
 
-function Row({ row, months, onToggle, topBorder, bottomBorder }: { row: RenderRow; months: string[]; onToggle: () => void; topBorder: boolean; bottomBorder: boolean }) {
+function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend }: { row: RenderRow; months: string[]; onToggle: () => void; topBorder: boolean; bottomBorder: boolean; monthHasSpend: boolean[] }) {
   const [hovered, setHovered] = useState(false);
   const isClickable = row.expandable || !row.strong;
 
@@ -306,7 +327,7 @@ function Row({ row, months, onToggle, topBorder, bottomBorder }: { row: RenderRo
                 style={{ right: '1.75px', backgroundColor: heatColor(cell.heat, 0.8) }}
               />
             )}
-            <CellContent cell={cell} strong={row.strong} hovered={hovered} pctOverride={j === 0 ? firstColPct(row.prevMonthPence, cell.amountPence) : undefined} />
+            <CellContent cell={cell} strong={row.strong} hovered={hovered} pctOverride={j === 0 ? pctChange(row.prevMonthPence, cell.amountPence) : undefined} monthHasSpend={monthHasSpend[j]} />
           </div>
         );
       })}
@@ -314,18 +335,19 @@ function Row({ row, months, onToggle, topBorder, bottomBorder }: { row: RenderRo
   );
 }
 
-function firstColPct(prevPence: number, currentPence: number): number | null {
+function pctChange(prevPence: number, currentPence: number): number | null {
   if (prevPence === 0) return currentPence > 0 ? Infinity : null;
   return Math.round((currentPence - prevPence) / prevPence * 100);
 }
 
-function CellContent({ cell, strong, hovered, pctOverride }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null }) {
+function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null; monthHasSpend: boolean }) {
   // Infinity = previous month was zero (can't divide); treat as "new" entry rather than a numeric %.
   // pctOverride is supplied for the first visible column where buildMatrix has no prior cell to compare.
   const pct = pctOverride !== undefined ? pctOverride : cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : null);
+  const amountLabel = cell.amountPence === 0 && monthHasSpend ? '£0' : compactGBP(cell.amountPence);
   const priceSpan = (
     <span className={`leading-none tabular-nums ${strong ? `text-[15px] ${hovered ? 'font-bold' : 'font-semibold'}` : `text-[14px] ${hovered ? 'font-bold' : 'font-semibold'}`}`}>
-      {compactGBP(cell.amountPence)}
+      {amountLabel}
     </span>
   );
 
@@ -357,6 +379,75 @@ function CellContent({ cell, strong, hovered, pctOverride }: { cell: MatrixCell;
         </span>
       </div>
       <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">{symbol}</div>
+    </>
+  );
+}
+
+function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; monthTotals: number[]; prevMonthTotal: number }) {
+  const colBorder = 'border-r-[1.75px] border-black';
+  const nonZeroTotals = monthTotals.filter((t) => t > 0);
+  const minTotal = nonZeroTotals.length > 0 ? Math.min(...nonZeroTotals) : 0;
+  const maxTotal = nonZeroTotals.length > 0 ? Math.max(...nonZeroTotals) : 0;
+  const totalRange = maxTotal - minTotal;
+  return (
+    <>
+      <div className={`col-span-2 flex h-11 items-center justify-center px-2 ${colBorder}`}>
+        <span className="font-extrabold text-[19px] text-ink">Month Totals</span>
+      </div>
+      {monthTotals.map((amount, j) => {
+        const prevAmount = j === 0 ? prevMonthTotal : monthTotals[j - 1];
+        const pct = pctChange(prevAmount, amount);
+        const isLastCol = j === months.length - 1;
+        const heat = amount === 0 || totalRange === 0 ? null : (amount - minTotal) / totalRange;
+        const { color: priceColor, fontSize: priceFontSize } = totalPriceStyle(heat);
+        const priceSpan = (
+          <span
+            className="leading-none tabular-nums font-extrabold"
+            style={{ color: priceColor, fontSize: priceFontSize }}
+          >
+            {compactGBP(amount)}
+          </span>
+        );
+
+        let cellContent: React.ReactNode;
+        if (pct === null) {
+          cellContent = priceSpan;
+        } else if (pct === Infinity) {
+          cellContent = (
+            <>
+              <div className="flex flex-col items-center gap-0.5">
+                {priceSpan}
+                <span className="leading-none font-semibold opacity-50" style={{ fontSize: 12 }}>+-%</span>
+              </div>
+              <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">
+                <span className="leading-none font-semibold" style={{ fontSize: 24, color: '#1a7a3c' }}>↑</span>
+              </div>
+            </>
+          );
+        } else {
+          const up = pct > 0;
+          const symbol = pct === 0
+            ? <span className="leading-none font-bold text-ink" style={{ fontSize: 8 }}>→</span>
+            : <span className="leading-none font-semibold" style={{ fontSize: Math.min(24, 8 + Math.abs(pct) * 0.16), color: up ? '#1a7a3c' : '#a8432f' }}>{up ? '↑' : '↓'}</span>;
+          cellContent = (
+            <>
+              <div className="flex flex-col items-center gap-0.5">
+                {priceSpan}
+                <span className={`leading-none font-semibold ${pct === 0 ? 'opacity-50' : ''}`} style={{ fontSize: 12 }}>
+                  {pct === 0 ? '0%' : `${up ? '+' : ''}${pct}%`}
+                </span>
+              </div>
+              <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">{symbol}</div>
+            </>
+          );
+        }
+
+        return (
+          <div key={months[j]} className={`flex h-11 relative items-center justify-center px-1.5 text-center ${!isLastCol ? colBorder : ''}`}>
+            {cellContent}
+          </div>
+        );
+      })}
     </>
   );
 }
