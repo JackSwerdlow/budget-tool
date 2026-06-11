@@ -1,4 +1,4 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome } from '@budget/core';
+import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse } from '@budget/core';
 
 // Resolve the API root relative to where the app is actually served, so it works at
 // the origin root AND behind a sub-path reverse proxy (e.g. /proxy/8100/api/…).
@@ -127,4 +127,15 @@ export const setDefaultIncome = (amountPence: number) =>
 export async function clearDefaultIncome(): Promise<void> {
   const res = await fetch(`${API}income/default`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`clear default income failed: ${res.status}`);
+}
+
+// ── Salary config ─────────────────────────────────────────────────────────────
+export async function getSalaryConfig(year: number, month: number): Promise<SalaryConfigResponse> {
+  const res = await fetch(`${API}salary-config/${year}/${month}`);
+  if (!res.ok) throw new Error(`getSalaryConfig failed: ${res.status}`);
+  return res.json() as Promise<SalaryConfigResponse>;
+}
+
+export async function saveSalaryConfig(cfg: SalaryConfig, netMonthlyPence: number): Promise<SalaryConfigResponse> {
+  return send<SalaryConfigResponse>(`salary-config/${cfg.year}/${cfg.month}`, 'PUT', { ...cfg, net_monthly_pence: netMonthlyPence });
 }
