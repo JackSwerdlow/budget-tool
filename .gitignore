@@ -240,3 +240,6 @@ npm-debug.log*
 /data/*.db-shm
 /data/*.db-journal
 !/data/budget-demo.db
+
+# Excel Files
+*.xlsx
