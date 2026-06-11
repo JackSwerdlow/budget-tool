@@ -45,7 +45,7 @@ function totalPriceStyle(heat: number | null): { color: string; fontSize: number
   const HIGH: [number, number, number] = [200, 50, 35];   // vivid red
   if (heat === null) return { color: `rgb(${MID[0]} ${MID[1]} ${MID[2]})`, fontSize: 12 };
   const extremeness = Math.abs(2 * heat - 1); // 0 at midpoint, 1 at both ends
-  const fontSize = Math.round(12 + extremeness * 10); // 12px (muted mid) → 22px (vivid extremes)
+  const fontSize = Math.round(12 + extremeness * 9); // 12px (muted mid) → 22px (vivid extremes)
   const [from, to, t] = heat <= 0.5 ? [LOW, MID, heat * 2] : [MID, HIGH, (heat - 0.5) * 2];
   const ch = (k: number) => Math.round(from[k] + t * (to[k] - from[k]));
   return { color: `rgb(${ch(0)} ${ch(1)} ${ch(2)})`, fontSize };
@@ -343,7 +343,7 @@ function pctChange(prevPence: number, currentPence: number): number | null {
 function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null; monthHasSpend: boolean }) {
   // Infinity = previous month was zero (can't divide); treat as "new" entry rather than a numeric %.
   // pctOverride is supplied for the first visible column where buildMatrix has no prior cell to compare.
-  const pct = pctOverride !== undefined ? pctOverride : cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : null);
+  const pct = pctOverride !== undefined ? pctOverride : cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : monthHasSpend ? 0 : null);
   const amountLabel = cell.amountPence === 0 && monthHasSpend ? '£0' : compactGBP(cell.amountPence);
   const priceSpan = (
     <span className={`leading-none tabular-nums ${strong ? `text-[15px] ${hovered ? 'font-bold' : 'font-semibold'}` : `text-[14px] ${hovered ? 'font-bold' : 'font-semibold'}`}`}>
