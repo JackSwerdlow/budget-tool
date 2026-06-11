@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, formatGBP, type SalaryConfig } from '@budget/core';
-import { getSalaryConfig, saveSalaryConfig } from '../../api';
+import { calcSalary, formatGBP, type LedgerData, type SalaryConfig } from '@budget/core';
+import { deleteSalaryConfig, getSalaryConfig, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel } from '../../components/ui';
 import { useData } from '../../data';
 import { monthLabel, todayISO } from '../../lib/dates';
@@ -189,10 +189,11 @@ const GROSS_LABELS: Record<GrossField, string> = {
   yearly: 'Yearly', monthly: 'Monthly', weekly: 'Weekly', daily: 'Daily', hourly: 'Hourly',
 };
 
-export function Salary() {
+export function Salary({ data }: { data: LedgerData }) {
   const { refresh } = useData();
   const [ym, setYm] = useState(currentYm());
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
+  const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Gross input fields
@@ -207,8 +208,9 @@ export function Salary() {
   const [configEditing, setConfigEditing] = useState(false);
   const [configDraft, setConfigDraft] = useState<ConfigFields>(EMPTY_CONFIG_FIELDS);
 
-  // Save state
+  // Save / clear state
   const [saving, setSaving] = useState(false);
+  const [clearArmed, setClearArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -217,10 +219,12 @@ export function Salary() {
     setLoading(true);
     setError(null);
     setSaveSuccess(false);
+    setClearArmed(false);
     const { year, month } = ymToYearMonth(ymStr);
     try {
       const resp = await getSalaryConfig(year, month);
       setInheritedFrom(resp.inheritedFrom);
+      setHasSavedConfig(resp.config != null && resp.inheritedFrom === null);
       if (resp.config) {
         const fields = configToFields(resp.config);
         setConfigFields(fields);
@@ -293,6 +297,25 @@ export function Salary() {
       setSaving(false);
     }
   };
+
+  const onClear = async () => {
+    if (!clearArmed) { setClearArmed(true); return; }
+    const { year, month } = ymToYearMonth(ym);
+    setError(null);
+    try {
+      await deleteSalaryConfig(year, month);
+      await refresh();
+      await load(ym);
+    } catch (e) {
+      setError(String(e));
+      setClearArmed(false);
+    }
+  };
+
+  const hasTransactions =
+    data.entries.some((e) => e.date.startsWith(ym)) ||
+    data.lists.some((l) => l.date.startsWith(ym));
+  const showNoTxnWarning = !hasTransactions && ym !== currentYm();
 
   // Determine if saving this month updates the default
   const isPastMonth = ym < currentYm();
@@ -495,8 +518,13 @@ export function Salary() {
             </section>
           )}
 
-          {/* ── Save button ── */}
+          {/* ── Save / Clear ── */}
           <div className="flex flex-col gap-2">
+            {showNoTxnWarning && (
+              <p className="text-xs text-warn">
+                No transactions in {monthLabel(ym)} — make sure this is the right month.
+              </p>
+            )}
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -506,6 +534,15 @@ export function Salary() {
               >
                 {saving ? 'Saving…' : 'Save Income'}
               </button>
+              {hasSavedConfig && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className={`text-sm ${clearArmed ? 'text-over font-medium' : 'text-ink-muted hover:text-over'}`}
+                >
+                  {clearArmed ? 'Confirm clear' : 'Clear month'}
+                </button>
+              )}
               {saveSuccess && <span className="text-sm text-ink-muted">Saved ✓</span>}
             </div>
             {isPastMonth && (

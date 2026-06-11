@@ -9,6 +9,7 @@ export default defineConfig(({ command }) => ({
   server: {
     host: '0.0.0.0',
     port: 5001,
+    allowedHosts: ['5001-lab14102.labs.decoded.com'],
     proxy: {
       // Dev only: forward /api to the Hono server. Keep the /api prefix (no rewrite).
       '/api': {

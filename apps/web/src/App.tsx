@@ -131,7 +131,7 @@ export function App() {
             )}
           </div>
         ) : tab === 'salary' ? (
-          <Salary />
+          <Salary data={data} />
         ) : tab === 'add' ? (
           <div>
             <div className="mb-6">

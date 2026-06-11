@@ -426,6 +426,12 @@ export function getSalaryConfig(db: DatabaseSync, year: number, month: number): 
   return { config: null, inheritedFrom: null };
 }
 
+export function deleteSalaryConfig(db: DatabaseSync, year: number, month: number): { deleted: boolean } {
+  db.prepare('DELETE FROM salary_config WHERE year = ? AND month = ?').run(year, month);
+  const { changes } = db.prepare('DELETE FROM monthly_income WHERE year = ? AND month = ?').run(year, month);
+  return { deleted: Number(changes) > 0 };
+}
+
 export function upsertSalaryConfig(db: DatabaseSync, cfg: SalaryConfig): SalaryConfig {
   db.prepare(
     `INSERT INTO salary_config (

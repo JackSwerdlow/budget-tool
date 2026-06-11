@@ -139,3 +139,8 @@ export async function getSalaryConfig(year: number, month: number): Promise<Sala
 export async function saveSalaryConfig(cfg: SalaryConfig, netMonthlyPence: number): Promise<SalaryConfigResponse> {
   return send<SalaryConfigResponse>(`salary-config/${cfg.year}/${cfg.month}`, 'PUT', { ...cfg, net_monthly_pence: netMonthlyPence });
 }
+
+export async function deleteSalaryConfig(year: number, month: number): Promise<void> {
+  const res = await fetch(`${API}salary-config/${year}/${month}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`deleteSalaryConfig failed: ${res.status}`);
+}

@@ -15,6 +15,7 @@ import {
   getBootstrap,
   getGroup,
   getList,
+  deleteSalaryConfig,
   getSalaryConfig,
   setDefaultIncome,
   setIncome,
@@ -433,6 +434,15 @@ export function createApp(db: DatabaseSync): Hono {
     }
 
     return c.json({ config: saved, inheritedFrom: null });
+  });
+
+  api.delete('/salary-config/:year/:month', (c) => {
+    const year = Number(c.req.param('year'));
+    const month = Number(c.req.param('month'));
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      return c.json({ error: 'invalid month' }, 400);
+    }
+    return c.json(deleteSalaryConfig(db, year, month));
   });
 
   app.route('/api', api);
