@@ -8,3 +8,4 @@ export * from './ledger';
 export * from './comparison';
 export * from './trends';
 export * from './netBalance';
+export * from './salary';
