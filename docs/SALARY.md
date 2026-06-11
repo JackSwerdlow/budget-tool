@@ -73,9 +73,9 @@ applying the 45% band.
 
 **Student Loan (Plan 2)**
 
-| Column | Type | Default |
+| Column | Type | Typical value |
 |---|---|---|
-| `sl_enabled` | INTEGER | 0 (false) |
+| `sl_enabled` | INTEGER | 0 — false by default; not everyone has a student loan |
 | `sl_threshold_yearly_pence` | INTEGER | 2847000 |
 | `sl_rate_pct` | REAL | 9 |
 | `sl_balance_pence` | INTEGER | null |
