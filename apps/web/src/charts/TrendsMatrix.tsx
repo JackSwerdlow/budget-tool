@@ -48,6 +48,7 @@ type RenderRow = {
   open: boolean;
   groupId?: number;
   cells: MatrixCell[];
+  prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
 export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData; defaultRent?: 'incl' | 'excl' }) {
@@ -88,6 +89,7 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
     .filter((x) => x.amounts.some((a) => a > 0));
 
   const groupMatrix = buildMatrix(visibleGroups.map((x) => ({ id: x.g.id, amounts: x.amounts })));
+  const prevCatTotals = categoryTotals(data, previousMonth(displayStart));
 
   const toggle = (id: number) =>
     setExpanded((s) => {
@@ -106,8 +108,9 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
   const renderRows: RenderRow[] = visibleGroups.flatMap((x, gi) => {
     const expandable = x.cats.length > 1;
     const open = expanded.has(x.g.id);
+    const groupPrevPence = x.cats.reduce((s, c) => s + (prevCatTotals.get(c.id) ?? 0), 0);
     const rows: RenderRow[] = [
-      { key: `g${x.g.id}`, name: x.g.name, color: x.g.color, strong: true, expandable, open, groupId: x.g.id, cells: groupMatrix[gi].cells },
+      { key: `g${x.g.id}`, name: x.g.name, color: x.g.color, strong: true, expandable, open, groupId: x.g.id, cells: groupMatrix[gi].cells, prevMonthPence: groupPrevPence },
     ];
     if (open && expandable) {
       const catData = x.cats
@@ -115,7 +118,7 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
         .filter((cd) => cd.amounts.some((a) => a > 0));
       const catMatrix = buildMatrix(catData.map((cd) => ({ id: cd.c.id, amounts: cd.amounts })));
       catData.forEach((cd, ci) =>
-        rows.push({ key: `c${cd.c.id}`, name: cd.c.name, color: cd.c.color, strong: false, expandable: false, open: false, groupId: x.g.id, cells: catMatrix[ci].cells }),
+        rows.push({ key: `c${cd.c.id}`, name: cd.c.name, color: cd.c.color, strong: false, expandable: false, open: false, groupId: x.g.id, cells: catMatrix[ci].cells, prevMonthPence: prevCatTotals.get(cd.c.id) ?? 0 }),
       );
     }
     return rows;
@@ -303,7 +306,7 @@ function Row({ row, months, onToggle, topBorder, bottomBorder }: { row: RenderRo
                 style={{ right: '1.75px', backgroundColor: heatColor(cell.heat, 0.8) }}
               />
             )}
-            <CellContent cell={cell} strong={row.strong} hovered={hovered} />
+            <CellContent cell={cell} strong={row.strong} hovered={hovered} pctOverride={j === 0 ? firstColPct(row.prevMonthPence, cell.amountPence) : undefined} />
           </div>
         );
       })}
@@ -311,9 +314,15 @@ function Row({ row, months, onToggle, topBorder, bottomBorder }: { row: RenderRo
   );
 }
 
-function CellContent({ cell, strong, hovered }: { cell: MatrixCell; strong: boolean; hovered: boolean }) {
+function firstColPct(prevPence: number, currentPence: number): number | null {
+  if (prevPence === 0) return currentPence > 0 ? Infinity : null;
+  return Math.round((currentPence - prevPence) / prevPence * 100);
+}
+
+function CellContent({ cell, strong, hovered, pctOverride }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null }) {
   // Infinity = previous month was zero (can't divide); treat as "new" entry rather than a numeric %.
-  const pct = cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : null);
+  // pctOverride is supplied for the first visible column where buildMatrix has no prior cell to compare.
+  const pct = pctOverride !== undefined ? pctOverride : cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : null);
   const priceSpan = (
     <span className={`leading-none tabular-nums ${strong ? `text-[15px] ${hovered ? 'font-bold' : 'font-semibold'}` : `text-[14px] ${hovered ? 'font-bold' : 'font-semibold'}`}`}>
       {compactGBP(cell.amountPence)}
