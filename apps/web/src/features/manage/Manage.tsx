@@ -3,9 +3,8 @@ import type { LedgerData } from '@budget/core';
 import { Segmented } from '../../components/ui';
 import { ManageEntries } from './ManageEntries';
 import { ManageTaxonomy } from './ManageTaxonomy';
-import { ManageIncome } from './ManageIncome';
 
-type View = 'entries' | 'taxonomy' | 'income';
+type View = 'entries' | 'taxonomy';
 
 export function Manage({ data }: { data: LedgerData }) {
   const [view, setView] = useState<View>('entries');
@@ -18,13 +17,11 @@ export function Manage({ data }: { data: LedgerData }) {
           options={[
             { id: 'entries', label: 'Entries' },
             { id: 'taxonomy', label: 'Taxonomy' },
-            { id: 'income', label: 'Income' },
           ]}
         />
       </div>
       {view === 'entries' && <ManageEntries data={data} />}
       {view === 'taxonomy' && <ManageTaxonomy data={data} />}
-      {view === 'income' && <ManageIncome data={data} />}
     </div>
   );
 }

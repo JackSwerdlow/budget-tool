@@ -6,13 +6,15 @@ import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
+import { Salary } from './features/salary/Salary';
 import { TrendsMatrix } from './charts/TrendsMatrix';
 
-type Tab = 'overview' | 'add' | 'manage';
+type Tab = 'overview' | 'add' | 'manage' | 'salary';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'add', label: '+ Add' },
+  { id: 'salary', label: 'Salary' },
   { id: 'manage', label: '⚙ Manage' },
 ];
 
@@ -44,6 +46,9 @@ export function App() {
       } else if (e.key === 'm') {
         e.preventDefault();
         setTab('manage');
+      } else if (e.key === 's') {
+        e.preventDefault();
+        setTab('salary');
       }
     }
     document.addEventListener('keydown', onKey);
@@ -125,6 +130,8 @@ export function App() {
               <TrendsMatrix data={data} defaultRent={globalRent} />
             )}
           </div>
+        ) : tab === 'salary' ? (
+          <Salary />
         ) : tab === 'add' ? (
           <div>
             <div className="mb-6">
@@ -149,6 +156,7 @@ export function App() {
         <span className="flex items-center gap-2">
           <Kbd>a</Kbd> add
           <Kbd>o</Kbd> overview
+          <Kbd>s</Kbd> salary
           <Kbd>m</Kbd> manage
         </span>
       </footer>
