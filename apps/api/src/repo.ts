@@ -371,3 +371,105 @@ export function clearDefaultIncome(db: DatabaseSync): { cleared: boolean } {
   const { changes } = db.prepare("DELETE FROM settings WHERE key = 'default_income_pence'").run();
   return { cleared: Number(changes) > 0 };
 }
+
+// ── Salary config ─────────────────────────────────────────────────────────────
+
+type SalaryConfigRow = {
+  year: number; month: number;
+  gross_yearly_pence: number; note: string | null;
+  hours_per_week: number; work_weeks_per_year: number; work_days_per_week: number;
+  employee_pension_pct: number; employer_pension_pct: number;
+  personal_allowance_pence: number; basic_rate_band_pence: number;
+  additional_rate_threshold_pence: number;
+  basic_rate_pct: number; higher_rate_pct: number; additional_rate_pct: number;
+  ni_lower_monthly_pence: number; ni_upper_monthly_pence: number;
+  ni_primary_pct: number; ni_upper_pct: number;
+  sl_enabled: number; sl_threshold_yearly_pence: number; sl_rate_pct: number;
+  sl_balance_pence: number | null; sl_interest_rate_pct: number | null;
+};
+
+type SalaryConfig = Omit<SalaryConfigRow, 'sl_enabled'> & { sl_enabled: boolean };
+type SalaryConfigResponse = { config: SalaryConfig | null; inheritedFrom: { year: number; month: number } | null };
+
+function rowToConfig(row: SalaryConfigRow): SalaryConfig {
+  return { ...row, sl_enabled: row.sl_enabled === 1 };
+}
+
+export function getSalaryConfig(db: DatabaseSync, year: number, month: number): SalaryConfigResponse {
+  const backward = db.prepare(
+    `SELECT * FROM salary_config
+     WHERE (year < ?) OR (year = ? AND month <= ?)
+     ORDER BY year DESC, month DESC LIMIT 1`,
+  ).get(year, year, month) as SalaryConfigRow | undefined;
+
+  if (backward) {
+    const isExact = backward.year === year && backward.month === month;
+    return {
+      config: rowToConfig(backward),
+      inheritedFrom: isExact ? null : { year: backward.year, month: backward.month },
+    };
+  }
+
+  const forward = db.prepare(
+    `SELECT * FROM salary_config
+     WHERE (year > ?) OR (year = ? AND month >= ?)
+     ORDER BY year ASC, month ASC LIMIT 1`,
+  ).get(year, year, month) as SalaryConfigRow | undefined;
+
+  if (forward) {
+    return {
+      config: rowToConfig(forward),
+      inheritedFrom: { year: forward.year, month: forward.month },
+    };
+  }
+
+  return { config: null, inheritedFrom: null };
+}
+
+export function upsertSalaryConfig(db: DatabaseSync, cfg: SalaryConfig): SalaryConfig {
+  db.prepare(
+    `INSERT INTO salary_config (
+       year, month, gross_yearly_pence, note,
+       hours_per_week, work_weeks_per_year, work_days_per_week,
+       employee_pension_pct, employer_pension_pct,
+       personal_allowance_pence, basic_rate_band_pence, additional_rate_threshold_pence,
+       basic_rate_pct, higher_rate_pct, additional_rate_pct,
+       ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
+       sl_enabled, sl_threshold_yearly_pence, sl_rate_pct,
+       sl_balance_pence, sl_interest_rate_pct
+     ) VALUES (
+       ?,?,?,?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,?,  ?,?,?,?,  ?,?,?,  ?,?
+     )
+     ON CONFLICT(year, month) DO UPDATE SET
+       gross_yearly_pence=excluded.gross_yearly_pence, note=excluded.note,
+       hours_per_week=excluded.hours_per_week,
+       work_weeks_per_year=excluded.work_weeks_per_year,
+       work_days_per_week=excluded.work_days_per_week,
+       employee_pension_pct=excluded.employee_pension_pct,
+       employer_pension_pct=excluded.employer_pension_pct,
+       personal_allowance_pence=excluded.personal_allowance_pence,
+       basic_rate_band_pence=excluded.basic_rate_band_pence,
+       additional_rate_threshold_pence=excluded.additional_rate_threshold_pence,
+       basic_rate_pct=excluded.basic_rate_pct, higher_rate_pct=excluded.higher_rate_pct,
+       additional_rate_pct=excluded.additional_rate_pct,
+       ni_lower_monthly_pence=excluded.ni_lower_monthly_pence,
+       ni_upper_monthly_pence=excluded.ni_upper_monthly_pence,
+       ni_primary_pct=excluded.ni_primary_pct, ni_upper_pct=excluded.ni_upper_pct,
+       sl_enabled=excluded.sl_enabled,
+       sl_threshold_yearly_pence=excluded.sl_threshold_yearly_pence,
+       sl_rate_pct=excluded.sl_rate_pct,
+       sl_balance_pence=excluded.sl_balance_pence,
+       sl_interest_rate_pct=excluded.sl_interest_rate_pct`,
+  ).run(
+    cfg.year, cfg.month, cfg.gross_yearly_pence, cfg.note,
+    cfg.hours_per_week, cfg.work_weeks_per_year, cfg.work_days_per_week,
+    cfg.employee_pension_pct, cfg.employer_pension_pct,
+    cfg.personal_allowance_pence, cfg.basic_rate_band_pence, cfg.additional_rate_threshold_pence,
+    cfg.basic_rate_pct, cfg.higher_rate_pct, cfg.additional_rate_pct,
+    cfg.ni_lower_monthly_pence, cfg.ni_upper_monthly_pence, cfg.ni_primary_pct, cfg.ni_upper_pct,
+    cfg.sl_enabled ? 1 : 0, cfg.sl_threshold_yearly_pence, cfg.sl_rate_pct,
+    cfg.sl_balance_pence ?? null, cfg.sl_interest_rate_pct ?? null,
+  );
+  const row = db.prepare('SELECT * FROM salary_config WHERE year = ? AND month = ?').get(cfg.year, cfg.month) as SalaryConfigRow;
+  return rowToConfig(row);
+}
