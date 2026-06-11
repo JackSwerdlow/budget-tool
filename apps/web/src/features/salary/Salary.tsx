@@ -73,8 +73,8 @@ const EMPTY_CONFIG_FIELDS = {
   ni_primary_pct: '',
   ni_upper_pct: '',
   sl_enabled: false,
-  sl_threshold_yearly_pence: '',
-  sl_rate_pct: '',
+  sl_threshold_yearly_pence: '28470.00',
+  sl_rate_pct: '9',
   sl_balance_pence: '',
   sl_interest_rate_pct: '',
 };
