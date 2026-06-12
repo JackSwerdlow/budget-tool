@@ -46,6 +46,9 @@ export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: Ledge
       }))
       .filter((r) => r.thisPence > 0 || r.lastFullPence > 0);
 
+  const groupCatCount = (groupId: number): number =>
+    data.categories.filter((c) => c.group_id === groupId && visible(c)).length;
+
   const toggle = (id: number) =>
     setExpanded((s) => {
       const n = new Set(s);
@@ -54,7 +57,7 @@ export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: Ledge
       return n;
     });
 
-  const expandableIds = groupRows.filter((r) => categoryRows(r.id).length > 1).map((r) => r.id);
+  const expandableIds = groupRows.filter((r) => groupCatCount(r.id) > 1).map((r) => r.id);
   const hasExpandable = expandableIds.length > 0;
   const allExpanded = hasExpandable && expandableIds.every((id) => expanded.has(id));
   const expandAll = () => setExpanded(new Set(expandableIds));
@@ -102,7 +105,7 @@ export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: Ledge
               const cats = categoryRows(row.id);
               return (
                 <div key={row.id} className={`overflow-hidden border-t border-hairline ${index === groupRows.length - 1 ? 'rounded-b' : ''}`}>
-                  <BarRow row={row} strong expandable={cats.length > 1} open={open} onToggle={ cats.length > 1 ? () => toggle(row.id) : undefined} />
+                  <BarRow row={row} strong expandable={groupCatCount(row.id) > 1} open={open} onToggle={groupCatCount(row.id) > 1 ? () => toggle(row.id) : undefined} />
                   {open && (
                     <div>
                       {cats.map((c) => (
