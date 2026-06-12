@@ -189,9 +189,8 @@ const GROSS_LABELS: Record<GrossField, string> = {
   yearly: 'Yearly', monthly: 'Monthly', weekly: 'Weekly', daily: 'Daily', hourly: 'Hourly',
 };
 
-export function Salary({ data }: { data: LedgerData }) {
+export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const { refresh } = useData();
-  const [ym, setYm] = useState(currentYm());
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
   const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -335,7 +334,7 @@ export function Salary({ data }: { data: LedgerData }) {
     <div className="flex flex-col gap-8">
       {/* Month picker + inherited indicator */}
       <div className="flex flex-wrap items-center gap-4">
-        <MonthPicker ym={ym} onChange={setYm} />
+        <MonthPicker ym={ym} onChange={onYmChange} />
         {inheritedFrom && (
           <span className="text-xs text-ink-muted">
             Showing values inherited from {monthLabel(`${inheritedFrom.year}-${String(inheritedFrom.month).padStart(2, '0')}`)}

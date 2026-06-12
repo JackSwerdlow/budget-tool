@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nextMonth, previousMonth } from '@budget/core';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
@@ -49,11 +50,21 @@ export function App() {
       } else if (e.key === 's') {
         e.preventDefault();
         setTab('salary');
+      } else if (e.key === 'ArrowLeft') {
+        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary') {
+          e.preventDefault();
+          setYm((prev) => previousMonth(prev));
+        }
+      } else if (e.key === 'ArrowRight') {
+        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary') {
+          e.preventDefault();
+          setYm((prev) => nextMonth(prev));
+        }
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [tab, overviewView]);
 
   return (
     <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6">
@@ -131,7 +142,7 @@ export function App() {
             )}
           </div>
         ) : tab === 'salary' ? (
-          <Salary data={data} />
+          <Salary data={data} ym={ym} onYmChange={setYm} />
         ) : tab === 'add' ? (
           <div>
             <div className="mb-6">
@@ -158,6 +169,7 @@ export function App() {
           <Kbd>o</Kbd> overview
           <Kbd>s</Kbd> salary
           <Kbd>m</Kbd> manage
+          <Kbd>←</Kbd><Kbd>→</Kbd> month
         </span>
       </footer>
     </div>
