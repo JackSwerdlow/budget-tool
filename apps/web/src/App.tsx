@@ -51,12 +51,12 @@ export function App() {
         e.preventDefault();
         setTab('salary');
       } else if (e.key === 'ArrowLeft') {
-        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary') {
+        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary' || tab === 'manage') {
           e.preventDefault();
           setYm((prev) => previousMonth(prev));
         }
       } else if (e.key === 'ArrowRight') {
-        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary') {
+        if ((tab === 'overview' && overviewView === 'month') || tab === 'salary' || tab === 'manage') {
           e.preventDefault();
           setYm((prev) => nextMonth(prev));
         }
@@ -158,7 +158,7 @@ export function App() {
             {addView === 'single' ? <AddSingle data={data} /> : <AddList data={data} />}
           </div>
         ) : (
-          <Manage data={data} />
+          <Manage data={data} ym={ym} onYmChange={setYm} />
         )}
       </main>
 

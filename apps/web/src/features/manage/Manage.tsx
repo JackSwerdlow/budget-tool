@@ -6,7 +6,7 @@ import { ManageTaxonomy } from './ManageTaxonomy';
 
 type View = 'entries' | 'taxonomy';
 
-export function Manage({ data }: { data: LedgerData }) {
+export function Manage({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const [view, setView] = useState<View>('entries');
   return (
     <div>
@@ -20,7 +20,7 @@ export function Manage({ data }: { data: LedgerData }) {
           ]}
         />
       </div>
-      {view === 'entries' && <ManageEntries data={data} />}
+      {view === 'entries' && <ManageEntries data={data} ym={ym} onYmChange={onYmChange} />}
       {view === 'taxonomy' && <ManageTaxonomy data={data} />}
     </div>
   );

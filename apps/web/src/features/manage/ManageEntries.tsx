@@ -4,15 +4,14 @@ import { deleteEntry, deleteList, updateEntry } from '../../api';
 import { useData } from '../../data';
 import { MonthPicker } from '../../components/ui';
 import { CategorySelect } from '../../components/CategorySelect';
-import { dayHeading, todayISO } from '../../lib/dates';
+import { dayHeading } from '../../lib/dates';
 
 type EntryRow = { kind: 'entry'; date: string; created_at: string; entry: Entry };
 type ListRow = { kind: 'list'; date: string; created_at: string; list: BudgetList };
 type DayRow = EntryRow | ListRow;
 
-export function ManageEntries({ data }: { data: LedgerData }) {
+export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const { refresh } = useData();
-  const [ym, setYm] = useState(todayISO().slice(0, 7));
   const [editing, setEditing] = useState<number | null>(null);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
@@ -50,7 +49,7 @@ export function ManageEntries({ data }: { data: LedgerData }) {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-serif text-base text-ink">Past entries</h3>
-        <MonthPicker ym={ym} onChange={setYm} />
+        <MonthPicker ym={ym} onChange={onYmChange} />
       </div>
 
       {rows.length === 0 ? (
