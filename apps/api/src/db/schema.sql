@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS salary_config (
   sl_rate_pct                      REAL    NOT NULL DEFAULT 9,
   sl_balance_pence                 INTEGER,
   sl_interest_rate_pct             REAL,
+  bonus_pence                      INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (year, month)
 );
 

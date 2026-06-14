@@ -1,4 +1,4 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse } from '@budget/core';
+import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD } from '@budget/core';
 
 // Resolve the API root relative to where the app is actually served, so it works at
 // the origin root AND behind a sub-path reverse proxy (e.g. /proxy/8100/api/…).
@@ -134,6 +134,12 @@ export async function getSalaryConfig(year: number, month: number): Promise<Sala
   const res = await fetch(`${API}salary-config/${year}/${month}`);
   if (!res.ok) throw new Error(`getSalaryConfig failed: ${res.status}`);
   return res.json() as Promise<SalaryConfigResponse>;
+}
+
+export async function getSalaryYTD(year: number, month: number): Promise<SalaryYTD> {
+  const res = await fetch(`${API}salary-ytd/${year}/${month}`);
+  if (!res.ok) throw new Error(`getSalaryYTD failed: ${res.status}`);
+  return res.json() as Promise<SalaryYTD>;
 }
 
 export async function saveSalaryConfig(cfg: SalaryConfig, netMonthlyPence: number): Promise<SalaryConfigResponse> {

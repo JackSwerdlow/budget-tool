@@ -37,40 +37,128 @@ function pctRow(key: string, label: string, value: number): SalaryRow {
   };
 }
 
-export function calcSalary(cfg: SalaryConfig): SalaryBreakdown {
+// Cumulative PAYE tax on `cumAdjNetPence` of actual earnings across `m` tax periods.
+function  taxOnCumulative(
+  cumAdjNetPence: number,
+  m: number,
+  monthlyPA: number,
+  monthlyBRB: number,
+  monthlyARTaxable: number,
+  cfg: SalaryConfig,
+): number {
+  if (cumAdjNetPence <= 0 || m <= 0) return 0;
+  const t = Math.floor(Math.max(0, cumAdjNetPence - m * monthlyPA) / 100) * 100;
+  const roundedBRB = Math.ceil(monthlyBRB * m / 100) * 100;
+  if (t <= roundedBRB) {
+    const basic = t * cfg.basic_rate_pct / 100;
+    return basic
+  }
+  else if (t <= (monthlyARTaxable * m)) {
+    const basic = Math.floor((roundedBRB * cfg.higher_rate_pct / 100) - (monthlyBRB * m * cfg.basic_rate_pct / 100))
+    const higher = (t - roundedBRB) * cfg.higher_rate_pct / 100
+    return basic + higher
+  }
+  else {
+  const basic  = Math.min(t, monthlyBRB * m) * cfg.basic_rate_pct / 100;
+  const higher = Math.max(0, Math.min(t, monthlyARTaxable * m) - monthlyBRB * m) * cfg.higher_rate_pct / 100;
+  const addl   = Math.max(0, t - monthlyARTaxable * m) * cfg.additional_rate_pct / 100;
+  return basic + higher + addl;
+  }
+}
+
+export function calcSalary(
+  cfg: SalaryConfig,
+  employmentStart?: { year: number; month: number },
+  ytdInput?: { adjustedNetYTDPence: number; priorAdjNetYTDPence: number },
+): SalaryBreakdown {
+  // Salary + Bonus
   const grossY = cfg.gross_yearly_pence;
+  const grossM = grossY/12
+  const bonusY = cfg.bonus_pence ?? 0;
+  const bonusM = bonusY/12
 
-  // Employer pension
-  const employerPensionY = Math.round(grossY * cfg.employer_pension_pct / 100);
-  const totalCompY = grossY + employerPensionY;
+  // Employer pension (salary only — bonus excluded)
+  const employerPensionM = Math.round(grossM * cfg.employer_pension_pct / 100);
+  const employerPensionY = employerPensionM*12;
 
-  // Employee pension (deduction — negative)
-  const employeePensionY = -Math.round(grossY * cfg.employee_pension_pct / 100);
-  const adjustedNetY = grossY + employeePensionY;
+  // Total Compensation
+  const totalCompM = grossM + bonusM + employerPensionM;
+  const totalCompY = totalCompM * 12;
 
-  // Taxable income (floored at 0)
-  const taxableY = Math.max(0, adjustedNetY - cfg.personal_allowance_pence);
+  // Employee pension (salary only — bonus excluded, deduction — negative)
+  const employeePensionM = -Math.round(grossM * cfg.employee_pension_pct / 100);
+  const employeePensionY = employeePensionM*12;
 
-  // Additional rate threshold as a taxable income boundary
-  const addRateTaxableY = Math.max(0, cfg.additional_rate_threshold_pence - cfg.personal_allowance_pence);
+  // Adjusted Net Income (Gross - Pension Deductions)
+  const adjustedNetM = grossM + bonusM + employeePensionM;
+  const adjustedNetY = adjustedNetM * 12;
 
-  // Income tax across three bands
-  const basicTax = Math.min(taxableY, cfg.basic_rate_band_pence) * cfg.basic_rate_pct / 100;
-  const higherTax = Math.max(0, Math.min(taxableY, addRateTaxableY) - cfg.basic_rate_band_pence) * cfg.higher_rate_pct / 100;
-  const additionalTax = Math.max(0, taxableY - addRateTaxableY) * cfg.additional_rate_pct / 100;
-  const taxRounded = Math.round(basicTax + higherTax + additionalTax);
-  const incomeTaxY = taxRounded === 0 ? 0 : -taxRounded;
+  // Allowances/Tax Bands
+  const monthlyPA  = cfg.personal_allowance_pence / 12;
+  const monthlyBRB = cfg.basic_rate_band_pence / 12;
+  const monthlyART = cfg.additional_rate_threshold_pence / 12; 
 
-  // NI — calculated monthly then annualised
-  const monthlyGross = grossY / 12;
+  // Personal allowance tapering: PA reduces by £1 for every £2 of adjusted yearly net income above £100k.
+  // The taper start is derived: additional_rate_threshold − 2 × standard_PA = £125,140 − 2×£12,570 = £100,000.
+  // Slightly incorrect as technically this would use a different tax code - fix later.
+  const paTaperStartM = Math.round((monthlyART) - 2 * (monthlyPA));
+  const effectivePaM = Math.max(0, (monthlyPA) - Math.max(0, Math.floor((adjustedNetM - paTaperStartM) / 2)));
+  const effectivePaY = effectivePaM * 12;
+
+  const monthlyARTaxable  = Math.max(0, monthlyART - effectivePaM);
+
+  // Taxable income display (floored at 0)
+  const taxableY = Math.max(0, adjustedNetY - effectivePaY);
+
+  // Income tax (PAYE) — cumulative system.
+  // Tax period within the UK tax year (April = 1, ..., March = 12).
+  const taxPeriod = cfg.month >= 4 ? cfg.month - 3 : cfg.month + 9;
+  const configTaxYear = cfg.month >= 4 ? cfg.year : cfg.year - 1;
+
+  // How many months of this salary have been earned so far in this tax year.
+  // Defaults to taxPeriod (employed since April → steady-state).
+  let monthsEmployed = taxPeriod;
+  if (employmentStart) {
+    const startTY = employmentStart.month >= 4 ? employmentStart.year : employmentStart.year - 1;
+    if (startTY === configTaxYear) {
+      const startPeriod = employmentStart.month >= 4 ? employmentStart.month - 3 : employmentStart.month + 9;
+      monthsEmployed = Math.max(1, taxPeriod - startPeriod + 1);
+    }
+  }
+
+  let monthlyTax: number;
+  if (monthsEmployed < taxPeriod) {
+    // Mid-year start: cumulative PAYE — unused prior-period PA absorbs earnings until exhausted.
+    // Use actual per-month YTD when provided; otherwise fall back to flat-salary approximation.
+    const M = taxPeriod, N = monthsEmployed;
+    const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  N      * adjustedNetM;
+    const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (N - 1) * adjustedNetM;
+    monthlyTax =
+      taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg) -
+      taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+  } else {
+    // Steady-state (employed since April): simple monthly floor — matches payslip for flat salary.
+    const M = taxPeriod;
+    const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  M      * adjustedNetM;
+    const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (M - 1) * adjustedNetM;
+    monthlyTax = Math.floor(
+      taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg) -
+      taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg),
+    );
+  }
+  const incomeTaxY = monthlyTax === 0 ? 0 : -(monthlyTax * 12);
+
+  // NI — calculated monthly then annualised (bonus included in monthly base)
+  const monthlyGross = (grossY + bonusY) / 12;
   const niPrimary = Math.max(0, Math.min(monthlyGross, cfg.ni_upper_monthly_pence) - cfg.ni_lower_monthly_pence) * cfg.ni_primary_pct / 100;
   const niUpper = Math.max(0, monthlyGross - cfg.ni_upper_monthly_pence) * cfg.ni_upper_pct / 100;
   const niY = -Math.round((niPrimary + niUpper) * 12);
 
-  // Student Loan — ROUNDDOWN to nearest whole £ per month, then annualise
+  // Student Loan — ROUNDDOWN to nearest whole £ per month, then annualise (bonus included)
+  const totalEarningsY = grossY + bonusY;
   let slY = 0;
-  if (cfg.sl_enabled && grossY > cfg.sl_threshold_yearly_pence) {
-    const slMonthlyRaw = (grossY - cfg.sl_threshold_yearly_pence) * cfg.sl_rate_pct / 100 / 12;
+  if (cfg.sl_enabled && totalEarningsY > cfg.sl_threshold_yearly_pence) {
+    const slMonthlyRaw = (totalEarningsY - cfg.sl_threshold_yearly_pence) * cfg.sl_rate_pct / 100 / 12;
     const slMonthly = -(Math.floor(slMonthlyRaw / 100) * 100); // ROUNDDOWN to whole £
     slY = slMonthly * 12;
   }
@@ -79,14 +167,15 @@ export function calcSalary(cfg: SalaryConfig): SalaryBreakdown {
   const netPayY = adjustedNetY + incomeTaxY + niY + slY;
   const inclCompY = totalCompY + totalDeductionsY;
 
-  const effectiveTaxRate = grossY > 0 ? -totalDeductionsY / grossY : 0;
-  const netPayPct = grossY > 0 ? netPayY / grossY : 0;
+  const effectiveTaxRate = totalEarningsY > 0 ? -totalDeductionsY / totalEarningsY : 0;
+  const netPayPct = totalEarningsY > 0 ? netPayY / totalEarningsY : 0;
 
   const rows: SalaryRow[] = [
     row('gross', 'Gross Income', grossY, cfg),
     row('employerPension', 'Employer Pension', employerPensionY, cfg),
     row('totalComp', 'Total Compensation', totalCompY, cfg, { summary: true }),
     row('employeePension', 'Employee Pension', employeePensionY, cfg, { deduction: true }),
+    ...(bonusY > 0 ? [row('bonus', 'Bonus', bonusY, cfg)] : []),
     row('adjustedNet', 'Adjusted Net Income', adjustedNetY, cfg),
     row('taxableIncome', 'Taxable Income', taxableY, cfg),
     row('incomeTax', 'Income Tax', incomeTaxY, cfg, { deduction: true }),

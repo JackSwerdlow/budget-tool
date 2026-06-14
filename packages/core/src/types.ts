@@ -91,6 +91,7 @@ export type SalaryConfig = {
   sl_rate_pct: number;
   sl_balance_pence: number | null;
   sl_interest_rate_pct: number | null;
+  bonus_pence?: number;
 };
 
 export type SalaryFigures = {
@@ -115,7 +116,19 @@ export type SalaryBreakdown = {
   netMonthlyPence: number;
 };
 
+export type SalaryYTD = {
+  taxYear: number;
+  employmentStart: { year: number; month: number } | null;
+  grossYTDPence: number;
+  employeePensionYTDPence: number;
+  adjustedNetYTDPence: number;
+  priorAdjNetYTDPence: number;
+  niYTDPence: number;
+  slYTDPence: number;
+};
+
 export type SalaryConfigResponse = {
   config: SalaryConfig | null;
   inheritedFrom: { year: number; month: number } | null;
+  employmentStart: { year: number; month: number } | null;
 };

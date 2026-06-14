@@ -17,6 +17,7 @@ import {
   getList,
   deleteSalaryConfig,
   getSalaryConfig,
+  getSalaryYTD,
   setDefaultIncome,
   setIncome,
   updateCategory,
@@ -346,6 +347,15 @@ export function createApp(db: DatabaseSync): Hono {
   });
 
   // ── Salary config ───────────────────────────────────────────────────────────
+  api.get('/salary-ytd/:year/:month', (c) => {
+    const year = Number(c.req.param('year'));
+    const month = Number(c.req.param('month'));
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      return c.json({ error: 'invalid month' }, 400);
+    }
+    return c.json(getSalaryYTD(db, year, month));
+  });
+
   api.get('/salary-config/:year/:month', (c) => {
     const year = Number(c.req.param('year'));
     const month = Number(c.req.param('month'));
@@ -417,6 +427,7 @@ export function createApp(db: DatabaseSync): Hono {
       sl_enabled: Boolean(body.sl_enabled),
       sl_threshold_yearly_pence: slThreshold, sl_rate_pct: slRate,
       sl_balance_pence: slBalance, sl_interest_rate_pct: slInterest,
+      bonus_pence: body.bonus_pence == null ? 0 : Number(body.bonus_pence),
     };
 
     const saved = upsertSalaryConfig(db, cfg);

@@ -906,6 +906,7 @@ upsertSalaryConfig(db, {
   sl_rate_pct: 9,
   sl_balance_pence: 4_587_100,
   sl_interest_rate_pct: 4.3,
+  bonus_pence: 0,
 });
 
 setIncome(db, 2025, 11, 335995);

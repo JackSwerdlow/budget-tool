@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, formatGBP, type LedgerData, type SalaryConfig } from '@budget/core';
-import { deleteSalaryConfig, getSalaryConfig, saveSalaryConfig } from '../../api';
+import { calcSalary, formatGBP, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
+import { deleteSalaryConfig, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel } from '../../components/ui';
 import { useData } from '../../data';
 import { monthLabel, todayISO } from '../../lib/dates';
@@ -57,23 +57,24 @@ function toYearlyPounds(
 // ── default config values (for empty fields) ─────────────────────────────────
 
 const EMPTY_CONFIG_FIELDS = {
+  bonus_pence: '',
   hours_per_week: '37',
   work_weeks_per_year: '52',
   work_days_per_week: '5',
   employee_pension_pct: '',
   employer_pension_pct: '',
-  personal_allowance_pence: '',
-  basic_rate_band_pence: '',
-  additional_rate_threshold_pence: '',
-  basic_rate_pct: '',
-  higher_rate_pct: '',
-  additional_rate_pct: '',
-  ni_lower_monthly_pence: '',
-  ni_upper_monthly_pence: '',
-  ni_primary_pct: '',
-  ni_upper_pct: '',
+  personal_allowance_pence: '12579.17',
+  basic_rate_band_pence: '37700.00',
+  additional_rate_threshold_pence: '125140.00',
+  basic_rate_pct: '20',
+  higher_rate_pct: '40',
+  additional_rate_pct: '45',
+  ni_lower_monthly_pence: '1480.00',
+  ni_upper_monthly_pence: '4189.00',
+  ni_primary_pct: '8',
+  ni_upper_pct: '2',
   sl_enabled: false,
-  sl_threshold_yearly_pence: '28470.00',
+  sl_threshold_yearly_pence: '29385.00',
   sl_rate_pct: '9',
   sl_balance_pence: '',
   sl_interest_rate_pct: '',
@@ -81,6 +82,7 @@ const EMPTY_CONFIG_FIELDS = {
 
 function configToFields(cfg: SalaryConfig) {
   return {
+    bonus_pence: cfg.bonus_pence && cfg.bonus_pence > 0 ? poundsToDisplay(cfg.bonus_pence / 12) : '',
     hours_per_week: String(cfg.hours_per_week),
     work_weeks_per_year: String(cfg.work_weeks_per_year),
     work_days_per_week: String(cfg.work_days_per_week),
@@ -114,6 +116,7 @@ function fieldsToConfig(year: number, month: number, grossPounds: number, note: 
     year, month,
     gross_yearly_pence: Math.round(grossPounds * 100),
     note: note.trim() || null,
+    bonus_pence: fields.bonus_pence ? Math.round(parseFloat(String(fields.bonus_pence)) * 12 * 100) : 0,
     hours_per_week: p('hours_per_week'),
     work_weeks_per_year: p('work_weeks_per_year'),
     work_days_per_week: p('work_days_per_week'),
@@ -192,6 +195,8 @@ const GROSS_LABELS: Record<GrossField, string> = {
 export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const { refresh } = useData();
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
+  const [employmentStart, setEmploymentStart] = useState<{ year: number; month: number } | null>(null);
+  const [ytdData, setYtdData] = useState<SalaryYTD | null>(null);
   const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -221,8 +226,13 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     setClearArmed(false);
     const { year, month } = ymToYearMonth(ymStr);
     try {
-      const resp = await getSalaryConfig(year, month);
+      const [resp, ytd] = await Promise.all([
+        getSalaryConfig(year, month),
+        getSalaryYTD(year, month),
+      ]);
       setInheritedFrom(resp.inheritedFrom);
+      setEmploymentStart(resp.employmentStart ?? null);
+      setYtdData(ytd);
       setHasSavedConfig(resp.config != null && resp.inheritedFrom === null);
       if (resp.config) {
         const fields = configToFields(resp.config);
@@ -264,15 +274,19 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     });
   };
 
-  // Breakdown calculation (memoised)
+  // Breakdown calculation (memoised).
+  // employmentStart = earliest month this salary was in effect this tax year (drives cumulative PAYE).
   const breakdown = useMemo(() => {
     const yearlyPounds = parsePounds(gross.yearly);
     if (yearlyPounds == null) return null;
     const { year, month } = ymToYearMonth(ym);
     const cfg = fieldsToConfig(year, month, yearlyPounds, note, configFields);
     if (!cfg) return null;
-    try { return calcSalary(cfg); } catch { return null; }
-  }, [gross.yearly, note, configFields, ym]);
+    const ytdInput = ytdData
+      ? { adjustedNetYTDPence: ytdData.adjustedNetYTDPence, priorAdjNetYTDPence: ytdData.priorAdjNetYTDPence }
+      : undefined;
+    try { return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput); } catch { return null; }
+  }, [gross.yearly, note, configFields, ym, employmentStart, ytdData]);
 
   // Save — breakdown is always non-null here (Save button is disabled when breakdown is null)
   const onSave = async () => {
@@ -369,17 +383,22 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
               />
             </div>
 
-            {/* Time & Hours disclosure */}
+            {/* Pay Details disclosure */}
             <button
               type="button"
               onClick={() => setTimeOpen((o) => !o)}
               className="mt-4 flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
             >
               <span className={`transition-transform ${timeOpen ? 'rotate-90' : ''}`}>▶</span>
-              Time & Hours
+              Pay Details
             </button>
             {timeOpen && (
-              <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <PoundInput
+                  label="Monthly Bonus"
+                  value={configFields.bonus_pence}
+                  onChange={(v) => setConfigFields((p) => ({ ...p, bonus_pence: v }))}
+                />
                 <div>
                   <label className={labelClass}>Hours / week</label>
                   <input className={inputClass} value={configFields.hours_per_week} onChange={(e) => setConfigFields((p) => ({ ...p, hours_per_week: e.target.value }))} inputMode="decimal" />
