@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { nextMonth, previousMonth } from '@budget/core';
-import { monthLabel } from '../lib/dates';
+import { monthLabel, todayISO } from '../lib/dates';
 
 export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -57,25 +57,37 @@ export function Segmented<T extends string>({
 }
 
 export function MonthPicker({ ym, onChange }: { ym: string; onChange: (ym: string) => void }) {
+  const currentYm = todayISO().slice(0, 7);
   return (
-    <div className="inline-flex items-center rounded-lg border border-hairline bg-raised">
-      <button
-        type="button"
-        aria-label="Previous month"
-        onClick={() => onChange(previousMonth(ym))}
-        className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
-      >
-        ‹
-      </button>
-      <span className="min-w-[8.5rem] text-center font-serif text-sm text-ink">{monthLabel(ym)}</span>
-      <button
-        type="button"
-        aria-label="Next month"
-        onClick={() => onChange(nextMonth(ym))}
-        className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
-      >
-        ›
-      </button>
+    <div className="inline-flex items-center gap-2">
+      <div className="inline-flex items-center rounded-lg border border-hairline bg-raised">
+        <button
+          type="button"
+          aria-label="Previous month"
+          onClick={() => onChange(previousMonth(ym))}
+          className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
+        >
+          ‹
+        </button>
+        <span className="min-w-[8.5rem] text-center font-serif text-sm text-ink">{monthLabel(ym)}</span>
+        <button
+          type="button"
+          aria-label="Next month"
+          onClick={() => onChange(nextMonth(ym))}
+          className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
+        >
+          ›
+        </button>
+      </div>
+      {ym !== currentYm && (
+        <button
+          type="button"
+          onClick={() => onChange(currentYm)}
+          className="text-xs text-ink-muted transition-colors hover:text-accent"
+        >
+          Today
+        </button>
+      )}
     </div>
   );
 }

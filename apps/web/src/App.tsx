@@ -68,7 +68,7 @@ export function App() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6">
-      <header className="flex items-baseline justify-between border-b border-hairline pb-4 pt-8">
+      <header className="flex flex-wrap items-baseline justify-between gap-y-2 border-b border-hairline pb-4 pt-8">
         <div>
           <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Ledger</h1>
           <p className="mt-1 text-sm text-ink-muted">A personal budget account book</p>
@@ -164,7 +164,7 @@ export function App() {
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint">
         <span>Ledger · a local, single-user budget book — everything updates live</span>
-        <span className="flex items-center gap-2">
+        <span className="hidden items-center gap-2 sm:flex">
           <Kbd>a</Kbd> add
           <Kbd>o</Kbd> overview
           <Kbd>s</Kbd> salary

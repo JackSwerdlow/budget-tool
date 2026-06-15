@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
 import { Kbd, Panel, Segmented } from '../components/ui';
-import { todayISO } from '../lib/dates';
+import { monthLabel, todayISO } from '../lib/dates';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
@@ -27,6 +27,12 @@ export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: Ledger
             Record your first spend under <span className="text-ink">+ Add</span> (or press <Kbd>a</Kbd>). Every total,
             chart and comparison below updates live.
           </p>
+        </div>
+      )}
+
+      {!noData && inclTotal === 0 && (
+        <div className="rounded-lg border border-dashed border-hairline-strong bg-panel p-4 text-center text-sm text-ink-muted">
+          No spend recorded for {monthLabel(ym)} yet — the totals and charts below fill in as you add entries.
         </div>
       )}
 

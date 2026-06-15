@@ -353,7 +353,7 @@ function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { ce
     <>
       <div className="flex flex-col items-center gap-0.5">
         {priceSpan}
-        <span className="leading-none font-semibold" style={{ fontSize: 12 }}>+-%</span>
+        <span className="leading-none font-semibold" style={{ fontSize: 12 }}>new</span>
       </div>
       <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">
         <span className="leading-none font-semibold" style={{ fontSize: 24, color: '#1a7a3c' }}>↑</span>
@@ -413,7 +413,7 @@ function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; m
             <>
               <div className="flex flex-col items-center gap-0.5">
                 {priceSpan}
-                <span className="leading-none font-semibold opacity-50" style={{ fontSize: 12 }}>+-%</span>
+                <span className="leading-none font-semibold opacity-50" style={{ fontSize: 12 }}>new</span>
               </div>
               <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">
                 <span className="leading-none font-semibold" style={{ fontSize: 24, color: '#1a7a3c' }}>↑</span>
