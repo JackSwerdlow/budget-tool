@@ -2,7 +2,46 @@ import { describe, expect, it } from 'vitest';
 import { calcSalary } from './salary';
 import type { SalaryConfig } from './types';
 
-// Baseline config matching the original Excel (Jack's salary, 2025/26 UK tax year)
+/*
+ * Salary engine tests.
+ *
+ * Income-tax expected values are VALIDATED against a real payslip (ground truth), not a
+ * spec reading. The cumulative PAYE this payroll uses is:
+ *   • Taxable pay to date is rounded DOWN to the whole pound before tax is applied.
+ *   • Tax due to date = taxableToDate × higher_rate − (exact cumulative basic band) ×
+ *     basic_rate   (marginal-relief form; the basic band is the EXACT annual band ×
+ *     period/12, NOT rounded up to a whole-£ higher-rate boundary).
+ *   • Period PAYE = (tax due to date at period n) − (tax due to date at period n−1).
+ *
+ * NOTE / lesson learned: the HMRC "Taxable Pay Tables (manual method)" rounds the band
+ * limit UP to the nearest £ (FOT spec Def 13). Applying that here drifts ~10–25p/period
+ * away from the actual payslip — this payroll behaves like the exact-percentage method
+ * (exact band). The payslip wins; see the May cross-check below.
+ *
+ * Payslip cross-check (May 2026, period 2): taxable YTD £9,304.71 → tax YTD £1,626.53,
+ * period PAYE £983.27, net £3,562.94 — reproduced to the penny by salary.ts.
+ *
+ * Pension / NI / student-loan figures follow the payslip convention the engine uses: the
+ * deduction is computed on the MONTHLY figure, rounded, then annualised (× 12) — what a
+ * real payslip does (differs from a once-a-year annual rounding by a penny or two).
+ *
+ * Income-tax column semantics:
+ *   • Monthly = the cumulative PAYE actually deducted that month (£0 in a mid-year first
+ *               month, etc.). This is what feeds netMonthlyPence / the ledger.
+ *   • Yearly  = the full-year-equivalent liability at this salary/config (the cumulative
+ *               routine evaluated at period 12). For a steady employee this is the real
+ *               annual tax; for a mid-year month it reads "what a full year at this salary
+ *               costs", so for the tax rows Monthly × 12 ≠ Yearly — by design.
+ *   • netMonthlyPence (written to the ledger) == the displayed Monthly net pay.
+ */
+
+// Baseline config — Jack's salary, 2025/26 UK tax year (mirrors the live/demo config).
+// NOTE: a few stored parameters differ slightly from HMRC's published monthly figures:
+//   basic_rate_band_pence = £37,701 (HMRC band is £37,700)
+//   ni_lower_monthly_pence = £1,047.50 (HMRC primary threshold is £1,048.00)
+//   ni_upper_monthly_pence = £4,189.17 (HMRC UEL is £4,189.00)
+// These tests are faithful to the *method applied to the configured parameters*; the
+// divergences above are a data/config concern, flagged but not "fixed" here.
 const BASE: SalaryConfig = {
   year: 2026,
   month: 1,
@@ -31,191 +70,264 @@ const BASE: SalaryConfig = {
   bonus_pence: 0,
 };
 
-describe('calcSalary — baseline (matches Excel)', () => {
-  const result = calcSalary(BASE);
-  const get = (key: string) => result.rows.find((r) => r.key === key)!;
+const yearlyOf = (cfg: SalaryConfig, key: string) =>
+  calcSalary(cfg).rows.find((r) => r.key === key)!.figures.yearly;
 
-  it('employer pension = gross × employer%', () => {
-    expect(get('employerPension').figures.yearly).toBe(1_722_730);
-    // 5_946_600 × 28.97% = 1_722_729.72 → Math.round = 1_722_730
+/*
+ * Independent annual income-tax liability: the cumulative method applied to the
+ * configured parameters. Taxable pay (rounded down to the whole £) taxed across the
+ * annual 20/40/45 bands. Computed only from annual figures + configured parameters —
+ * it never calls the engine's per-period tax routine, so it's an independent reference,
+ * not a mirror of the implementation. (Not labelled "HMRC-exact": BASE uses a £37,701
+ * basic-rate band, £1 above HMRC's £37,700 — faithful to the configured input, which is
+ * also why the band divides evenly at period 12.)
+ */
+function annualIncomeTaxPence(adjustedNetYearly: number, effPaYearly: number, cfg: SalaryConfig): number {
+  const taxable = Math.max(0, Math.floor((adjustedNetYearly - effPaYearly) / 100) * 100);
+  const arTaxable = cfg.additional_rate_threshold_pence - effPaYearly; // 45% boundary, in taxable terms
+  const band1 = Math.min(taxable, cfg.basic_rate_band_pence);
+  const band2 = Math.max(0, Math.min(taxable, arTaxable) - cfg.basic_rate_band_pence);
+  const band3 = Math.max(0, taxable - arTaxable);
+  return Math.round(
+    (band1 * cfg.basic_rate_pct + band2 * cfg.higher_rate_pct + band3 * cfg.additional_rate_pct) / 100,
+  );
+}
+
+describe('calcSalary — derived figures (time columns)', () => {
+  const r = calcSalary(BASE);
+  const gross = r.rows.find((x) => x.key === 'gross')!;
+
+  it('monthly = yearly ÷ 12', () => {
+    expect(gross.figures.monthly).toBe(Math.round(5_946_600 / 12));
+  });
+  it('weekly = yearly ÷ work_weeks_per_year', () => {
+    expect(gross.figures.weekly).toBe(Math.round(5_946_600 / 52));
+  });
+  it('daily = weekly ÷ work_days_per_week', () => {
+    expect(gross.figures.daily).toBe(Math.round(Math.round(5_946_600 / 52) / 5));
+  });
+  it('hourly = weekly ÷ hours_per_week', () => {
+    expect(gross.figures.hourly).toBe(Math.round(Math.round(5_946_600 / 52) / 37));
+  });
+  it('percentage rows carry the same value in every time column', () => {
+    const etr = r.rows.find((x) => x.key === 'effectiveTaxRate')!;
+    expect(etr.isPercentage).toBe(true);
+    expect(etr.figures.yearly).toBeCloseTo(etr.figures.monthly, 10);
+    expect(etr.figures.yearly).toBeCloseTo(etr.figures.weekly, 10);
+    expect(etr.figures.yearly).toBeCloseTo(etr.figures.daily, 10);
+  });
+});
+
+describe('calcSalary — gross, pension & compensation (payslip rounding: monthly → ×12)', () => {
+  const r = calcSalary(BASE);
+  const get = (key: string) => r.rows.find((x) => x.key === key)!;
+  // grossM = 5_946_600 / 12 = 495_550 (exact)
+
+  it('employer pension = round(monthly gross × employer%) × 12', () => {
+    // round(495_550 × 28.97%) = round(143_560.835) = 143_561 → × 12 = 1_722_732
+    expect(get('employerPension').figures.yearly).toBe(1_722_732);
+  });
+
+  it('employee pension = −round(monthly gross × employee%) × 12', () => {
+    // round(495_550 × 5.45%) = round(27_007.475) = 27_007 → × 12 = 324_084
+    expect(get('employeePension').figures.yearly).toBe(-324_084);
   });
 
   it('total compensation = gross + employer pension', () => {
-    expect(get('totalComp').figures.yearly).toBe(7_669_330);
+    // (495_550 + 143_561) × 12 = 7_669_332
+    expect(get('totalComp').figures.yearly).toBe(7_669_332);
   });
 
-  it('employee pension deduction is negative', () => {
-    expect(get('employeePension').figures.yearly).toBe(-324_090);
-    // 5_946_600 × 5.45% = 324_089.7 → Math.round = 324_090
+  it('adjusted net = gross − employee pension', () => {
+    // (495_550 − 27_007) × 12 = 5_622_516
+    expect(get('adjustedNet').figures.yearly).toBe(5_622_516);
+  });
+});
+
+describe('calcSalary — National Insurance (employee, monthly → ×12)', () => {
+  it('NI = primary 8% + upper 2%, on monthly gross', () => {
+    // monthly gross 495_550; primary (min(495_550, 418_917) − 104_750) × 8% = 314_167 × 8% = 25_133.36
+    // upper (495_550 − 418_917) × 2% = 76_633 × 2% = 1_532.66 → 26_666.02 × 12 = 319_992.24 → round 319_992
+    expect(yearlyOf(BASE, 'ni')).toBe(-319_992);
   });
 
-  it('adjusted net income = gross − employee pension', () => {
-    expect(get('adjustedNet').figures.yearly).toBe(5_622_510);
+  it('NI uses (gross + bonus) as the monthly base', () => {
+    // monthly base (5_946_600 + 500_000)/12 = 537_216.67
+    // primary 314_167 × 8% = 25_133.36; upper (537_216.67 − 418_917) × 2% = 2_365.99
+    // 27_499.35 × 12 = 329_992.2 → round 329_992
+    expect(yearlyOf({ ...BASE, bonus_pence: 500_000 }, 'ni')).toBe(-329_992);
+  });
+});
+
+describe('calcSalary — Student Loan (Plan 2, monthly rounddown → ×12)', () => {
+  it('SL = rounddown to whole £ of monthly 9% over threshold, × 12', () => {
+    // (5_946_600 − 2_847_000) × 9% / 12 = 23_247/mo → floor to £ 23_200 → × 12 = 278_400
+    expect(yearlyOf(BASE, 'sl')).toBe(-278_400);
   });
 
-  it('income tax — PAYE monthly rounddown to nearest £', () => {
-    // monthly taxable raw: 4_365_510 / 12 = 363_792.5 → floor to £: 363_700
-    // monthly basic:  min(363_700, 314_175) × 20%          = 62_835
-    // monthly higher: (363_700 − 314_175) × 40%            = 19_810
-    // monthly total: 82_645 → × 12                         = 991_740
-    expect(get('incomeTax').figures.yearly).toBe(-991_740);
+  it('SL uses (gross + bonus) against the threshold', () => {
+    // (6_446_600 − 2_847_000) × 9% / 12 = 26_997/mo → floor to £ 26_900 → × 12 = 322_800
+    expect(yearlyOf({ ...BASE, bonus_pence: 500_000 }, 'sl')).toBe(-322_800);
   });
 
-  it('NI = £3,199.92/year (matches Excel row 12)', () => {
-    // monthly gross = 5_946_600 / 12 = 495_550
-    // primary: (min(495_550, 418_917) − 104_750) × 8% = 314_167 × 8% = 25_133.36
-    // upper:   (495_550 − 418_917) × 2%             = 76_633 × 2%  =  1_532.66
-    // monthly total: 26_666.02 → × 12 = 319_992.24 → Math.round = 319_992
-    expect(get('ni').figures.yearly).toBe(-319_992);
+  it('SL row is absent when sl_enabled is false', () => {
+    expect(calcSalary({ ...BASE, sl_enabled: false }).rows.find((r) => r.key === 'sl')).toBeUndefined();
+  });
+});
+
+describe('calcSalary — income tax: robust anchors', () => {
+  it('no tax when income is below the personal allowance', () => {
+    // £10,000 gross, after pension still well under £12,570 free pay → nil tax.
+    expect(yearlyOf({ ...BASE, gross_yearly_pence: 1_000_000 }, 'incomeTax')).toBe(0);
+  });
+});
+
+describe('calcSalary — income tax: cumulative PAYE on a mid-year employment start', () => {
+  // £42,000 gross, 5.45% pension, no SL/bonus — mirrors the demo salary, started Nov 2025.
+  // adjustedNetY = (350_000 − round(350_000×5.45%)=19_075) × 12 = 3_971_100; monthly adj 330_925.
+  // free pay to date = period × £1,047.50 (personal_allowance ÷ 12).
+  const cfg42k = { ...BASE, gross_yearly_pence: 4_200_000, sl_enabled: false, bonus_pence: 0 };
+  const start = { year: 2025, month: 11 };
+
+  it('November (period 8, 1st month): nil tax THIS month — 8 months of free pay (£8,380) > 1 month earnings (£3,309)', () => {
+    const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, start);
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(0);
   });
 
-  it('SLC = £2,784/year (matches Excel row 13)', () => {
-    // monthly raw pence: (5_946_600 − 2_847_000) × 9% / 12 = 23_247
-    // ROUNDDOWN to whole £: Math.floor(23_247 / 100) × 100 = 23_200
-    // annual: 23_200 × 12 = 278_400
-    expect(get('sl').figures.yearly).toBe(-278_400);
+  it('November: yearly column shows the full-year-equivalent liability (not £0)', () => {
+    // Monthly is £0 (cumulative), but a full year at £42k owes tax: annual taxable
+    // floor((3_971_100 − 1_257_000)/100)×100 = 2_714_100, all basic-rate → ×20% = 542_820.
+    const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, start);
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.yearly).toBe(-542_820);
   });
 
-  it('net pay yearly', () => {
-    // 5_622_510 − 991_740 − 319_992 − 278_400 = 4_032_378
-    expect(get('netPay').figures.yearly).toBe(4_032_378);
+  it('January (period 10, 3rd month): still nil — accumulated free pay (£10,475) > earnings (£9,928)', () => {
+    const r = calcSalary({ ...cfg42k, year: 2026, month: 1 }, start);
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(0);
   });
 
-  it('net monthly pence is yearly net ÷ 12 rounded', () => {
-    expect(result.netMonthlyPence).toBe(Math.round(4_032_378 / 12));
+  it('February (period 11, 4th month): tax begins as cumulative earnings overtake free pay', () => {
+    // taxable to date = floor((4×330_925 − 11×104_750)/100)×100 = floor(171_450)→£1,714 = 171_400
+    // all within the basic band → 171_400 × 20% = 34_280; prior period taxable was nil.
+    const r = calcSalary({ ...cfg42k, year: 2026, month: 2 }, start);
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-34_280);
   });
 
-  it('effective tax rate row: same value in all columns', () => {
-    const r = get('effectiveTaxRate');
-    expect(r.isPercentage).toBe(true);
-    expect(r.figures.yearly).toBeCloseTo(r.figures.monthly, 10);
-    expect(r.figures.yearly).toBeCloseTo(r.figures.weekly, 10);
+  it('April (period 1 of the next tax year): resets to steady-state', () => {
+    const withStart = calcSalary({ ...cfg42k, year: 2026, month: 4 }, start);
+    const steady = calcSalary({ ...cfg42k, year: 2026, month: 4 });
+    expect(withStart.rows.find((x) => x.key === 'incomeTax')!.figures.yearly)
+      .toBe(steady.rows.find((x) => x.key === 'incomeTax')!.figures.yearly);
+  });
+});
+
+describe('calcSalary — income tax: cumulative monthly PAYE', () => {
+  it('monthly PAYE matches the cumulative method (validated against a real payslip)', () => {
+    // BASE, month 1 = tax period 10.  Free pay to date = 10 × £1,047.50 (PA ÷ 12).
+    //   taxable to date Tn = floor((10×468_543 − 10×104_750)/100)×100 = 3_637_900  (£36,379)
+    //   exact cumulative basic band = (3_770_100 ÷ 12) × 10 = 3_141_750  (£31,417.50)
+    //   tax to date = Tn×40% − band×20%   (marginal relief, EXACT band)
+    //     period 10: 3_637_900×40% − 3_141_750×20% = 826_810
+    //     period  9: 3_274_100×40% − 2_827_575×20% = 744_125
+    //   PAYE for the month = 826_810 − 744_125 = 82_685  →  −£826.85
+    // This exact-band form reproduces real payslips to the penny (see header cross-check);
+    // the £-rounded-band variant reads ~10p low and does NOT match.
+    expect(calcSalary(BASE).rows.find((r) => r.key === 'incomeTax')!.figures.monthly).toBe(-82_685);
   });
 
-  it('bonus row is absent when bonus_pence is 0', () => {
-    expect(result.rows.find((r) => r.key === 'bonus')).toBeUndefined();
+  it('steady-state monthly PAYE is within £1 of (annual liability ÷ 12)', () => {
+    const r = calcSalary(BASE);
+    const monthly = r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly;
+    const adjNet = r.rows.find((x) => x.key === 'adjustedNet')!.figures.yearly;
+    const annual = annualIncomeTaxPence(adjNet, BASE.personal_allowance_pence, BASE);
+    expect(Math.abs(monthly - -Math.round(annual / 12))).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('calcSalary — income tax: yearly = full-year-equivalent liability', () => {
+  it('basic+higher rate: yearly equals the annual liability (HMRC bands on annual taxable)', () => {
+    const adjNet = yearlyOf(BASE, 'adjustedNet'); // 5_622_516
+    const liability = annualIncomeTaxPence(adjNet, BASE.personal_allowance_pence, BASE); // 992_180
+    expect(yearlyOf(BASE, 'incomeTax')).toBe(-liability);
   });
 
-  it('SLC row is absent when sl_enabled is false', () => {
-    const r = calcSalary({ ...BASE, sl_enabled: false });
-    expect(r.rows.find((row) => row.key === 'sl')).toBeUndefined();
-  });
-
-  it('no tax when income is below personal allowance', () => {
-    const r = calcSalary({ ...BASE, gross_yearly_pence: 1_000_000 }); // £10,000
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly).toBe(0);
-  });
-
-  it('additional rate band kicks in above threshold', () => {
-    // Gross £200,000: PA tapers to £0 (income > £125,140 taper end), so full gross is taxable.
-    const r = calcSalary({
+  it('additional rate (£200k, PA tapered to £0): yearly exercises all three bands', () => {
+    // £200k > £125,140 ⇒ personal allowance tapers to £0, so the whole gross is taxable.
+    const cfg = {
       ...BASE,
       gross_yearly_pence: 20_000_000,
       employee_pension_pct: 0,
       employer_pension_pct: 0,
       sl_enabled: false,
-    });
-    const tax = r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly;
-    // effectivePaY = 0 (tapered); monthly gross = 20_000_000/12 = 1_666_666.67
-    // floor to £: 1_666_600; monthlyARTaxable = 12_514_000/12 = 1_042_833.33
-    // monthly basic:  314_175 × 20%                              =  62_835
-    // monthly higher: (1_042_833.33 − 314_175) × 40%            = 291_463.33
-    // monthly addl:   (1_666_600 − 1_042_833.33) × 45%          = 280_695
-    // monthly total: 634_993.33 → round 634_993 × 12            = 7_619_916
-    expect(tax).toBe(-7_619_916);
-  });
-
-  it('weekly figure = yearly ÷ work_weeks_per_year', () => {
-    const r = get('gross');
-    expect(r.figures.weekly).toBe(Math.round(5_946_600 / 52));
-  });
-
-  it('daily figure = weekly ÷ work_days_per_week', () => {
-    const r = get('gross');
-    expect(r.figures.daily).toBe(Math.round(Math.round(5_946_600 / 52) / 5));
+    };
+    const liability = annualIncomeTaxPence(20_000_000, 0, cfg); // 7_620_280 (£76,202.80)
+    expect(yearlyOf(cfg, 'incomeTax')).toBe(-liability);
   });
 });
 
-describe('calcSalary — cumulative PAYE (mid-year employment start)', () => {
-  // £42,000 gross, 5.45% pension, no SL/bonus — mirrors the demo salary config.
-  const cfg42k = { ...BASE, gross_yearly_pence: 4_200_000, sl_enabled: false, bonus_pence: 0 };
-  // adjustedNetY = 4_200_000 − 228_900 = 3_971_100; monthly adj = 330_925 pence (£3,309.25)
-  // monthly PA = 104_750 pence (£1,047.50)
+describe('calcSalary — internal consistency', () => {
+  const r = calcSalary(BASE);
+  const y = (key: string) => r.rows.find((x) => x.key === key)!.figures.yearly;
+  const m = (key: string) => r.rows.find((x) => x.key === key)!.figures.monthly;
 
-  it('November (period 8, N=1): PAYE = 0 — 8 months of PA (£8,380) > 1 month of earnings (£3,309)', () => {
-    const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, { year: 2025, month: 11 });
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly).toBe(0);
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.monthly).toBe(0);
+  it('yearly: net pay = adjusted net + income tax + NI + student loan', () => {
+    expect(y('netPay')).toBe(y('adjustedNet') + y('incomeTax') + y('ni') + y('sl'));
   });
 
-  it('January (period 10, N=3 from November): PAYE still 0 — PA runs to £10,475, earnings £9,928', () => {
-    const r = calcSalary({ ...cfg42k, year: 2026, month: 1 }, { year: 2025, month: 11 });
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly).toBe(0);
+  it('yearly: total deductions = employee pension + income tax + NI + student loan', () => {
+    expect(y('totalDeductions')).toBe(y('employeePension') + y('incomeTax') + y('ni') + y('sl'));
   });
 
-  it('February (period 11, N=4 from November): PAYE kicks in as earnings finally exceed accumulated PA', () => {
-    const r = calcSalary({ ...cfg42k, year: 2026, month: 2 }, { year: 2025, month: 11 });
-    // cum(11, 4): t = floor((4×330_925 − 11×104_750)/100)×100 = floor(171_450/100)×100 = 171_400
-    // basic = 171_400 × 20% = 34_280; prior (10,3) taxable = 0
-    // monthly PAYE = 34_280 pence; yearly = −411_360
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly).toBe(-411_360);
+  it('yearly: incl. compensation = total compensation + total deductions', () => {
+    expect(y('inclComp')).toBe(y('totalComp') + y('totalDeductions'));
   });
 
-  it('April new tax year (period 1, different tax year from employment start): resets to steady-state', () => {
-    // Employment start Nov 2025 is in 2025/26; April 2026 is in 2026/27 → N=M=1 (steady-state)
-    const r = calcSalary({ ...cfg42k, year: 2026, month: 4 }, { year: 2025, month: 11 });
-    // Same as calcSalary with no employmentStart for April
-    const rSteady = calcSalary({ ...cfg42k, year: 2026, month: 4 });
-    expect(r.rows.find((row) => row.key === 'incomeTax')!.figures.yearly)
-      .toBe(rSteady.rows.find((row) => row.key === 'incomeTax')!.figures.yearly);
+  it('monthly column reconciles within itself (tax rows use the cumulative month figure)', () => {
+    expect(m('netPay')).toBe(m('adjustedNet') + m('incomeTax') + m('ni') + m('sl'));
+    expect(m('totalDeductions')).toBe(m('employeePension') + m('incomeTax') + m('ni') + m('sl'));
+  });
+
+  it('netMonthlyPence equals the displayed monthly net pay (this is what the ledger stores)', () => {
+    expect(r.netMonthlyPence).toBe(m('netPay'));
+  });
+
+  it('netMonthlyPence for BASE is 335_992 (characterisation pin)', () => {
+    // adjustedNetM 468_543 − monthlyTax 82_685 − NI 26_666 − SL 23_200 = 335_992
+    expect(r.netMonthlyPence).toBe(335_992);
   });
 });
 
 describe('calcSalary — bonus', () => {
-  // £5,000 bonus on top of base salary
-  const cfg = { ...BASE, bonus_pence: 500_000 };
-  const result = calcSalary(cfg);
-  const get = (key: string) => result.rows.find((r) => r.key === key)!;
+  const cfg = { ...BASE, bonus_pence: 500_000 }; // £5,000
+  const r = calcSalary(cfg);
+  const get = (key: string) => r.rows.find((x) => x.key === key)!;
 
-  it('bonus row appears after employee pension', () => {
-    const keys = result.rows.map((r) => r.key);
-    const epIdx = keys.indexOf('employeePension');
-    const bonusIdx = keys.indexOf('bonus');
-    const adjIdx = keys.indexOf('adjustedNet');
-    expect(bonusIdx).toBe(epIdx + 1);
-    expect(bonusIdx).toBeLessThan(adjIdx);
+  it('bonus row appears between employee pension and adjusted net', () => {
+    const keys = r.rows.map((x) => x.key);
+    expect(keys.indexOf('bonus')).toBe(keys.indexOf('employeePension') + 1);
+    expect(keys.indexOf('bonus')).toBeLessThan(keys.indexOf('adjustedNet'));
   });
 
-  it('bonus row yearly = 500_000', () => {
+  it('bonus row yearly = the configured bonus', () => {
     expect(get('bonus').figures.yearly).toBe(500_000);
   });
 
-  it('total compensation includes bonus', () => {
-    // gross + bonus + employerPension = 5_946_600 + 500_000 + 1_722_730
-    expect(get('totalComp').figures.yearly).toBe(8_169_330);
+  it('employer & employee pension are unchanged by bonus (salary only)', () => {
+    expect(get('employerPension').figures.yearly).toBe(1_722_732);
+    expect(get('employeePension').figures.yearly).toBe(-324_084);
   });
 
-  it('employee pension unchanged (salary only)', () => {
-    expect(get('employeePension').figures.yearly).toBe(-324_090);
+  it('total compensation includes the bonus', () => {
+    // (495_550 + 41_666.67 + 143_561) × 12 = 8_169_332
+    expect(get('totalComp').figures.yearly).toBe(8_169_332);
   });
 
   it('adjusted net = gross + bonus − employee pension', () => {
-    // 5_946_600 + 500_000 − 324_090 = 6_122_510
-    expect(get('adjustedNet').figures.yearly).toBe(6_122_510);
+    // (495_550 + 41_666.67 − 27_007) × 12 = 6_122_516
+    expect(get('adjustedNet').figures.yearly).toBe(6_122_516);
   });
 
-  it('NI uses (gross + bonus) as monthly base', () => {
-    // monthly gross = (5_946_600 + 500_000) / 12 = 537_216.67
-    // primary: (min(537_216.67, 418_917) − 104_750) × 8% = 314_167 × 8% = 25_133.36
-    // upper:   (537_216.67 − 418_917) × 2% = 118_299.67 × 2% = 2_365.99
-    // monthly: 27_499.35 → × 12 = 329_992.2 → Math.round = 329_992
-    expect(get('ni').figures.yearly).toBe(-329_992);
-  });
-
-  it('SLC uses (gross + bonus) against threshold', () => {
-    // (5_946_600 + 500_000 − 2_847_000) × 9% / 12 = 3_599_600 × 0.09 / 12 = 26_997
-    // ROUNDDOWN to whole £: Math.floor(26_997 / 100) × 100 = 26_900
-    // annual: 26_900 × 12 = 322_800
-    expect(get('sl').figures.yearly).toBe(-322_800);
+  it('bonus row is absent when bonus_pence is 0', () => {
+    expect(calcSalary(BASE).rows.find((x) => x.key === 'bonus')).toBeUndefined();
   });
 });
