@@ -9,3 +9,4 @@ export * from './comparison';
 export * from './trends';
 export * from './netBalance';
 export * from './salary';
+export * from './salaryYtd';
