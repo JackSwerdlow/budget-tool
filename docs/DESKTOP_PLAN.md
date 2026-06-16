@@ -556,7 +556,32 @@ git commit -m "feat(web): runtime adapter selection (window.isTauri) + error nor
 
 ## Phase B — Tauri shell
 
-After this phase the offline app runs (where a display exists) and uses the SQL plugin.
+After this phase the offline app runs (where a display exists) and uses the rusqlite data layer.
+
+> **PIVOT (as built): rusqlite-only, no `@tauri-apps/plugin-sql`.** The plugin (sqlx →
+> `libsqlite3-sys`) conflicts with `rusqlite` (also `libsqlite3-sys`) — they cannot coexist in
+> one binary, so the original "plugin + rusqlite" split never compiles. The whole desktop data
+> layer is `rusqlite` behind Tauri commands. This changes the Rust tasks below:
+> - **B2 →** Cargo deps are `rusqlite` (features `bundled`) + `tauri-plugin-dialog` (no
+>   `tauri-plugin-sql`). Schema+seed run at **startup** via `execute_batch` (idempotent:
+>   `IF NOT EXISTS` schema + guarded `INSERT … WHERE NOT EXISTS` seed), not plugin migrations.
+>   Open one `rusqlite::Connection` in a `Mutex`, store in managed state.
+> - **B3 →** `tauriExecutor` calls `invoke('sql_select' | 'sql_execute')` (already done) rather
+>   than `Database.load`. Capabilities need only `dialog:default`.
+> - **Generic bridge (new, in B2):** `sql_select(sql, params)` / `sql_execute(sql, params)`
+>   commands. Structure as plain `fn select(conn, sql, params)` / `execute(...)` + thin
+>   `#[tauri::command]` wrappers. **Convert `$N`→positional `?` and bind in order** (identical
+>   to `testdb.ts`), so the existing 11 parity tests cover the real binding contract. Marshal
+>   JSON params → rusqlite values and rows → JSON (integers stay integers, REAL pcts stay
+>   numbers, null stays null).
+> - **B4 →** transactional commands (`create_list`, `delete_category`, `reorder_groups`,
+>   `reorder_categories`) lock the `Mutex<Connection>` and use a real `rusqlite` transaction.
+>   (No `update_list` — the DataPort has none.)
+> - **Required Rust test (advisor):** one `#[test]` round-trips a `salary_config` row through
+>   `select`/`execute` asserting type fidelity (pct ≈ 5.45 as a number, pence as integer, null
+>   preserved). This is the **only** coverage of the real bridge until CI/Windows exist. It
+>   compiles the tauri crate, so it runs in the post-`apt` (webkit) verification batch with
+>   `cargo test`.
 
 ### Task B1: Scaffold `apps/desktop` + dependencies
 

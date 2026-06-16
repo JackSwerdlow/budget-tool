@@ -51,6 +51,21 @@ differs between the browser build and the desktop build.
 
 ## 3. The core change: a data-adapter seam in `apps/web`
 
+> **As built (supersedes the plugin details below) — rusqlite-only.** During Phase B the
+> `@tauri-apps/plugin-sql` approach was dropped: it links `libsqlite3-sys` via sqlx, which
+> **conflicts with `rusqlite`** (the crate needed for the transactional commands) — the two
+> can't coexist in one binary. The original plan's "plugin for reads + rusqlite for
+> transactions" therefore never would have compiled. Resolution: **the desktop data layer is
+> 100% `rusqlite`** behind generic Tauri commands. The TS seam is unchanged in spirit; the
+> concrete files are `data/port.ts` (contract), `data/http.ts` (HTTP adapter),
+> `data/queries.ts` (`makeSqlPort` — the ported SQL, **untouched by the pivot**),
+> `data/executor.ts` (`SqlExecutor`; the production executor calls `invoke('sql_select' |
+> 'sql_execute')` instead of `Database.load`), `data/errors.ts` (`normalizeError`), and
+> `data/index.ts` (runtime `window.isTauri` selection + lazy proxy). The Rust side holds one
+> `Mutex<Connection>`; `sql_select`/`sql_execute` convert `$N`→positional `?` and bind in
+> order — **identical to the node:sqlite test executor**, so the parity tests cover the real
+> binding contract. See §4 and `DESKTOP_PLAN.md` Phase B.
+
 Today **every** DB interaction in the client flows through one file —
 `apps/web/src/api.ts` (`fetch` → Hono routes → `apps/api/src/repo.ts` SQL). That single file
 is the seam. We split it into adapters with **identical exported function signatures**, so
@@ -94,31 +109,37 @@ desktop/mobile direction may retire the HTTP API and collapse this back to one b
 
 ## 4. Tauri shell (`apps/desktop/src-tauri/`)
 
+> **As built — rusqlite (see §3 note).** No SQL plugin. The Rust shell opens one
+> `rusqlite::Connection` (held in a `Mutex` in managed state) at the app-config DB path and
+> exposes generic `sql_select` / `sql_execute` commands plus the transactional commands.
+
 ### 4.1 Data location & lifecycle
-- DB opened as `sqlite:budget.db`, resolved under the per-user **app-config** dir
+- DB opened via `rusqlite` at `budget.db` under the per-user **app-config** dir
   (`%APPDATA%\<identifier>\` on Windows, `~/.config/<identifier>/` on Linux,
   `~/Library/Application Support/<identifier>/` on macOS). Persists across app updates;
   independent of the install location.
-- `PRAGMA foreign_keys = ON` on every connection (matching the existing API convention).
+- `PRAGMA foreign_keys = ON` on the connection (matching the existing API convention).
 
-### 4.2 Schema + seed via SQL-plugin migrations (Rust)
+### 4.2 Schema + seed at startup (rusqlite)
 The full current schema (`apps/api/src/db/schema.sql`: `groups`, `categories`, `entries`,
 `lists`, `list_items`, `monthly_income`, `settings`, `salary_config` + indexes) and the
 locked taxonomy seed (`apps/api/src/seed.ts`: 5 groups / 15 categories with exact hex shades
-and `Rent.exclude_from_discretionary = 1`) are ported into the plugin's **Rust migration
-list**, so first launch produces an empty, correctly-seeded DB automatically. The seed values
-are copied verbatim from `seed.ts` — same names, order, colours.
+and `Rent.exclude_from_discretionary = 1`) run on startup via `execute_batch`. The schema is
+already `CREATE TABLE IF NOT EXISTS` (idempotent); the seed uses **guarded inserts**
+(`INSERT … SELECT … WHERE NOT EXISTS`) so it is idempotent too — which also makes
+import-then-migrate trivially safe. First launch yields an empty, correctly-seeded DB.
 
 ### 4.3 Import database (chosen first-run path)
 - `@tauri-apps/plugin-dialog` opens a native file picker (filter: `*.db`).
 - A small **Rust command** copies the chosen file over the app-config `budget.db`
-  (after a confirm, since it replaces current data), then **runs migrations on the imported
-  DB** (a user's older file may predate a later migration), then reloads the DB/bootstrap.
+  (after a confirm, since it replaces current data), then **re-runs schema+seed on the
+  imported DB** (a user's older file may predate a later schema addition), then reloads the
+  DB/bootstrap.
 - This is the one-time "bring my real `budget.db` in" path.
 
 ### 4.4 Capabilities (least privilege, no network)
-`sql:default`, `sql:allow-execute`, the dialog permission, and the custom import command.
-No HTTP, no shell, no arbitrary fs.
+The dialog permission only (`dialog:default`); the DB commands are app-local custom commands
+(no plugin permissions needed). No HTTP, no shell, no arbitrary fs.
 
 ---
 

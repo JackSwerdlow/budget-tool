@@ -3,16 +3,16 @@ export interface SqlExecutor {
   execute(sql: string, params?: unknown[]): Promise<{ rowsAffected: number; lastInsertId: number }>;
 }
 
-// Production executor — wraps @tauri-apps/plugin-sql. Imported lazily so the web/test
-// build never pulls in the Tauri module (it is only constructed when window.isTauri).
+// Production executor — bridges to the Rust (rusqlite) data layer via Tauri commands.
+// `sql_select` / `sql_execute` run arbitrary single statements against the one shared
+// connection; the Rust side converts `$N` placeholders → positional and binds the params
+// array in order (identical to the node:sqlite test executor), so the parity tests cover
+// this exact contract. Imported lazily so the web/test build never reaches Tauri APIs.
 export async function tauriExecutor(): Promise<SqlExecutor> {
-  const { default: Database } = await import('@tauri-apps/plugin-sql');
-  const db = await Database.load('sqlite:budget.db');
+  const { invoke } = await import('@tauri-apps/api/core');
   return {
-    select: <T>(sql: string, params: unknown[] = []) => db.select<T[]>(sql, params),
-    execute: async (sql: string, params: unknown[] = []) => {
-      const r = await db.execute(sql, params);
-      return { rowsAffected: r.rowsAffected, lastInsertId: r.lastInsertId ?? 0 };
-    },
+    select: <T>(sql: string, params: unknown[] = []) => invoke<T[]>('sql_select', { sql, params }),
+    execute: (sql: string, params: unknown[] = []) =>
+      invoke<{ rowsAffected: number; lastInsertId: number }>('sql_execute', { sql, params }),
   };
 }
