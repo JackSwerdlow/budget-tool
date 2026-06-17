@@ -187,9 +187,9 @@ fn get_list_json(conn: &Connection, id: i64) -> Result<Json, String> {
     Ok(list)
 }
 
-#[tauri::command]
-pub fn create_list(state: State<Db>, input: NewList, created_at: String) -> Result<Json, String> {
-    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+// Inner functions take &mut Connection so they're unit-testable without the Tauri runtime;
+// the #[tauri::command] wrappers just lock the shared connection and delegate.
+fn create_list_tx(conn: &mut Connection, input: &NewList, created_at: &str) -> Result<Json, String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     tx.execute(
         "INSERT INTO lists (date, note, delivery_fee_pence, delivery_share_pct, delivery_category_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -203,12 +203,10 @@ pub fn create_list(state: State<Db>, input: NewList, created_at: String) -> Resu
         ).map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())?;
-    get_list_json(&conn, list_id)
+    get_list_json(conn, list_id)
 }
 
-#[tauri::command]
-pub fn delete_category(state: State<Db>, id: i64, reassign_to: i64) -> Result<(), String> {
-    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+fn delete_category_tx(conn: &mut Connection, id: i64, reassign_to: i64) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     tx.execute("UPDATE entries SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
     tx.execute("UPDATE list_items SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
@@ -217,9 +215,7 @@ pub fn delete_category(state: State<Db>, id: i64, reassign_to: i64) -> Result<()
     tx.commit().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn reorder_groups(state: State<Db>, ids: Vec<i64>) -> Result<(), String> {
-    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+fn reorder_groups_tx(conn: &mut Connection, ids: &[i64]) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     for (i, id) in ids.iter().enumerate() {
         tx.execute("UPDATE groups SET sort_order = ?1 WHERE id = ?2", params![(i as i64) * 10, id]).map_err(|e| e.to_string())?;
@@ -233,14 +229,36 @@ pub struct ReorderCategory {
     group_id: i64,
 }
 
-#[tauri::command]
-pub fn reorder_categories(state: State<Db>, items: Vec<ReorderCategory>) -> Result<(), String> {
-    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+fn reorder_categories_tx(conn: &mut Connection, items: &[ReorderCategory]) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     for (i, it) in items.iter().enumerate() {
         tx.execute("UPDATE categories SET sort_order = ?1, group_id = ?2 WHERE id = ?3", params![(i as i64) * 10, it.group_id, it.id]).map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_list(state: State<Db>, input: NewList, created_at: String) -> Result<Json, String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    create_list_tx(&mut conn, &input, &created_at)
+}
+
+#[tauri::command]
+pub fn delete_category(state: State<Db>, id: i64, reassign_to: i64) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    delete_category_tx(&mut conn, id, reassign_to)
+}
+
+#[tauri::command]
+pub fn reorder_groups(state: State<Db>, ids: Vec<i64>) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    reorder_groups_tx(&mut conn, &ids)
+}
+
+#[tauri::command]
+pub fn reorder_categories(state: State<Db>, items: Vec<ReorderCategory>) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    reorder_categories_tx(&mut conn, &items)
 }
 
 // ── import ────────────────────────────────────────────────────────────────────
@@ -299,5 +317,54 @@ mod tests {
         assert_eq!(cats[0]["n"].as_i64().unwrap(), 15);
         let rent = select(&c, "SELECT exclude_from_discretionary AS e FROM categories WHERE name = $1", &[json!("Rent")]).unwrap();
         assert_eq!(rent[0]["e"].as_i64().unwrap(), 1);
+    }
+
+    fn cat_id(c: &Connection, name: &str) -> i64 {
+        select(c, "SELECT id FROM categories WHERE name = $1", &[json!(name)]).unwrap()[0]["id"].as_i64().unwrap()
+    }
+
+    fn seeded() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        migrate(&c).unwrap();
+        c
+    }
+
+    #[test]
+    fn create_list_tx_inserts_list_and_items() {
+        let mut c = seeded();
+        let groceries = cat_id(&c, "Groceries");
+        let input = NewList {
+            date: "2026-01-01".into(), note: None, delivery_fee_pence: 0, delivery_share_pct: 0,
+            delivery_category_id: groceries,
+            items: vec![
+                NewListItem { name: "Milk".into(), price_pence: 200, quantity: 1, share_pct: 0, category_id: groceries },
+                NewListItem { name: "Bread".into(), price_pence: 150, quantity: 2, share_pct: 50, category_id: groceries },
+            ],
+        };
+        let list = create_list_tx(&mut c, &input, "2026-01-01T00:00:00Z").unwrap();
+        assert_eq!(list["items"].as_array().unwrap().len(), 2);
+        assert_eq!(list["items"][0]["name"].as_str().unwrap(), "Milk");
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM list_items", &[]).unwrap()[0]["n"].as_i64().unwrap(), 2);
+    }
+
+    #[test]
+    fn delete_category_tx_reassigns_then_deletes() {
+        let mut c = seeded();
+        let bills = cat_id(&c, "Bills");
+        let groceries = cat_id(&c, "Groceries");
+        execute(&c, "INSERT INTO entries (amount_pence, category_id, date, note, created_at) VALUES ($1,$2,$3,$4,$5)", &[json!(500), json!(bills), json!("2026-01-01"), json!(null), json!("2026-01-01T00:00:00Z")]).unwrap();
+        delete_category_tx(&mut c, bills, groceries).unwrap();
+        assert_eq!(select(&c, "SELECT category_id AS c FROM entries", &[]).unwrap()[0]["c"].as_i64().unwrap(), groceries);
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM categories WHERE id = $1", &[json!(bills)]).unwrap()[0]["n"].as_i64().unwrap(), 0);
+    }
+
+    #[test]
+    fn reorder_groups_tx_sets_sort_order() {
+        let mut c = seeded();
+        let ids: Vec<i64> = select(&c, "SELECT id FROM groups ORDER BY sort_order", &[]).unwrap().iter().map(|r| r["id"].as_i64().unwrap()).collect();
+        let reversed: Vec<i64> = ids.iter().rev().cloned().collect();
+        reorder_groups_tx(&mut c, &reversed).unwrap();
+        assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[0])]).unwrap()[0]["s"].as_i64().unwrap(), 0);
+        assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[4])]).unwrap()[0]["s"].as_i64().unwrap(), 40);
     }
 }
