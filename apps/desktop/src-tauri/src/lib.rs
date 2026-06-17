@@ -29,7 +29,8 @@ pub fn run() {
       db::delete_category,
       db::reorder_groups,
       db::reorder_categories,
-      db::import_database
+      db::import_database,
+      db::export_database
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

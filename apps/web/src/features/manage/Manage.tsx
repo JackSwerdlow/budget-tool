@@ -3,7 +3,7 @@ import type { LedgerData } from '@budget/core';
 import { Segmented } from '../../components/ui';
 import { ManageEntries } from './ManageEntries';
 import { ManageTaxonomy } from './ManageTaxonomy';
-import { ImportDatabase } from './ImportDatabase';
+import { DatabaseTools } from './DatabaseTools';
 
 type View = 'entries' | 'taxonomy';
 
@@ -23,7 +23,7 @@ export function Manage({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       </div>
       {view === 'entries' && <ManageEntries data={data} ym={ym} onYmChange={onYmChange} />}
       {view === 'taxonomy' && <ManageTaxonomy data={data} />}
-      <ImportDatabase />
+      <DatabaseTools />
     </div>
   );
 }

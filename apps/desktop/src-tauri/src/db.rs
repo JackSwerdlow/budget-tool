@@ -276,6 +276,18 @@ pub fn import_database(app: AppHandle, state: State<Db>, src_path: String) -> Re
     Ok(())
 }
 
+// ── export ────────────────────────────────────────────────────────────────────
+#[tauri::command]
+pub fn export_database(app: AppHandle, state: State<Db>, dest_path: String) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let db_path = dir.join("budget.db");
+    // Hold the lock so no write runs mid-copy; the single rollback-journal connection means
+    // the on-disk file is consistent at rest, so a plain copy yields a complete database.
+    let _guard = state.0.lock().map_err(|e| e.to_string())?;
+    std::fs::copy(&db_path, &dest_path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,5 +378,27 @@ mod tests {
         reorder_groups_tx(&mut c, &reversed).unwrap();
         assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[0])]).unwrap()[0]["s"].as_i64().unwrap(), 0);
         assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[4])]).unwrap()[0]["s"].as_i64().unwrap(), 40);
+    }
+
+    #[test]
+    fn copied_db_file_is_a_complete_database() {
+        // Export is a file copy of the at-rest DB; prove a copy reopens as a full, valid DB.
+        let dir = std::env::temp_dir();
+        let src = dir.join(format!("bt_src_{}.db", std::process::id()));
+        let dst = dir.join(format!("bt_dst_{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&src);
+        let _ = std::fs::remove_file(&dst);
+        {
+            let c = Connection::open(&src).unwrap();
+            migrate(&c).unwrap();
+            let g = cat_id(&c, "Groceries");
+            execute(&c, "INSERT INTO entries (amount_pence, category_id, date, note, created_at) VALUES ($1,$2,$3,$4,$5)", &[json!(999), json!(g), json!("2026-01-01"), json!(null), json!("t")]).unwrap();
+        }
+        std::fs::copy(&src, &dst).unwrap();
+        let c2 = Connection::open(&dst).unwrap();
+        assert_eq!(select(&c2, "SELECT COUNT(*) AS n FROM entries", &[]).unwrap()[0]["n"].as_i64().unwrap(), 1);
+        assert_eq!(select(&c2, "SELECT COUNT(*) AS n FROM categories", &[]).unwrap()[0]["n"].as_i64().unwrap(), 15);
+        let _ = std::fs::remove_file(&src);
+        let _ = std::fs::remove_file(&dst);
     }
 }
