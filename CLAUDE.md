@@ -51,10 +51,14 @@ effective rate. The data model (`salary_config` table) already supports both.
 
 ## Future platform targets
 
-The eventual goal is to package this as an installable **desktop app** and a **mobile app**
-— both running fully offline, no ports or HTTP server (deferred — see PLAN §9). Keep
-`packages/core` free of browser-only or Node-only APIs so this path stays open. Do not let
-HTTP/fetch assumptions leak into shared packages.
+The **desktop app** is now being built on branch `desktop-tauri` (Tauri v2, fully offline,
+no HTTP server). Design + build log: `docs/DESKTOP_SPEC.md` and `docs/DESKTOP_PLAN.md`. It
+reuses `packages/core` + `apps/web` unchanged via a data-adapter seam (`apps/web/src/data/`):
+HTTP in the browser, a rusqlite bridge inside Tauri, selected at runtime by `window.isTauri`.
+
+The **mobile app** (Expo + `expo-sqlite`) remains deferred. Keep `packages/core` free of
+browser-only or Node-only APIs so that path stays open; do not let HTTP/fetch assumptions
+leak into shared packages.
 
 ## Git Repository
 
