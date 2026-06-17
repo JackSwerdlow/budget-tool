@@ -47,13 +47,13 @@ function  taxOnCumulative(
   monthlyBRB: number,
   monthlyARTaxable: number,
   cfg: SalaryConfig,
-): number {
-  if (cumAdjNetPence <= 0 || m <= 0) return 0;
+): number[] {
+  if (cumAdjNetPence <= 0 || m <= 0) return [0, 0, 0];
   const t = Math.floor(Math.max(0, cumAdjNetPence - m * monthlyPA) / 100) * 100;
   const roundedBRB = Math.ceil(monthlyBRB * m / 100) * 100;
   if (t <= roundedBRB) {
     const basic = t * cfg.basic_rate_pct / 100;
-    return basic
+    return [basic, 0, 0]
   }
   else if (t <= (monthlyARTaxable * m)) {
     // Marginal-relief form, VALIDATED against real payslips (see salary.test.ts):
@@ -62,13 +62,13 @@ function  taxOnCumulative(
     // higher-rate boundary to the ceil'd band and drifts ~10–25p/period off the payslip.
     const basic = Math.floor((roundedBRB * cfg.higher_rate_pct / 100) - (monthlyBRB * m * cfg.basic_rate_pct / 100))
     const higher = (t - roundedBRB) * cfg.higher_rate_pct / 100
-    return basic + higher
+    return [basic, higher, 0]
   }
   else {
   const basic  = Math.min(t, monthlyBRB * m) * cfg.basic_rate_pct / 100;
   const higher = Math.max(0, Math.min(t, monthlyARTaxable * m) - monthlyBRB * m) * cfg.higher_rate_pct / 100;
   const addl   = Math.max(0, t - monthlyARTaxable * m) * cfg.additional_rate_pct / 100;
-  return basic + higher + addl;
+  return [basic, higher, addl];
   }
 }
 
@@ -132,26 +132,40 @@ export function calcSalary(
     }
   }
 
+  const sum = (arr: number[]): number => arr.reduce((acc, curr) => acc + curr, 0);
   let monthlyTax: number;
+  let PAUsedY: number;
+  let PAUsedM: number;
+  let basicM: number;
+  let higherM: number;
+  let addlM: number;
   if (monthsEmployed < taxPeriod) {
     // Mid-year start: cumulative PAYE — unused prior-period PA absorbs earnings until exhausted.
     // Use actual per-month YTD when provided; otherwise fall back to flat-salary approximation.
     const M = taxPeriod, N = monthsEmployed;
     const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  N      * adjustedNetM;
     const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (N - 1) * adjustedNetM;
-    monthlyTax = Math.floor(
-      taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg) -
-      taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg),
-    );
+    PAUsedY = Math.min(cumEarnings, M * monthlyPA);
+    PAUsedM = Math.min(adjustedNetM, (Math.min(cumEarnings, M * monthlyPA) - Math.min(priorEarnings, (M-1) * monthlyPA)));
+    const [basicCum, higherCum, addlCum] = taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+    const [basicPri, higherPri, addlPri] = taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+    basicM = basicCum - basicPri;
+    higherM = higherCum - higherPri;
+    addlM = addlCum - addlPri;
+    monthlyTax = basicM + higherM + addlM
     } else {
     // Steady-state (employed since April): simple monthly floor — matches payslip for flat salary.
     const M = taxPeriod;
     const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  M      * adjustedNetM;
     const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (M - 1) * adjustedNetM;
-    monthlyTax = Math.floor(
-      taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg) -
-      taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg),
-    );
+    PAUsedY = Math.min(cumEarnings, M * monthlyPA);
+    PAUsedM = PAUsedY - Math.min(cumEarnings, (M-1) * monthlyPA);
+    const [basicCum, higherCum, addlCum] = taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+    const [basicPri, higherPri, addlPri] = taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+    basicM = basicCum - basicPri;
+    higherM = higherCum - higherPri;
+    addlM = addlCum - addlPri;
+    monthlyTax = basicM + higherM + addlM
   }
   // Income tax — MONTHLY: the cumulative PAYE actually deducted this month (monthlyTax,
   // above). Feeds the monthly column and netMonthlyPence.
@@ -159,10 +173,8 @@ export function calcSalary(
   // Income tax — YEARLY: the full-year-equivalent liability at this salary, i.e. the
   // cumulative routine evaluated at period 12 (HMRC bands on the annual taxable pay).
   // Independent of employmentStart/YTD — it answers "what does a full year here cost".
-  const annualIncomeTax = Math.round(
-    taxOnCumulative(adjustedNetY, 12, effectivePaM, monthlyBRB, monthlyARTaxable, cfg),
-  );
-  const incomeTaxY = annualIncomeTax === 0 ? 0 : -annualIncomeTax;
+  const [basicY, higherY, addlY] = taxOnCumulative(adjustedNetY, 12, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+  const incomeTaxY = -(basicY + higherY + addlY)
 
   // NI — calculated monthly then annualised (bonus included in monthly base)
   const monthlyGross = (grossY + bonusY) / 12;
@@ -199,21 +211,24 @@ export function calcSalary(
   const netPayPct = totalEarningsY > 0 ? netPayY / totalEarningsY : 0;
 
   const rows: SalaryRow[] = [
-    row('gross', 'Gross Income', grossY, cfg),
-    row('employerPension', 'Employer Pension', employerPensionY, cfg),
-    row('totalComp', 'Total Compensation', totalCompY, cfg, { summary: true }),
-    row('employeePension', 'Employee Pension', employeePensionY, cfg, { deduction: true }),
-    ...(bonusY > 0 ? [row('bonus', 'Bonus', bonusY, cfg)] : []),
+    row('gross', 'Base Pay', grossY, cfg),
+    row('bonus', 'Bonus Pay', bonusY, cfg),
+    row('grossWithBonus', 'Gross Income', grossY + bonusY, cfg, { summary: true }),
+    row('employeePension', 'Employee Pension Deduction', employeePensionY, cfg, { deduction: true }),
     row('adjustedNet', 'Adjusted Net Income', adjustedNetY, cfg),
     row('taxableIncome', 'Taxable Income', taxableY, cfg),
-    row('incomeTax', 'Income Tax', incomeTaxY, cfg, { deduction: true }, incomeTaxMonthly),
+    row('allowanceUsed', 'Allowance Used', PAUsedY, cfg, { deduction: true }, PAUsedM),
+    row('employeePension', 'Tax Paid (Basic Band)', basicY, cfg, { deduction: true }, -basicM),
+    row('employeePension', 'Tax Paid (Higher Band)', higherY, cfg, { deduction: true }, -higherM),
+    row('incomeTax', 'Total Income Tax', incomeTaxY, cfg, { deduction: true, summary: true }, incomeTaxMonthly),
     row('ni', 'National Insurance', niY, cfg, { deduction: true }),
     ...(cfg.sl_enabled ? [row('sl', 'Student Loan (Plan 2)', slY, cfg, { deduction: true })] : []),
     row('totalDeductions', 'Total Deductions', totalDeductionsY, cfg, { deduction: true, summary: true }, totalDeductionsMonthly),
     row('netPay', 'Net Pay', netPayY, cfg, { summary: true }, netPayMonthly),
     pctRow('effectiveTaxRate', 'Effective Tax Rate', effectiveTaxRate),
     pctRow('netPayPct', 'Net Pay % of Gross', netPayPct),
-    row('inclComp', 'incl. Compensation', inclCompY, cfg, { summary: true }, inclCompMonthly),
+    row('employerPension', 'Employer Pension', employerPensionY, cfg),
+    row('inclComp', 'Net Pay incl. Compensation', inclCompY, cfg, { summary: true }, inclCompMonthly),
   ];
 
   return { rows, netMonthlyPence: netPayMonthly };
