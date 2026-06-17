@@ -324,8 +324,9 @@ Each phase ends **runnable, tested, committed**. The app is clickable from Phase
 - **Savings / net-worth / balance carry-forward** — out of scope; the income layer stays the light Net Balance only (idea spec §10).
 - **Item memory / autocomplete-with-last-price** *(new, user-requested for later)*: typing `Mi` suggests a previously-entered item (e.g. "Milk – 2L") and auto-fills its **last saved price** (still overwritable, since prices drift); dropdown-style so it works on mobile. **Architecture already supports it cheaply:** every `list_items` row persists `name + price + (list) date`, so "last price for a name" is just a query, and the item-name input is a component that can later gain a suggestions source **with no schema change**. Keep item names as a clean field; consider a normalised-name index when built.
 - **Mobile app** (Expo + `expo-sqlite`), reusing the core + schema. *(Still deferred.)*
-- ~~**Desktop wrapper** (Tauri)~~ — **now being built** on branch `desktop-tauri`; see
-  `docs/DESKTOP_SPEC.md` / `docs/DESKTOP_PLAN.md`. (rusqlite, not the SQL plugin — see that spec.)
+- ~~**Desktop wrapper** (Tauri)~~ — **BUILT & merged to `main`**; see `docs/DESKTOP_SPEC.md` /
+  `docs/DESKTOP_PLAN.md` and the "Desktop App — COMPLETE" section of `CLAUDE.md`. (rusqlite, not
+  the SQL plugin — see that spec.)
 
 ## 10. Rejected / non-goals (idea spec §7/§9 — do not propose)
 

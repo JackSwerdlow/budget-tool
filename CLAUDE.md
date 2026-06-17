@@ -49,12 +49,49 @@ The UK salary breakdown tab is fully built and shipped. Design and implementatio
 **Deferred (do NOT build yet):** student loan balance/payoff tracker, unpaid days off
 effective rate. The data model (`salary_config` table) already supports both.
 
-## Future platform targets
+## Desktop App — COMPLETE
 
-The **desktop app** is now being built on branch `desktop-tauri` (Tauri v2, fully offline,
-no HTTP server). Design + build log: `docs/DESKTOP_SPEC.md` and `docs/DESKTOP_PLAN.md`. It
-reuses `packages/core` + `apps/web` unchanged via a data-adapter seam (`apps/web/src/data/`):
-HTTP in the browser, a rusqlite bridge inside Tauri, selected at runtime by `window.isTauri`.
+The app ships as an installable, fully-offline **Tauri v2 desktop app** (merged to `main`).
+Design + build log: `docs/DESKTOP_SPEC.md` and `docs/DESKTOP_PLAN.md`.
+
+**Architecture.** The desktop app **reuses `apps/web` and `packages/core` verbatim** — it is
+not a fork. The only desktop-specific code is `apps/desktop/` (the Tauri/Rust shell) and the
+rusqlite half of the data-adapter seam. All DB access goes through one `DataPort` interface
+(`apps/web/src/data/port.ts`), with the adapter chosen at runtime by `window.isTauri`:
+
+- **browser / `npm run dev`** → `data/http.ts` → `apps/api` (Hono + node:sqlite).
+- **inside Tauri** → `data/queries.ts` → `data/executor.ts` → `invoke('sql_select'|'sql_execute')`
+  → `apps/desktop/src-tauri/src/db.rs` (one `rusqlite` connection). Multi-statement writes go
+  through dedicated Rust commands (`create_list`, `delete_category`, reorders, `import_database`).
+
+**KEEP WEB & DESKTOP IN SYNC — the one rule.** Because the desktop app builds `apps/web`,
+**UI / styling / component / `packages/core` / `apps/api` changes apply to both automatically —
+no extra work.** The *only* thing that must be done twice is a **new data operation** (a new
+`DataPort` method): implement it in **both** `data/http.ts` (fetch → new `apps/api` route +
+`repo.ts`) **and** `data/queries.ts` (SQL via the executor) — plus a Rust command in `db.rs` if
+it needs a transaction. Cover it in **both** `apps/web/src/data/queries.test.ts` (parity, via
+node:sqlite) and the `db.rs` Rust tests. If you only touch the API/HTTP side, the desktop app
+silently breaks — the parity tests exist to catch exactly that.
+
+**Running & shipping.**
+
+- `npm run dev` (web + API) is unchanged and needs **no** Rust.
+- `npm run tauri:dev` runs the desktop app live (needs the Rust toolchain; on Linux also
+  `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf libssl-dev`).
+- **Release:** push a `desktop-v*` tag → `.github/workflows/release.yml` builds Windows `.exe` /
+  macOS `.dmg` / Linux `.AppImage`+`.deb` on real runners → a draft GitHub Release.
+
+**Constraints to preserve.** `window.isTauri` is the adapter switch — don't break it. The
+payslip-validated YTD math lives once in `packages/core` (`computeSalaryYTD`) and is shared by
+both paths (the TS2835 ban still keeps `apps/api/repo.ts` on its own inline copy — keep them in
+step). Transactional writes must stay Rust commands (the rusqlite connection is single, so they
+are real transactions).
+
+**Known follow-ups (NOT done yet):** installers ship the **default Tauri icons** (replace before
+sharing more widely) and are **unsigned** (Gatekeeper/SmartScreen warn on first run — add Apple
+notarization + Windows signing to the release workflow when ready).
+
+## Future platform targets
 
 The **mobile app** (Expo + `expo-sqlite`) remains deferred. Keep `packages/core` free of
 browser-only or Node-only APIs so that path stays open; do not let HTTP/fetch assumptions
