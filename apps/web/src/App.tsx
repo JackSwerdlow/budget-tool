@@ -70,8 +70,8 @@ export function App() {
     <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6">
       <header className="flex flex-wrap items-baseline justify-between gap-y-2 border-b border-hairline pb-4 pt-8">
         <div>
-          <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Ledger</h1>
-          <p className="mt-1 text-sm text-ink-muted">A personal budget account book</p>
+          <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Budget Tool</h1>
+          <p className="mt-1 text-sm text-ink-muted">An app to track monthly spending and trends</p>
         </div>
         <div className="text-right">
           <div className="font-serif text-sm text-ink-faint">{fullDate(todayISO())}</div>
@@ -163,7 +163,7 @@ export function App() {
       </main>
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint">
-        <span>Ledger · a local, single-user budget book — everything updates live</span>
+        <span>Budget Tool - <a href="https://github.com/JackSwerdlow/budget-tool">GitHub</a> - <a href="https://gam-jam-review.vercel.app/">GamJam Review Page</a></span>
         <span className="hidden items-center gap-2 sm:flex">
           <Kbd>a</Kbd> add
           <Kbd>o</Kbd> overview

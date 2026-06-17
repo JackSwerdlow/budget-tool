@@ -22,7 +22,7 @@ export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: Ledger
     <div className="flex flex-col gap-6">
       {noData && (
         <div className="rounded-lg border border-dashed border-hairline-strong bg-panel p-5 text-center">
-          <p className="font-serif text-lg text-ink">Welcome to your Ledger</p>
+          <p className="font-serif text-lg text-ink">Welcome to your Budget Tool</p>
           <p className="mt-1 text-sm text-ink-muted">
             Record your first spend under <span className="text-ink">+ Add</span> (or press <Kbd>a</Kbd>). Every total,
             chart and comparison below updates live.
