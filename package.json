@@ -17,12 +17,15 @@
     "start": "cross-env NODE_ENV=production BUDGET_DB=data/budget.db PORT=8100 node apps/api/src/index.ts",
     "start:demo": "cross-env NODE_ENV=production BUDGET_DB=data/budget-demo.db PORT=8100 node apps/api/src/index.ts",
     "seed:demo": "cross-env BUDGET_DB=data/budget-demo.db node apps/api/src/seed-demo.ts",
+    "tauri:dev": "npm -w @budget/desktop run tauri dev",
+    "tauri:build": "npm -w @budget/desktop run tauri build",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^24.0.0",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
