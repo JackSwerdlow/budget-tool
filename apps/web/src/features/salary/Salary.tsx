@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, formatGBP, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
+import { calcSalary, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
 import { deleteSalaryConfig, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel } from '../../components/ui';
 import { useData } from '../../data';
 import { monthLabel, todayISO } from '../../lib/dates';
+import { BreakdownTable, PensionPanel, RateStrip, StatsPanel } from './SalaryView';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -502,45 +503,16 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
             )}
           </section>
 
-          {/* ── Breakdown Table ── */}
+          {/* ── Salary view ── */}
           {breakdown && (
-            <section className="rounded-lg border border-hairline bg-panel p-5">
-              <h2 className="mb-4 font-serif text-base font-medium text-ink">Salary Breakdown</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-hairline text-xs uppercase tracking-wide text-ink-faint">
-                      <th className="pb-2 text-left font-normal">Row</th>
-                      {['Yearly', 'Monthly', 'Weekly', 'Daily', 'Hourly'].map((h) => (
-                        <th key={h} className="pb-2 text-right font-normal">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {breakdown.rows.map((r) => {
-                      const fmt = (v: number) =>
-                        r.isPercentage
-                          ? `${(v * 100).toFixed(1)}%`
-                          : formatGBP(v);
-                      const rowClass = [
-                        'border-b border-hairline',
-                        r.isSummary ? 'font-medium' : '',
-                        r.isDeduction ? 'text-ink-muted' : 'text-ink',
-                        r.key === 'netPay' ? 'text-accent' : '',
-                      ].filter(Boolean).join(' ');
-                      return (
-                        <tr key={r.key} className={rowClass}>
-                          <td className="py-1.5 pr-4">{r.label}</td>
-                          {(['yearly', 'monthly', 'weekly', 'daily', 'hourly'] as const).map((col) => (
-                            <td key={col} className="py-1.5 text-right tabular-nums">{fmt(r.figures[col])}</td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <>
+              <RateStrip rows={breakdown.view.rateStrip} />
+              <BreakdownTable lines={breakdown.view.breakdown} />
+              <div className="flex flex-col gap-8 sm:flex-row">
+                <StatsPanel stats={breakdown.view.stats} />
+                <PensionPanel rows={breakdown.view.pension} />
               </div>
-            </section>
+            </>
           )}
 
           {/* ── Save / Clear ── */}
