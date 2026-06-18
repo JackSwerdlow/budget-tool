@@ -405,6 +405,17 @@ describe('calcSalary — view: forecast', () => {
       find(r.view, 'grossIncome').cell.forecast - 500_000,
     );
   });
+
+  it('base/bonus forecast split is proportional for a mid-year start with a bonus', () => {
+    const cfg = { ...BASE, gross_yearly_pence: 4_200_000, bonus_pence: 1_200_000, sl_enabled: false };
+    const r = calcSalary({ ...cfg, year: 2025, month: 11 }, { year: 2025, month: 11 });
+    const base = find(r.view, 'basePay').cell.forecast;
+    const bonus = find(r.view, 'bonusPay').cell.forecast;
+    const gross = find(r.view, 'grossIncome').cell.forecast;
+    expect(base).toBeGreaterThanOrEqual(0);
+    expect(base + bonus).toBe(gross);
+    expect(bonus).toBeLessThan(1_200_000); // forecast bonus is partial-year, not the full annual
+  });
 });
 
 describe('calcSalary — view: YTD column', () => {
@@ -478,5 +489,14 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(ee.month).toBeGreaterThan(0);
     expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
     expect(tot.month).toBe(er.month + ee.month);
+  });
+
+  it('pension yearly uses one consistent annualise basis (into-pot sums; mid-year)', () => {
+    const cfg42k = { ...BASE, gross_yearly_pence: 4_200_000, sl_enabled: false, bonus_pence: 0 };
+    const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, { year: 2025, month: 11 });
+    const [er, ee, tot] = r.view.pension;
+    expect(er.yearlyForecast).toBe(er.month * 12);
+    expect(ee.yearlyForecast).toBe(ee.month * 12);
+    expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
   });
 });

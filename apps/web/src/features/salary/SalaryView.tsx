@@ -76,7 +76,12 @@ function Row({ line, open, toggle }: {
 }
 
 export function BreakdownTable({ lines }: { lines: BreakdownLine[] }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ incomeTax: false });
+  const [open, setOpen] = useState<Record<string, boolean>>({
+    grossIncome: true,
+    deductions: true,
+    netIncome: true,
+    incomeTax: false,
+  });
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !(o[k] ?? false) }));
   return (
     <section className="rounded-lg border border-hairline bg-panel p-5">

@@ -287,15 +287,19 @@ export function calcSalary(
   const deductionsMth = employeePensionMonthly + incomeTaxMonthly + niMonthly + slMonthly;
   const deductionsYTD = -empPenYTDmag - taxYTD - niYTDmag - slYTDmag;
 
+  const totalAnnualGross = grossY + bonusY;
+  const bonusFC = totalAnnualGross > 0 ? Math.round(grossFC * bonusY / totalAnnualGross) : 0;
+
   const breakdown: BreakdownLine[] = [
     { key: 'grossIncome', label: 'Gross Income', depth: 0, isDeduction: false, isNet: false,
       cell: rated(grossFC, grossMthly, grossYTDmag),
       children: [
-        // Bonus is a flat annual figure; grossFC includes the forecast bonus, so base = grossFC − bonusY.
+        // Split the gross forecast proportionally so base + bonus = grossFC and base ≥ 0
+        // (hard-coding the full annual bonus understates base for a mid-year start).
         { key: 'basePay', label: 'Base Pay', depth: 1, isDeduction: false, isNet: false,
-          cell: rated(grossFC - bonusY, Math.round(grossY / 12), null) },
+          cell: rated(grossFC - bonusFC, Math.round(grossY / 12), null) },
         { key: 'bonusPay', label: 'Bonus', depth: 1, isDeduction: false, isNet: false,
-          cell: rated(bonusY, Math.round(bonusY / 12), null) },
+          cell: rated(bonusFC, Math.round(bonusY / 12), null) },
       ] },
     { key: 'deductions', label: 'Deductions', depth: 0, isDeduction: true, isNet: false,
       cell: flatCell(deductionsFC, deductionsMth, deductionsYTD), children: deductionChildren },
@@ -329,6 +333,9 @@ export function calcSalary(
 
   // Stats — Forecast basis. Numerator excludes pension (saving, not tax).
   const statDeductionsFC = taxFC + niFCmag + slFCmag;
+  // Phase 1 interim: the incl-employer-pension denominator adds the ANNUALISE employer pension
+  // (employerPensionY) to the forecast gross — bases differ slightly for a mid-year view.
+  // Phase 2 (employer-pension YTD) makes this fully forecast-consistent.
   const stats: SalaryStats = {
     effectiveRate: grossFC > 0 ? statDeductionsFC / grossFC : 0,
     effectiveRateInclEmployerPension:
@@ -338,12 +345,14 @@ export function calcSalary(
   // Pension — Phase 1: Month + interim annualise Yearly; All-time hidden (null).
   // empPenFC and employerPensionY are positive magnitudes; the pension panel shows
   // contributions as positive (employeePensionMonthly is negative → flip for the month col).
+  // Phase 1 interim: both rows are ANNUALISE (12 × this month's contribution) — a single
+  // consistent basis. Phase 2 replaces these with YTD-based forecasts + the All-time column.
   const employerMonthly = Math.round(employerPensionY / 12);
   const employeeMonthly = -employeePensionMonthly;   // positive contribution
   const pension: PensionRow[] = [
-    { key: 'employer', label: 'Employer', month: employerMonthly, yearlyForecast: employerPensionY, allTime: null },
-    { key: 'employee', label: 'Employee', month: employeeMonthly, yearlyForecast: empPenFC, allTime: null },
-    { key: 'total', label: 'Into pot', month: employerMonthly + employeeMonthly, yearlyForecast: employerPensionY + empPenFC, allTime: null },
+    { key: 'employer', label: 'Employer', month: employerMonthly, yearlyForecast: employerMonthly * 12, allTime: null },
+    { key: 'employee', label: 'Employee', month: employeeMonthly, yearlyForecast: employeeMonthly * 12, allTime: null },
+    { key: 'total', label: 'Into pot', month: employerMonthly + employeeMonthly, yearlyForecast: employerMonthly * 12 + employeeMonthly * 12, allTime: null },
   ];
 
   const view: SalaryView = { rateStrip, breakdown, stats, pension };
