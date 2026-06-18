@@ -106,10 +106,15 @@ Column meanings (Option A, confirmed):
 | Effective tax + NI rate | (income tax + NI + student loan) ÷ gross |
 | Effective tax + NI rate (incl. employer pension) | (income tax + NI + student loan) ÷ (gross + employer pension) |
 
-- **Single figure each** (no per-period columns). Computed on the **standing-rate (flat-year)
-  basis** so it is genuinely period-independent — consistent with the rate strip. Excludes
-  pension from the numerator (pension is saving, not tax). The second row shows the lower
-  effective rate once the employer's contribution is counted as part of total package.
+- **Single figure each** (no per-period columns). Computed on the **Forecast basis** (this tax
+  year's projected totals — see §4), so the figure is consistent with the breakdown and stays
+  accurate in the case that motivated the redesign: a November starter's *actual* effective rate
+  this year (full allowance against partial earnings → low) rather than a standing-rate
+  hypothetical (~20%+). Excludes pension from the numerator (pension is saving, not tax). The
+  second row shows the lower effective rate once the employer's contribution is counted as part
+  of total package.
+  > The user initially assumed this figure "should be the same" regardless of period — true only
+  > in a steady year. **Basis (Forecast vs standing-rate) is an open confirm — see §8.**
 
 ### 3.4 ④ Pension (small)
 
@@ -174,6 +179,13 @@ full annual allowance to the actual partial-year earnings — never the spurious
   ({effectiveRate, effectiveRateInclEmployerPension}), `pension` (3 rows × {month, yearlyForecast,
   allTime}), and `netMonthlyPence` (preserved — the save path writes this to `MonthlyIncome`).
 - **Keep** `taxOnCumulative` and the monthly cumulative differencing verbatim.
+- **Test fidelity (critical).** Replacing the output shape breaks every assertion in
+  `salary.test.ts`, which currently checks payslip-validated pence values against `rows`. When
+  migrating those tests, the **same validated pence numbers must be re-asserted** through the new
+  structure (this-month basic/higher/NI especially). The new shape reproduces those figures — it
+  does **not** get to redefine them. Do not "realign" the tests to whatever the new code emits;
+  the payslip is the ground truth (see `salary-paye-payslip-ground-truth` memory). Add YTD /
+  Forecast assertions on top; never weaken the existing this-month checks.
 - **`SalaryYTD`** (`types.ts`): add `employerPensionYTDPence` (and, if base/bonus are split in
   the YTD column, `grossBaseYTDPence` / `bonusYTDPence`).
 - **`computeSalaryYTD` + `YTDConfigRow`** (`salaryYtd.ts`): add `employer_pension_pct` to the
@@ -233,6 +245,7 @@ seam-crossing change.
 ## 7. Out of scope / preserve
 
 - **Do not** modify `taxOnCumulative` or the monthly cumulative-PAYE logic.
+- **Do not** let migrated tests redefine the payslip-validated this-month figures (see §5.1).
 - **Do not** build §9-deferred salary features (student-loan payoff tracker, unpaid-days
   effective rate).
 - `MonthlyIncome` write path and `netMonthlyPence` semantics unchanged.
@@ -243,6 +256,9 @@ seam-crossing change.
 
 ## 8. Open questions for plan stage
 
+- **Stats basis (§3.3) — Forecast vs standing-rate.** Spec currently picks **Forecast** (accurate
+  for the actual tax year, incl. mid-year starters). Standing-rate would be period-independent but
+  reintroduces the inaccuracy the redesign targets. Confirm Forecast is what you want.
 - Exact effective-rate definitions in §3.3 — confirm numerator/denominator wording with a real
   payslip before locking.
 - Whether the YTD column splits Base vs Bonus (needs two extra YTD accumulators) or shows only
