@@ -396,6 +396,15 @@ describe('calcSalary — view: forecast', () => {
     const sl = find(r.view, 'sl').cell.forecast;
     expect(net).toBe(adj + tax + ni + sl);
   });
+
+  it('bonus splits base vs bonus in the breakdown', () => {
+    const r = calcSalary({ ...BASE, bonus_pence: 500_000 });
+    expect(find(r.view, 'bonusPay').cell.forecast).toBe(500_000);
+    // base pay = gross income − bonus (both derive from the same grossFC)
+    expect(find(r.view, 'basePay').cell.forecast).toBe(
+      find(r.view, 'grossIncome').cell.forecast - 500_000,
+    );
+  });
 });
 
 describe('calcSalary — view: YTD column', () => {
@@ -427,6 +436,23 @@ describe('calcSalary — view: YTD column', () => {
     const ni = find(r.view, 'ni').cell.ytd!;
     const sl = find(r.view, 'sl').cell.ytd!;
     expect(net).toBe(adj + tax + ni + sl);
+  });
+
+  it('YTD income tax is the cumulative tax to date — independent pin (BASE, period 10)', () => {
+    // BASE month 1 = tax period 10. With adjustedNetYTD = 10×468_543:
+    //   taxable to date = floor((4_685_430 − 10×104_750)/100)×100 = 3_637_900
+    //   exact cumulative basic band = (3_770_100/12)×10 = 3_141_750
+    //   tax to date = 3_637_900×40% − 3_141_750×20% = 826_810  (marginal-relief, exact band)
+    // This is derived from the cumulative method (payslip ground truth), NOT by calling the engine.
+    const r = calcSalary(BASE, undefined, {
+      adjustedNetYTDPence: 10 * 468_543,
+      priorAdjNetYTDPence: 9 * 468_543,
+      grossYTDPence: 10 * 495_550,
+      employeePensionYTDPence: 10 * 27_007,
+      niYTDPence: 10 * 26_666,
+      slYTDPence: 10 * 23_200,
+    });
+    expect(find(r.view, 'incomeTax').cell.ytd).toBe(-826_810);
   });
 });
 
