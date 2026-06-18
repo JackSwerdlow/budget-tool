@@ -318,6 +318,31 @@ describe('calcSalary — view: YTD column', () => {
     expect(net).toBe(adj + tax + ni + sl);
   });
 });
+
+describe('calcSalary — view: rate strip, stats, pension', () => {
+  it('rate strip: gross is 100%, net < gross, net-incl-pension > net', () => {
+    const v = calcSalary(BASE).view;
+    const [gross, net, incl] = v.rateStrip;
+    expect(gross.pctGross).toBeCloseTo(1, 10);
+    expect(net.yearly).toBeLessThan(gross.yearly);
+    expect(incl.yearly).toBeGreaterThan(net.yearly);
+  });
+
+  it('stats: rates are positive fractions; incl-employer-pension is the lower one', () => {
+    const s = calcSalary(BASE).view.stats;
+    expect(s.effectiveRate).toBeGreaterThan(0);
+    expect(s.effectiveRate).toBeLessThan(1);
+    expect(s.effectiveRateInclEmployerPension).toBeLessThan(s.effectiveRate);
+  });
+
+  it('pension: contributions are positive and into-pot = employer + employee', () => {
+    const [er, ee, tot] = calcSalary(BASE).view.pension;
+    expect(ee.yearlyForecast).toBeGreaterThan(0);
+    expect(ee.month).toBeGreaterThan(0);
+    expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
+    expect(tot.month).toBe(er.month + ee.month);
+  });
+});
 ```
 
 - [ ] **Step 2: Run — expect failure (view not built / wrong shape)**
@@ -457,12 +482,14 @@ monthly `*Monthly` figures and `PAUsedM`):
   };
 
   // Pension — Phase 1: Month + interim annualise Yearly; All-time hidden (null).
+  // empPenFC and employerPensionY are positive magnitudes; the pension panel shows
+  // contributions as positive (employeePensionMonthly is negative → flip for the month col).
   const employerMonthly = Math.round(employerPensionY / 12);
   const employeeMonthly = -employeePensionMonthly;   // positive contribution
   const pension: PensionRow[] = [
     { key: 'employer', label: 'Employer', month: employerMonthly, yearlyForecast: employerPensionY, allTime: null },
-    { key: 'employee', label: 'Employee', month: employeeMonthly, yearlyForecast: -empPenFC, allTime: null },
-    { key: 'total', label: 'Into pot', month: employerMonthly + employeeMonthly, yearlyForecast: employerPensionY + -empPenFC, allTime: null },
+    { key: 'employee', label: 'Employee', month: employeeMonthly, yearlyForecast: empPenFC, allTime: null },
+    { key: 'total', label: 'Into pot', month: employerMonthly + employeeMonthly, yearlyForecast: employerPensionY + empPenFC, allTime: null },
   ];
 
   const view: SalaryView = { rateStrip, breakdown, stats, pension };
