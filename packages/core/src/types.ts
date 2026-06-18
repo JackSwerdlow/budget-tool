@@ -114,7 +114,7 @@ export type SalaryRow = {
 export type SalaryBreakdown = {
   rows: SalaryRow[];
   netMonthlyPence: number;
-  view?: SalaryView; // optional until Task 3; tightened to required there
+  view: SalaryView; // always returned by calcSalary
 };
 
 // ── New structured view (Salary tab redesign) ───────────────────────────────

@@ -353,3 +353,104 @@ describe('calcSalary — widened YTD input is backward compatible', () => {
     expect(r.netMonthlyPence).toBe(335_992);
   });
 });
+
+describe('calcSalary — view: forecast', () => {
+  const find = (v: import('./types').SalaryView, key: string) => {
+    const walk = (lines: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of lines) {
+        if (l.key === key) return l;
+        const c = l.children && walk(l.children);
+        if (c) return c;
+      }
+    };
+    return walk(v.breakdown)!;
+  };
+
+  it('steady-state: forecast tax equals the validated annualise yearly tax', () => {
+    // No employmentStart, no ytdInput → forecast spans a full 12 months → == annualise.
+    const r = calcSalary(BASE);
+    const taxYearly = r.rows.find((x) => x.key === 'incomeTax')!.figures.yearly; // -992_180
+    expect(find(r.view, 'incomeTax').cell.forecast).toBe(taxYearly);
+  });
+
+  it('steady-state: monthly cell equals the validated monthly tax', () => {
+    const r = calcSalary(BASE);
+    expect(find(r.view, 'incomeTax').cell.monthly).toBe(-82_685);
+  });
+
+  it('mid-year (Nov start) forecast tax is the partial-year liability, not the annualise figure', () => {
+    // forecastAdjNet = 5 × 330_925 = 1_654_625; taxable floor((..−1_257_000))=397_600; ×20% = 79_520.
+    const cfg42k = { ...BASE, gross_yearly_pence: 4_200_000, sl_enabled: false, bonus_pence: 0 };
+    const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, { year: 2025, month: 11 });
+    expect(find(r.view, 'incomeTax').cell.forecast).toBe(-79_520);
+    // and the old annualise value (still on rows.yearly) is the larger, wrong-for-the-year figure
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.yearly).toBe(-542_820);
+  });
+
+  it('forecast column reconciles: net = adjusted net + tax + NI + SL', () => {
+    const r = calcSalary(BASE);
+    const net = find(r.view, 'netIncome').cell.forecast;
+    const adj = find(r.view, 'adjustedNet').cell.forecast;
+    const tax = find(r.view, 'incomeTax').cell.forecast;
+    const ni = find(r.view, 'ni').cell.forecast;
+    const sl = find(r.view, 'sl').cell.forecast;
+    expect(net).toBe(adj + tax + ni + sl);
+  });
+});
+
+describe('calcSalary — view: YTD column', () => {
+  const find = (v: import('./types').SalaryView, key: string) => {
+    const walk = (lines: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of lines) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+    };
+    return walk(v.breakdown)!;
+  };
+
+  it('YTD gross equals the passed YTD total', () => {
+    const r = calcSalary(BASE, undefined, {
+      adjustedNetYTDPence: 10 * 468_543, priorAdjNetYTDPence: 9 * 468_543,
+      grossYTDPence: 10 * 495_550, employeePensionYTDPence: 10 * 27_007,
+      niYTDPence: 10 * 26_666, slYTDPence: 10 * 23_200,
+    });
+    expect(find(r.view, 'grossIncome').cell.ytd).toBe(10 * 495_550);
+  });
+
+  it('YTD net reconciles: adjusted net + tax + NI + SL', () => {
+    const r = calcSalary(BASE, undefined, {
+      adjustedNetYTDPence: 10 * 468_543, priorAdjNetYTDPence: 9 * 468_543,
+      grossYTDPence: 10 * 495_550, employeePensionYTDPence: 10 * 27_007,
+      niYTDPence: 10 * 26_666, slYTDPence: 10 * 23_200,
+    });
+    const net = find(r.view, 'netIncome').cell.ytd!;
+    const adj = find(r.view, 'adjustedNet').cell.ytd!;
+    const tax = find(r.view, 'incomeTax').cell.ytd!;
+    const ni = find(r.view, 'ni').cell.ytd!;
+    const sl = find(r.view, 'sl').cell.ytd!;
+    expect(net).toBe(adj + tax + ni + sl);
+  });
+});
+
+describe('calcSalary — view: rate strip, stats, pension', () => {
+  it('rate strip: gross is 100%, net < gross, net-incl-pension > net', () => {
+    const v = calcSalary(BASE).view;
+    const [gross, net, incl] = v.rateStrip;
+    expect(gross.pctGross).toBeCloseTo(1, 10);
+    expect(net.yearly).toBeLessThan(gross.yearly);
+    expect(incl.yearly).toBeGreaterThan(net.yearly);
+  });
+
+  it('stats: rates are positive fractions; incl-employer-pension is the lower one', () => {
+    const s = calcSalary(BASE).view.stats;
+    expect(s.effectiveRate).toBeGreaterThan(0);
+    expect(s.effectiveRate).toBeLessThan(1);
+    expect(s.effectiveRateInclEmployerPension).toBeLessThan(s.effectiveRate);
+  });
+
+  it('pension: contributions are positive and into-pot = employer + employee', () => {
+    const [er, ee, tot] = calcSalary(BASE).view.pension;
+    expect(ee.yearlyForecast).toBeGreaterThan(0);
+    expect(ee.month).toBeGreaterThan(0);
+    expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
+    expect(tot.month).toBe(er.month + ee.month);
+  });
+});

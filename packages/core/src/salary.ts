@@ -1,4 +1,7 @@
-import type { SalaryConfig, SalaryBreakdown, SalaryFigures, SalaryRow, SalaryYTDInput } from './types';
+import type {
+  SalaryConfig, SalaryBreakdown, SalaryFigures, SalaryRow,
+  SalaryView, SalaryYTDInput, BreakdownLine, BreakdownCell, RateRow, SalaryStats, PensionRow,
+} from './types';
 
 function figures(yearly: number, cfg: SalaryConfig, monthlyOverride?: number): SalaryFigures {
   const weekly = Math.round(yearly / cfg.work_weeks_per_year);
@@ -210,6 +213,141 @@ export function calcSalary(
   const effectiveTaxRate = totalEarningsY > 0 ? -totalDeductionsY / totalEarningsY : 0;
   const netPayPct = totalEarningsY > 0 ? netPayY / totalEarningsY : 0;
 
+  // ── New structured view ───────────────────────────────────────────────────
+  const p = taxPeriod;
+  const remaining = 12 - p;
+
+  // YTD magnitudes (positive). Fall back to flat approximation when no YTD passed.
+  const adjNetYTDmag   = ytdInput ? ytdInput.adjustedNetYTDPence     : monthsEmployed * adjustedNetM;
+  const grossYTDmag    = ytdInput ? ytdInput.grossYTDPence           : monthsEmployed * monthlyGross;
+  const niYTDmag       = ytdInput ? ytdInput.niYTDPence              : monthsEmployed * -niMonthly;
+  const slYTDmag       = ytdInput ? ytdInput.slYTDPence              : monthsEmployed * -slMonthly;
+  const empPenYTDmag   = ytdInput ? ytdInput.employeePensionYTDPence : monthsEmployed * -employeePensionMonthly;
+
+  // Forecast magnitudes = YTD actual + remaining months at the current rate.
+  const forecastAdjNet = adjNetYTDmag + remaining * adjustedNetM;
+  const [basicFC, higherFC, addlFC] = taxOnCumulative(forecastAdjNet, 12, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+  const grossFC   = grossYTDmag  + remaining * monthlyGross;
+  const niFCmag   = niYTDmag      + remaining * -niMonthly;
+  const slFCmag   = slYTDmag      + remaining * -slMonthly;
+  const empPenFC  = empPenYTDmag  + remaining * -employeePensionMonthly;
+  const taxFC     = basicFC + higherFC + addlFC;
+  const taxableFC = Math.max(0, Math.floor((forecastAdjNet - 12 * effectivePaM) / 100) * 100);
+  const allowFC   = Math.min(forecastAdjNet, 12 * monthlyPA);
+  const netFC     = forecastAdjNet - taxFC - niFCmag - slFCmag;
+
+  // YTD tax (cumulative through current period) via the validated routine.
+  const [basicYTD, higherYTD, addlYTD] = taxOnCumulative(adjNetYTDmag, p, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
+  const taxYTD     = basicYTD + higherYTD + addlYTD;
+  const taxableYTD = Math.max(0, Math.floor((adjNetYTDmag - p * effectivePaM) / 100) * 100);
+  const allowYTD   = Math.min(adjNetYTDmag, p * monthlyPA);
+  const netYTD     = adjNetYTDmag - taxYTD - niYTDmag - slYTDmag;
+
+  // Per-period slices of a monthly figure (this month annualised, re-sliced).
+  const wk = (monthly: number) => Math.round((monthly * 12) / cfg.work_weeks_per_year);
+  const dy = (monthly: number) => Math.round(((monthly * 12) / cfg.work_weeks_per_year) / cfg.work_days_per_week);
+  const hr = (monthly: number) => Math.round(((monthly * 12) / cfg.work_weeks_per_year) / cfg.hours_per_week);
+  const rated = (forecast: number, monthly: number, ytd: number | null): BreakdownCell =>
+    ({ forecast, monthly, weekly: wk(monthly), daily: dy(monthly), hourly: hr(monthly), ytd });
+  const flatCell = (forecast: number, monthly: number, ytd: number | null): BreakdownCell =>
+    ({ forecast, monthly, weekly: null, daily: null, hourly: null, ytd });
+
+  // This-month figures (signed; deductions negative) already computed above:
+  //   grossM+bonusM, employeePensionMonthly, incomeTaxMonthly, niMonthly, slMonthly,
+  //   basicM/higherM/addlM (magnitudes), PAUsedM, adjustedNetMonthly, netPayMonthly.
+  const grossMthly = Math.round((grossY + bonusY) / 12);
+
+  const taxChildren: BreakdownLine[] = [
+    { key: 'allowanceUsed', label: 'Allowance Used', depth: 2, isDeduction: false, isNet: false,
+      cell: flatCell(allowFC, PAUsedM, allowYTD) },
+    { key: 'taxBasic', label: 'Basic Rate', depth: 2, isDeduction: true, isNet: false,
+      cell: flatCell(-basicFC, -basicM, -basicYTD) },
+    { key: 'taxHigher', label: 'Higher Rate', depth: 2, isDeduction: true, isNet: false,
+      cell: flatCell(-higherFC, -higherM, -higherYTD) },
+    ...(addlFC > 0 || addlM > 0
+      ? [{ key: 'taxAddl', label: 'Additional Rate', depth: 2, isDeduction: true, isNet: false,
+          cell: flatCell(-addlFC, -addlM, -addlYTD) } as BreakdownLine]
+      : []),
+  ];
+
+  const deductionChildren: BreakdownLine[] = [
+    { key: 'employeePension', label: 'Employee Pension', depth: 1, isDeduction: true, isNet: false,
+      cell: flatCell(-empPenFC, employeePensionMonthly, -empPenYTDmag) },
+    { key: 'incomeTax', label: 'Income Tax', depth: 1, isDeduction: true, isNet: false,
+      cell: flatCell(-taxFC, incomeTaxMonthly, -taxYTD), children: taxChildren },
+    { key: 'ni', label: 'National Insurance', depth: 1, isDeduction: true, isNet: false,
+      cell: flatCell(-niFCmag, niMonthly, -niYTDmag) },
+    ...(cfg.sl_enabled
+      ? [{ key: 'sl', label: 'Student Loan (Plan 2)', depth: 1, isDeduction: true, isNet: false,
+          cell: flatCell(-slFCmag, slMonthly, -slYTDmag) } as BreakdownLine]
+      : []),
+  ];
+
+  const deductionsFC  = -empPenFC - taxFC - niFCmag - slFCmag;
+  const deductionsMth = employeePensionMonthly + incomeTaxMonthly + niMonthly + slMonthly;
+  const deductionsYTD = -empPenYTDmag - taxYTD - niYTDmag - slYTDmag;
+
+  const breakdown: BreakdownLine[] = [
+    { key: 'grossIncome', label: 'Gross Income', depth: 0, isDeduction: false, isNet: false,
+      cell: rated(grossFC, grossMthly, grossYTDmag),
+      children: [
+        // Bonus is a flat annual figure; grossFC includes the forecast bonus, so base = grossFC − bonusY.
+        { key: 'basePay', label: 'Base Pay', depth: 1, isDeduction: false, isNet: false,
+          cell: rated(grossFC - bonusY, Math.round(grossY / 12), null) },
+        { key: 'bonusPay', label: 'Bonus', depth: 1, isDeduction: false, isNet: false,
+          cell: rated(bonusY, Math.round(bonusY / 12), null) },
+      ] },
+    { key: 'deductions', label: 'Deductions', depth: 0, isDeduction: true, isNet: false,
+      cell: flatCell(deductionsFC, deductionsMth, deductionsYTD), children: deductionChildren },
+    { key: 'netIncome', label: 'Net Income', depth: 0, isDeduction: false, isNet: true,
+      cell: rated(netFC, netPayMonthly, netYTD),
+      children: [
+        { key: 'adjustedNet', label: 'Adjusted Net Income', depth: 1, isDeduction: false, isNet: false,
+          cell: flatCell(forecastAdjNet, adjustedNetMonthly, adjNetYTDmag) },
+        { key: 'taxableIncome', label: 'Taxable Income', depth: 1, isDeduction: false, isNet: false,
+          cell: flatCell(taxableFC, Math.max(0, adjustedNetMonthly - Math.round(effectivePaM)), taxableYTD) },
+      ] },
+  ];
+
+  // Rate strip — standing current rate (annualise; reuse existing annualise figures).
+  const grossStandY = grossY + bonusY;
+  const netStandY   = netPayY;                       // existing annualise net
+  const netInclY    = netPayY + employerPensionY;
+  const rateRow = (key: string, label: string, yearly: number): RateRow => ({
+    key, label, yearly,
+    monthly: Math.round(yearly / 12),
+    weekly:  Math.round(yearly / cfg.work_weeks_per_year),
+    daily:   Math.round(Math.round(yearly / cfg.work_weeks_per_year) / cfg.work_days_per_week),
+    hourly:  Math.round(Math.round(yearly / cfg.work_weeks_per_year) / cfg.hours_per_week),
+    pctGross: grossStandY > 0 ? yearly / grossStandY : 0,
+  });
+  const rateStrip: RateRow[] = [
+    rateRow('gross', 'Gross Income', grossStandY),
+    rateRow('net', 'Net Income', netStandY),
+    rateRow('netInclPension', 'Net incl. employer pension', netInclY),
+  ];
+
+  // Stats — Forecast basis. Numerator excludes pension (saving, not tax).
+  const statDeductionsFC = taxFC + niFCmag + slFCmag;
+  const stats: SalaryStats = {
+    effectiveRate: grossFC > 0 ? statDeductionsFC / grossFC : 0,
+    effectiveRateInclEmployerPension:
+      grossFC + employerPensionY > 0 ? statDeductionsFC / (grossFC + employerPensionY) : 0,
+  };
+
+  // Pension — Phase 1: Month + interim annualise Yearly; All-time hidden (null).
+  // empPenFC and employerPensionY are positive magnitudes; the pension panel shows
+  // contributions as positive (employeePensionMonthly is negative → flip for the month col).
+  const employerMonthly = Math.round(employerPensionY / 12);
+  const employeeMonthly = -employeePensionMonthly;   // positive contribution
+  const pension: PensionRow[] = [
+    { key: 'employer', label: 'Employer', month: employerMonthly, yearlyForecast: employerPensionY, allTime: null },
+    { key: 'employee', label: 'Employee', month: employeeMonthly, yearlyForecast: empPenFC, allTime: null },
+    { key: 'total', label: 'Into pot', month: employerMonthly + employeeMonthly, yearlyForecast: employerPensionY + empPenFC, allTime: null },
+  ];
+
+  const view: SalaryView = { rateStrip, breakdown, stats, pension };
+
   const rows: SalaryRow[] = [
     row('gross', 'Base Pay', grossY, cfg),
     row('bonus', 'Bonus Pay', bonusY, cfg),
@@ -231,5 +369,5 @@ export function calcSalary(
     row('inclComp', 'Net Pay incl. Compensation', inclCompY, cfg, { summary: true }, inclCompMonthly),
   ];
 
-  return { rows, netMonthlyPence: netPayMonthly };
+  return { rows, netMonthlyPence: netPayMonthly, view };
 }
