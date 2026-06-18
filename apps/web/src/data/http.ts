@@ -36,6 +36,16 @@ export async function createList(input: NewListInput): Promise<BudgetList> {
   return res.json() as Promise<BudgetList>;
 }
 
+export async function updateList(id: number, input: NewListInput): Promise<BudgetList> {
+  const res = await fetch(`${API}lists/${id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`update list failed: ${res.status}`);
+  return res.json() as Promise<BudgetList>;
+}
+
 export async function deleteList(id: number): Promise<void> {
   const res = await fetch(`${API}lists/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`delete list failed: ${res.status}`);
@@ -122,7 +132,7 @@ export async function deleteSalaryConfig(year: number, month: number): Promise<v
 }
 
 export const httpPort: DataPort = {
-  fetchBootstrap, createEntry, updateEntry, deleteEntry, createList, deleteList,
+  fetchBootstrap, createEntry, updateEntry, deleteEntry, createList, updateList, deleteList,
   createCategory, updateCategory, deleteCategory, createGroup, updateGroup, deleteGroup,
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,

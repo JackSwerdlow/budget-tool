@@ -26,6 +26,7 @@ pub fn run() {
       db::sql_select,
       db::sql_execute,
       db::create_list,
+      db::update_list,
       db::delete_category,
       db::reorder_groups,
       db::reorder_categories,

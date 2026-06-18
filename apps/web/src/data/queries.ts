@@ -106,6 +106,11 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
       return (await invoke('create_list', { input, createdAt })) as BudgetList;
     },
 
+    async updateList(id, input) {
+      // Transactional (update row + replace N items) → Rust. created_at is preserved.
+      return (await invoke('update_list', { id, input })) as BudgetList;
+    },
+
     async deleteList(id) {
       await exec.execute('DELETE FROM lists WHERE id = $1', [id]);
     },

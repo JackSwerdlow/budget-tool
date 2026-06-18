@@ -206,6 +206,32 @@ fn create_list_tx(conn: &mut Connection, input: &NewList, created_at: &str) -> R
     get_list_json(conn, list_id)
 }
 
+// Update a list in place: edit the row (created_at is left untouched) and replace its items.
+fn update_list_tx(conn: &mut Connection, id: i64, input: &NewList) -> Result<Json, String> {
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    // Guard against a missing id (parity with the HTTP route's 404): otherwise we'd insert
+    // orphaned list_items and only fail later. Returning early rolls the tx back on drop.
+    let exists: i64 = tx
+        .query_row("SELECT COUNT(*) AS n FROM lists WHERE id = ?1", params![id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if exists == 0 {
+        return Err("list not found".to_string());
+    }
+    tx.execute(
+        "UPDATE lists SET date = ?1, note = ?2, delivery_fee_pence = ?3, delivery_share_pct = ?4, delivery_category_id = ?5 WHERE id = ?6",
+        params![input.date, input.note, input.delivery_fee_pence, input.delivery_share_pct, input.delivery_category_id, id],
+    ).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM list_items WHERE list_id = ?1", params![id]).map_err(|e| e.to_string())?;
+    for (i, it) in input.items.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO list_items (list_id, name, price_pence, quantity, share_pct, category_id, sort_order) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, it.name, it.price_pence, it.quantity, it.share_pct, it.category_id, (i as i64) + 1],
+        ).map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    get_list_json(conn, id)
+}
+
 fn delete_category_tx(conn: &mut Connection, id: i64, reassign_to: i64) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     tx.execute("UPDATE entries SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
@@ -241,6 +267,12 @@ fn reorder_categories_tx(conn: &mut Connection, items: &[ReorderCategory]) -> Re
 pub fn create_list(state: State<Db>, input: NewList, created_at: String) -> Result<Json, String> {
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     create_list_tx(&mut conn, &input, &created_at)
+}
+
+#[tauri::command]
+pub fn update_list(state: State<Db>, id: i64, input: NewList) -> Result<Json, String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    update_list_tx(&mut conn, id, &input)
 }
 
 #[tauri::command]
@@ -357,6 +389,62 @@ mod tests {
         assert_eq!(list["items"].as_array().unwrap().len(), 2);
         assert_eq!(list["items"][0]["name"].as_str().unwrap(), "Milk");
         assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM list_items", &[]).unwrap()[0]["n"].as_i64().unwrap(), 2);
+    }
+
+    #[test]
+    fn update_list_tx_replaces_items_and_keeps_created_at() {
+        let mut c = seeded();
+        let groceries = cat_id(&c, "Groceries");
+        let created = create_list_tx(
+            &mut c,
+            &NewList {
+                date: "2026-01-01".into(), note: Some("Tesco".into()), delivery_fee_pence: 0,
+                delivery_share_pct: 0, delivery_category_id: groceries,
+                items: vec![
+                    NewListItem { name: "Milk".into(), price_pence: 200, quantity: 1, share_pct: 0, category_id: groceries },
+                    NewListItem { name: "Bread".into(), price_pence: 150, quantity: 1, share_pct: 0, category_id: groceries },
+                ],
+            },
+            "2026-01-01T00:00:00Z",
+        ).unwrap();
+        let id = created["id"].as_i64().unwrap();
+
+        let updated = update_list_tx(
+            &mut c,
+            id,
+            &NewList {
+                date: "2026-02-02".into(), note: Some("Sainsbury's".into()), delivery_fee_pence: 99,
+                delivery_share_pct: 50, delivery_category_id: groceries,
+                items: vec![
+                    NewListItem { name: "Eggs".into(), price_pence: 300, quantity: 1, share_pct: 0, category_id: groceries },
+                ],
+            },
+        ).unwrap();
+
+        // Items fully replaced (1, not 3), row edited, created_at preserved.
+        assert_eq!(updated["items"].as_array().unwrap().len(), 1);
+        assert_eq!(updated["items"][0]["name"].as_str().unwrap(), "Eggs");
+        assert_eq!(updated["date"].as_str().unwrap(), "2026-02-02");
+        assert_eq!(updated["note"].as_str().unwrap(), "Sainsbury's");
+        assert_eq!(updated["created_at"].as_str().unwrap(), "2026-01-01T00:00:00Z");
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM list_items", &[]).unwrap()[0]["n"].as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn update_list_tx_on_missing_id_errors_and_inserts_nothing() {
+        let mut c = seeded();
+        let groceries = cat_id(&c, "Groceries");
+        let res = update_list_tx(
+            &mut c,
+            999,
+            &NewList {
+                date: "2026-02-02".into(), note: None, delivery_fee_pence: 0, delivery_share_pct: 0,
+                delivery_category_id: groceries,
+                items: vec![NewListItem { name: "Eggs".into(), price_pence: 300, quantity: 1, share_pct: 0, category_id: groceries }],
+            },
+        );
+        assert!(res.is_err());
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM list_items", &[]).unwrap()[0]["n"].as_i64().unwrap(), 0);
     }
 
     #[test]

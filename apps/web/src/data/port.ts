@@ -38,6 +38,7 @@ export interface DataPort {
   updateEntry(id: number, patch: EntryPatchInput): Promise<Entry>;
   deleteEntry(id: number): Promise<void>;
   createList(input: NewListInput): Promise<BudgetList>;
+  updateList(id: number, input: NewListInput): Promise<BudgetList>;
   deleteList(id: number): Promise<void>;
   createCategory(input: { name: string; group_id: number; color: string }): Promise<Category>;
   updateCategory(id: number, patch: { name?: string; group_id?: number; color?: string }): Promise<Category>;

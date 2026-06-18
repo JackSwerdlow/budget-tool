@@ -34,7 +34,7 @@ function lazyPort(): DataPort {
 export const dataPort = lazyPort();
 
 export const {
-  fetchBootstrap, createEntry, updateEntry, deleteEntry, createList, deleteList,
+  fetchBootstrap, createEntry, updateEntry, deleteEntry, createList, updateList, deleteList,
   createCategory, updateCategory, deleteCategory, createGroup, updateGroup, deleteGroup,
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
