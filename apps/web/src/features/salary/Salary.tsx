@@ -283,7 +283,14 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     const cfg = fieldsToConfig(year, month, yearlyPounds, note, configFields);
     if (!cfg) return null;
     const ytdInput = ytdData
-      ? { adjustedNetYTDPence: ytdData.adjustedNetYTDPence, priorAdjNetYTDPence: ytdData.priorAdjNetYTDPence }
+      ? {
+          adjustedNetYTDPence: ytdData.adjustedNetYTDPence,
+          priorAdjNetYTDPence: ytdData.priorAdjNetYTDPence,
+          grossYTDPence: ytdData.grossYTDPence,
+          employeePensionYTDPence: ytdData.employeePensionYTDPence,
+          niYTDPence: ytdData.niYTDPence,
+          slYTDPence: ytdData.slYTDPence,
+        }
       : undefined;
     try { return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput); } catch { return null; }
   }, [gross.yearly, note, configFields, ym, employmentStart, ytdData]);

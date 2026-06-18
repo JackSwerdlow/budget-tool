@@ -336,3 +336,20 @@ describe('calcSalary — bonus', () => {
     expect(calcSalary(BASE).rows.find((x) => x.key === 'bonus')!.figures.yearly).toBe(0);
   });
 });
+
+describe('calcSalary — widened YTD input is backward compatible', () => {
+  it('passing full YTD totals does not change the validated monthly tax', () => {
+    // adjustedNetYTD/prior at BASE period 10 (steady) = 10×/9× adjusted net monthly.
+    const adjNetM = 468_543;
+    const r = calcSalary(BASE, undefined, {
+      adjustedNetYTDPence: 10 * adjNetM,
+      priorAdjNetYTDPence: 9 * adjNetM,
+      grossYTDPence: 10 * 495_550,
+      employeePensionYTDPence: 10 * 27_007,
+      niYTDPence: 10 * 26_666,
+      slYTDPence: 10 * 23_200,
+    });
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-82_685);
+    expect(r.netMonthlyPence).toBe(335_992);
+  });
+});

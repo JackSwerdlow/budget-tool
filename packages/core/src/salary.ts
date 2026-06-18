@@ -1,4 +1,4 @@
-import type { SalaryConfig, SalaryBreakdown, SalaryFigures, SalaryRow } from './types';
+import type { SalaryConfig, SalaryBreakdown, SalaryFigures, SalaryRow, SalaryYTDInput } from './types';
 
 function figures(yearly: number, cfg: SalaryConfig, monthlyOverride?: number): SalaryFigures {
   const weekly = Math.round(yearly / cfg.work_weeks_per_year);
@@ -75,7 +75,7 @@ function  taxOnCumulative(
 export function calcSalary(
   cfg: SalaryConfig,
   employmentStart?: { year: number; month: number },
-  ytdInput?: { adjustedNetYTDPence: number; priorAdjNetYTDPence: number },
+  ytdInput?: SalaryYTDInput,
 ): SalaryBreakdown {
   // Salary + Bonus
   const grossY = cfg.gross_yearly_pence;
