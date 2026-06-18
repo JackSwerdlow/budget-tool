@@ -114,6 +114,60 @@ export type SalaryRow = {
 export type SalaryBreakdown = {
   rows: SalaryRow[];
   netMonthlyPence: number;
+  view?: SalaryView; // optional until Task 3; tightened to required there
+};
+
+// ── New structured view (Salary tab redesign) ───────────────────────────────
+// Pence integers. Deduction figures are negative. weekly/daily/hourly are null
+// where a per-period rate is meaningless (every deduction/tax row).
+export type BreakdownCell = {
+  forecast: number;          // yearly forecast: YTD actual + rest-of-year at current rate
+  monthly: number;           // this month's actual figure (validated payslip number)
+  weekly: number | null;
+  daily: number | null;
+  hourly: number | null;
+  ytd: number | null;        // year-to-date actual (null where not tracked yet)
+};
+
+export type BreakdownLine = {
+  key: string;
+  label: string;
+  cell: BreakdownCell;
+  isDeduction: boolean;
+  isNet: boolean;            // the Net Income line (accent styling)
+  depth: number;             // 0 = top group, 1 = child, 2 = tax band
+  children?: BreakdownLine[];
+};
+
+export type RateRow = {
+  key: string;
+  label: string;
+  yearly: number;
+  monthly: number;
+  weekly: number;
+  daily: number;
+  hourly: number;
+  pctGross: number;          // fraction, e.g. 0.726
+};
+
+export type SalaryStats = {
+  effectiveRate: number;                    // fraction
+  effectiveRateInclEmployerPension: number; // fraction
+};
+
+export type PensionRow = {
+  key: string;
+  label: string;
+  month: number;
+  yearlyForecast: number;
+  allTime: number | null;    // null in Phase 1 (hidden)
+};
+
+export type SalaryView = {
+  rateStrip: RateRow[];      // gross, net, netInclEmployerPension
+  breakdown: BreakdownLine[];
+  stats: SalaryStats;
+  pension: PensionRow[];     // employer, employee, total
 };
 
 export type SalaryYTD = {
@@ -123,6 +177,16 @@ export type SalaryYTD = {
   employeePensionYTDPence: number;
   adjustedNetYTDPence: number;
   priorAdjNetYTDPence: number;
+  niYTDPence: number;
+  slYTDPence: number;
+};
+
+// Already-fetched YTD totals (all positive magnitudes) fed into the view math.
+export type SalaryYTDInput = {
+  adjustedNetYTDPence: number;
+  priorAdjNetYTDPence: number;
+  grossYTDPence: number;
+  employeePensionYTDPence: number;
   niYTDPence: number;
   slYTDPence: number;
 };
