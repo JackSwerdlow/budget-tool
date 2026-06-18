@@ -132,7 +132,7 @@ export function calcSalary(
     }
   }
 
-  const sum = (arr: number[]): number => arr.reduce((acc, curr) => acc + curr, 0);
+
   let monthlyTax: number;
   let PAUsedY: number;
   let PAUsedM: number;
