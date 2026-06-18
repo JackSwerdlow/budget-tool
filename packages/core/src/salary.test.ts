@@ -133,9 +133,10 @@ describe('calcSalary — gross, pension & compensation (payslip rounding: monthl
     expect(get('employeePension').figures.yearly).toBe(-324_084);
   });
 
-  it('total compensation = gross + employer pension', () => {
-    // (495_550 + 143_561) × 12 = 7_669_332
-    expect(get('totalComp').figures.yearly).toBe(7_669_332);
+  it('net pay incl. compensation = net pay + employer pension', () => {
+    expect(get('inclComp').figures.yearly).toBe(
+      get('netPay').figures.yearly + get('employerPension').figures.yearly,
+    );
   });
 
   it('adjusted net = gross − employee pension', () => {
@@ -178,7 +179,8 @@ describe('calcSalary — Student Loan (Plan 2, monthly rounddown → ×12)', () 
 describe('calcSalary — income tax: robust anchors', () => {
   it('no tax when income is below the personal allowance', () => {
     // £10,000 gross, after pension still well under £12,570 free pay → nil tax.
-    expect(yearlyOf({ ...BASE, gross_yearly_pence: 1_000_000 }, 'incomeTax')).toBe(0);
+    // (−0 and +0 are both nil; === treats them equal where toBe/Object.is would not.)
+    expect(yearlyOf({ ...BASE, gross_yearly_pence: 1_000_000 }, 'incomeTax') === 0).toBe(true);
   });
 });
 
@@ -278,8 +280,9 @@ describe('calcSalary — internal consistency', () => {
     expect(y('totalDeductions')).toBe(y('employeePension') + y('incomeTax') + y('ni') + y('sl'));
   });
 
-  it('yearly: incl. compensation = total compensation + total deductions', () => {
-    expect(y('inclComp')).toBe(y('totalComp') + y('totalDeductions'));
+  it('yearly: incl. compensation = (gross + bonus) + employer pension + total deductions', () => {
+    // 'Total Compensation' is no longer a row; it equals grossWithBonus + employerPension.
+    expect(y('inclComp')).toBe(y('grossWithBonus') + y('employerPension') + y('totalDeductions'));
   });
 
   it('monthly column reconciles within itself (tax rows use the cumulative month figure)', () => {
@@ -302,10 +305,10 @@ describe('calcSalary — bonus', () => {
   const r = calcSalary(cfg);
   const get = (key: string) => r.rows.find((x) => x.key === key)!;
 
-  it('bonus row appears between employee pension and adjusted net', () => {
+  it('bonus row appears between base pay and gross income', () => {
     const keys = r.rows.map((x) => x.key);
-    expect(keys.indexOf('bonus')).toBe(keys.indexOf('employeePension') + 1);
-    expect(keys.indexOf('bonus')).toBeLessThan(keys.indexOf('adjustedNet'));
+    expect(keys.indexOf('bonus')).toBe(keys.indexOf('gross') + 1);
+    expect(keys.indexOf('bonus')).toBeLessThan(keys.indexOf('grossWithBonus'));
   });
 
   it('bonus row yearly = the configured bonus', () => {
@@ -317,9 +320,11 @@ describe('calcSalary — bonus', () => {
     expect(get('employeePension').figures.yearly).toBe(-324_084);
   });
 
-  it('total compensation includes the bonus', () => {
-    // (495_550 + 41_666.67 + 143_561) × 12 = 8_169_332
-    expect(get('totalComp').figures.yearly).toBe(8_169_332);
+  it('gross income row includes the bonus', () => {
+    // 'Gross Income' (grossWithBonus) = base pay + bonus = 5_946_600 + 500_000.
+    expect(get('grossWithBonus').figures.yearly).toBe(
+      get('gross').figures.yearly + get('bonus').figures.yearly,
+    );
   });
 
   it('adjusted net = gross + bonus − employee pension', () => {
@@ -327,7 +332,7 @@ describe('calcSalary — bonus', () => {
     expect(get('adjustedNet').figures.yearly).toBe(6_122_516);
   });
 
-  it('bonus row is absent when bonus_pence is 0', () => {
-    expect(calcSalary(BASE).rows.find((x) => x.key === 'bonus')).toBeUndefined();
+  it('bonus row is always present, showing £0 when bonus_pence is 0', () => {
+    expect(calcSalary(BASE).rows.find((x) => x.key === 'bonus')!.figures.yearly).toBe(0);
   });
 });
