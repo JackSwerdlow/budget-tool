@@ -1,9 +1,11 @@
 import { type FormEvent, useState } from 'react';
 import { evalSum, formatGBP, listTotals, ymOf, type BudgetList, type Entry, type LedgerData } from '@budget/core';
-import { deleteEntry, deleteList, updateEntry } from '../../api';
+import { deleteEntry, deleteList, updateEntry, updateList } from '../../api';
 import { useData } from '../../data';
 import { MonthPicker } from '../../components/ui';
 import { CategorySelect } from '../../components/CategorySelect';
+import { ConfirmButton } from '../../components/ConfirmButton';
+import { ListForm } from '../ListForm';
 import { dayHeading } from '../../lib/dates';
 
 type EntryRow = { kind: 'entry'; date: string; created_at: string; entry: Entry };
@@ -13,17 +15,40 @@ type DayRow = EntryRow | ListRow;
 export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const { refresh } = useData();
   const [editing, setEditing] = useState<number | null>(null);
+  const [editingList, setEditingList] = useState<number | null>(null);
+  const [catFilter, setCatFilter] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
+
+  // A filter or search is active → look across the whole ledger (not just the picked month),
+  // so an entry can be found even when you don't know which month it lives in.
+  const term = search.trim().toLowerCase();
+  const searching = catFilter !== null || term !== '';
+
+  const entryMatches = (e: Entry): boolean => {
+    if (catFilter !== null && e.category_id !== catFilter) return false;
+    if (term && !(e.note ?? '').toLowerCase().includes(term)) return false;
+    return true;
+  };
+  const listMatches = (l: BudgetList): boolean => {
+    if (catFilter !== null && !(l.items.some((it) => it.category_id === catFilter) || l.delivery_category_id === catFilter)) {
+      return false;
+    }
+    if (term && !((l.note ?? '').toLowerCase().includes(term) || l.items.some((it) => it.name.toLowerCase().includes(term)))) {
+      return false;
+    }
+    return true;
+  };
 
   // Entries and lists share one date-ordered stream, newest day first; within a day,
   // most recently added first.
   const rows: DayRow[] = [
-    ...data.entries
-      .filter((e) => ymOf(e.date) === ym)
+    ...(searching ? data.entries : data.entries.filter((e) => ymOf(e.date) === ym))
+      .filter(entryMatches)
       .map((e): EntryRow => ({ kind: 'entry', date: e.date, created_at: e.created_at, entry: e })),
-    ...data.lists
-      .filter((l) => ymOf(l.date) === ym)
+    ...(searching ? data.lists : data.lists.filter((l) => ymOf(l.date) === ym))
+      .filter(listMatches)
       .map((l): ListRow => ({ kind: 'list', date: l.date, created_at: l.created_at, list: l })),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
 
@@ -35,25 +60,67 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   }
 
   const onDeleteEntry = async (id: number) => {
-    if (!window.confirm('Delete this entry?')) return;
     await deleteEntry(id);
     await refresh();
   };
   const onDeleteList = async (id: number) => {
-    if (!window.confirm('Delete this list and its items?')) return;
     await deleteList(id);
     await refresh();
   };
 
+  const clearFilters = () => {
+    setCatFilter(null);
+    setSearch('');
+  };
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <h3 className="font-serif text-base text-ink">Past entries</h3>
-        <MonthPicker ym={ym} onChange={onYmChange} />
+        {!searching && <MonthPicker ym={ym} onChange={onYmChange} />}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          value={catFilter ?? ''}
+          onChange={(e) => setCatFilter(e.target.value === '' ? null : Number(e.target.value))}
+          aria-label="Filter by category"
+          className="rounded-md border border-hairline bg-paper px-2 py-1.5 text-sm text-ink outline-none focus:border-ink/40"
+        >
+          <option value="">All categories</option>
+          {data.groups.map((g) => (
+            <optgroup key={g.id} label={g.name}>
+              {data.categories
+                .filter((c) => c.group_id === g.id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </optgroup>
+          ))}
+        </select>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search notes & items…"
+          aria-label="Search notes and list items"
+          className="min-w-[10rem] max-w-xs flex-1 rounded-md border border-hairline bg-paper px-3 py-1.5 text-sm text-ink outline-none focus:border-ink/40"
+        />
+        {searching && (
+          <>
+            <button type="button" onClick={clearFilters} className="text-xs text-ink-muted transition-colors hover:text-accent">
+              Clear
+            </button>
+            <span className="text-xs text-ink-faint">
+              {rows.length} {rows.length === 1 ? 'result' : 'results'} across all months
+            </span>
+          </>
+        )}
       </div>
 
       {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-ink-muted">Nothing recorded this month.</p>
+        <p className="py-6 text-center text-sm text-ink-muted">
+          {searching ? 'No entries match this filter.' : 'Nothing recorded this month.'}
+        </p>
       ) : (
         <div className="space-y-3">
           {days.map((day) => {
@@ -79,15 +146,44 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
                         {r.entry.note && <span className="truncate text-ink-muted">· {r.entry.note}</span>}
                         <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(r.entry.amount_pence)}</span>
                         <button type="button" onClick={() => setEditing(r.entry.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
-                        <button type="button" onClick={() => onDeleteEntry(r.entry.id)} aria-label="Delete" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+                        <ConfirmButton
+                          onConfirm={() => onDeleteEntry(r.entry.id)}
+                          idleLabel="✕"
+                          confirmLabel="Delete?"
+                          ariaLabel="Delete"
+                          idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
+                          confirmClassName="shrink-0 text-xs font-medium text-over"
+                        />
                       </div>
                     )
+                  ) : editingList === r.list.id ? (
+                    <div key={`l${r.list.id}`} className="py-3">
+                      <ListForm
+                        data={data}
+                        initial={r.list}
+                        submitLabel="Save changes"
+                        onSubmit={async (input) => {
+                          await updateList(r.list.id, input);
+                          await refresh();
+                          setEditingList(null);
+                        }}
+                        onCancel={() => setEditingList(null)}
+                      />
+                    </div>
                   ) : (
                     <div key={`l${r.list.id}`} className="flex items-center gap-3 py-2 text-sm">
                       <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">list</span>
                       <span className="truncate text-ink">{r.list.note || `${r.list.items.length} items`}</span>
                       <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(listTotals(r.list).mine)}</span>
-                      <button type="button" onClick={() => onDeleteList(r.list.id)} aria-label="Delete list" className="shrink-0 text-ink-faint hover:text-over">✕</button>
+                      <button type="button" onClick={() => setEditingList(r.list.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
+                      <ConfirmButton
+                        onConfirm={() => onDeleteList(r.list.id)}
+                        idleLabel="✕"
+                        confirmLabel="Delete?"
+                        ariaLabel="Delete list"
+                        idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
+                        confirmClassName="shrink-0 text-xs font-medium text-over"
+                      />
                     </div>
                   ),
                 )}
