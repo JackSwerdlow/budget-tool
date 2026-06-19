@@ -46,20 +46,37 @@ function Row({ line, open, toggle }: {
   toggle: (k: string) => void;
 }) {
   const hasChildren = !!line.children?.length;
-  const isOpen = open[line.key] ?? line.depth === 0; // top groups default open
+  const isOpen = open[line.key] ?? false; // collapsed by default
   const pad = ['pr-4', 'pl-4 pr-4', 'pl-8 pr-4', 'pl-12 pr-4'][line.depth] ?? 'pr-4';
   const tone = line.isNet ? 'text-accent' : line.isDeduction ? 'text-ink-muted' : 'text-ink';
   const weight = line.depth === 0 ? 'font-medium' : '';
+  const interactive = hasChildren ? 'group cursor-pointer hover:bg-raised/60' : '';
   return (
     <>
-      <tr className={`border-b border-hairline ${tone} ${weight}`}>
+      <tr
+        className={`border-b border-hairline ${tone} ${weight} ${interactive}`}
+        onClick={hasChildren ? () => toggle(line.key) : undefined}
+        role={hasChildren ? 'button' : undefined}
+        tabIndex={hasChildren ? 0 : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        onKeyDown={
+          hasChildren
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggle(line.key);
+                }
+              }
+            : undefined
+        }
+      >
         <td className={`py-1.5 ${pad}`}>
-          {hasChildren ? (
-            <button type="button" onClick={() => toggle(line.key)} className="inline-flex items-center gap-1 hover:text-ink">
-              <span className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
-              {line.label}
-            </button>
-          ) : line.label}
+          <span className="inline-flex items-center gap-1">
+            <span className={`inline-block w-3 text-center text-ink-faint ${hasChildren ? 'group-hover:text-accent' : ''}`}>
+              {hasChildren ? (isOpen ? '▾' : '▸') : ''}
+            </span>
+            <span className={hasChildren ? 'group-hover:text-accent' : ''}>{line.label}</span>
+          </span>
         </td>
         <td className={td}>{cell(line.cell.forecast)}</td>
         <td className={td}>{cell(line.cell.monthly)}</td>
@@ -76,12 +93,7 @@ function Row({ line, open, toggle }: {
 }
 
 export function BreakdownTable({ lines }: { lines: BreakdownLine[] }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({
-    grossIncome: true,
-    deductions: true,
-    netIncome: true,
-    incomeTax: false,
-  });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !(o[k] ?? false) }));
   return (
     <section className="rounded-lg border border-hairline bg-panel p-5">
