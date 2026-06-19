@@ -48,7 +48,7 @@ function Row({ line, open, toggle }: {
   const hasChildren = !!line.children?.length;
   const isOpen = open[line.key] ?? false; // collapsed by default
   const pad = ['pr-4', 'pl-4 pr-4', 'pl-8 pr-4', 'pl-12 pr-4'][line.depth] ?? 'pr-4';
-  const tone = line.isNet ? 'text-accent' : line.isDeduction ? 'text-ink-muted' : 'text-ink';
+  const tone = line.isNet ? 'text-accent' : line.isDeduction || line.muted ? 'text-ink-muted' : 'text-ink';
   const weight = line.depth === 0 ? 'font-medium' : '';
   const interactive = hasChildren ? 'group cursor-pointer hover:bg-raised/60' : '';
   return (

@@ -258,7 +258,7 @@ export function calcSalary(
   const grossMthly = Math.round((grossY + bonusY) / 12);
 
   const taxChildren: BreakdownLine[] = [
-    { key: 'allowanceUsed', label: 'Allowance Used', depth: 2, isDeduction: false, isNet: false,
+    { key: 'allowanceUsed', label: 'Allowance Used', depth: 2, isDeduction: false, isNet: false, muted: true,
       cell: flatCell(allowFC, PAUsedM, allowYTD) },
     { key: 'taxBasic', label: 'Basic Rate', depth: 2, isDeduction: true, isNet: false,
       cell: flatCell(-basicFC, -basicM, -basicYTD) },

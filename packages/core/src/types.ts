@@ -135,6 +135,7 @@ export type BreakdownLine = {
   cell: BreakdownCell;
   isDeduction: boolean;
   isNet: boolean;            // the Net Income line (accent styling)
+  muted?: boolean;           // de-emphasised reference row (e.g. Allowance Used) — muted like deductions
   depth: number;             // 0 = top group, 1 = child, 2 = tax band
   children?: BreakdownLine[];
 };
