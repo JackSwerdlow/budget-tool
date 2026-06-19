@@ -334,15 +334,19 @@ export function calcSalary(
     rateRow('netInclPension', 'Net incl. employer pension', netInclY, netPayMonthly + employerPensionM),
   ];
 
-  // Stats — Forecast basis. Numerator excludes pension (saving, not tax).
-  const statDeductionsFC = taxFC + niFCmag + slFCmag;
-  // Phase 1 interim: the incl-employer-pension denominator adds the ANNUALISE employer pension
-  // (employerPensionY) to the forecast gross — bases differ slightly for a mid-year view.
+  // Stats — Forecast basis.
+  //  • incomeTaxRate        = income tax ÷ taxable income
+  //  • totalRate            = ALL deductions (employee pension + tax + NI + SL) ÷ gross  (= 1 − net/gross)
+  //  • totalRateInclPension = ALL deductions ÷ (gross + employer pension contributions)
+  // Phase 1 interim: the incl-pension denominator adds the ANNUALISE employer pension
+  // (employerPensionY) to the forecast gross — bases differ slightly for a mid-year view;
   // Phase 2 (employer-pension YTD) makes this fully forecast-consistent.
+  const allDeductionsFC = empPenFC + taxFC + niFCmag + slFCmag;
   const stats: SalaryStats = {
-    effectiveRate: grossFC > 0 ? statDeductionsFC / grossFC : 0,
-    effectiveRateInclEmployerPension:
-      grossFC + employerPensionY > 0 ? statDeductionsFC / (grossFC + employerPensionY) : 0,
+    incomeTaxRate: taxableFC > 0 ? taxFC / taxableFC : 0,
+    totalRate: grossFC > 0 ? allDeductionsFC / grossFC : 0,
+    totalRateInclPension:
+      grossFC + employerPensionY > 0 ? allDeductionsFC / (grossFC + employerPensionY) : 0,
   };
 
   // Pension — Phase 1: Month + interim annualise Yearly; All-time hidden (null).

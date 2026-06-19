@@ -484,11 +484,16 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(rateNet.monthly).toBe(r.netMonthlyPence);
   });
 
-  it('stats: rates are positive fractions; incl-employer-pension is the lower one', () => {
+  it('stats: income-tax & total rates are positive fractions; incl-pension is lower than total', () => {
     const s = calcSalary(BASE).view.stats;
-    expect(s.effectiveRate).toBeGreaterThan(0);
-    expect(s.effectiveRate).toBeLessThan(1);
-    expect(s.effectiveRateInclEmployerPension).toBeLessThan(s.effectiveRate);
+    expect(s.incomeTaxRate).toBeGreaterThan(0);
+    expect(s.incomeTaxRate).toBeLessThan(1);
+    expect(s.totalRate).toBeGreaterThan(0);
+    expect(s.totalRate).toBeLessThan(1);
+    // total rate includes employee pension in the numerator → strictly greater than income-tax-only
+    expect(s.totalRate).toBeGreaterThan(s.incomeTaxRate);
+    // adding employer pension to the denominator lowers the rate
+    expect(s.totalRateInclPension).toBeLessThan(s.totalRate);
   });
 
   it('pension: contributions are positive and into-pot = employer + employee', () => {

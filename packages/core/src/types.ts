@@ -152,8 +152,9 @@ export type RateRow = {
 };
 
 export type SalaryStats = {
-  effectiveRate: number;                    // fraction
-  effectiveRateInclEmployerPension: number; // fraction
+  incomeTaxRate: number;        // income tax ÷ taxable income
+  totalRate: number;            // all deductions ÷ gross
+  totalRateInclPension: number; // all deductions ÷ (gross + employer pension)
 };
 
 export type PensionRow = {

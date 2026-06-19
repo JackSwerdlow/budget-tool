@@ -123,12 +123,16 @@ export function StatsPanel({ stats }: { stats: SalaryView['stats'] }) {
       <h2 className="mb-4 font-serif text-base font-medium text-ink">Stats</h2>
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between border-b border-hairline py-1">
-          <dt className="text-ink-muted">Effective tax + NI rate</dt>
-          <dd className="tabular-nums text-ink">{pct(stats.effectiveRate)}</dd>
+          <dt className="text-ink-muted">Effective income tax rate</dt>
+          <dd className="tabular-nums text-ink">{pct(stats.incomeTaxRate)}</dd>
+        </div>
+        <div className="flex justify-between border-b border-hairline py-1">
+          <dt className="text-ink-muted">Effective total tax rate</dt>
+          <dd className="tabular-nums text-ink">{pct(stats.totalRate)}</dd>
         </div>
         <div className="flex justify-between border-b border-hairline py-1">
           <dt className="text-ink-muted">… incl. employer pension</dt>
-          <dd className="tabular-nums text-ink">{pct(stats.effectiveRateInclEmployerPension)}</dd>
+          <dd className="tabular-nums text-ink">{pct(stats.totalRateInclPension)}</dd>
         </div>
       </dl>
     </section>
