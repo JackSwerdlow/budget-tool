@@ -15,7 +15,7 @@ export function RateStrip({ rows }: { rows: SalaryView['rateStrip'] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-hairline">
-              <th className={`${th} text-left`}>Rate</th>
+              <th className={`${th} text-left`}>&nbsp;</th>
               {['Yearly', 'Monthly', 'Weekly', 'Daily', 'Hourly', '% Gross'].map((h) => (
                 <th key={h} className={th}>{h}</th>
               ))}
@@ -102,7 +102,7 @@ export function BreakdownTable({ lines }: { lines: BreakdownLine[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-hairline">
-              <th className={`${th} text-left`}>Row</th>
+              <th className={`${th} text-left`}>&nbsp;</th>
               {['Yearly (fcast)', 'Monthly', 'Weekly', 'Daily', 'Hourly', 'YTD'].map((h) => (
                 <th key={h} className={th}>{h}</th>
               ))}
