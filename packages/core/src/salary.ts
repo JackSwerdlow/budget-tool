@@ -334,19 +334,21 @@ export function calcSalary(
     rateRow('netInclPension', 'Net incl. employer pension', netInclY, netPayMonthly + employerPensionM),
   ];
 
-  // Stats — Forecast basis.
-  //  • incomeTaxRate        = income tax ÷ taxable income
-  //  • totalRate            = ALL deductions (employee pension + tax + NI + SL) ÷ gross  (= 1 − net/gross)
-  //  • totalRateInclPension = ALL deductions ÷ (gross + employer pension contributions)
-  // Phase 1 interim: the incl-pension denominator adds the ANNUALISE employer pension
-  // (employerPensionY) to the forecast gross — bases differ slightly for a mid-year view;
-  // Phase 2 (employer-pension YTD) makes this fully forecast-consistent.
-  const allDeductionsFC = empPenFC + taxFC + niFCmag + slFCmag;
+  // Stats — standing (annualise) basis, consistent with the rate strip's "% of gross" so the
+  // total rate reconciles exactly (totalRate = 1 − net% of gross).
+  //  • incomeTaxRateGross   = income tax ÷ gross income   (standard effective rate; counts the allowance)
+  //  • incomeTaxRateTaxable = income tax ÷ taxable income (average rate on the taxed portion)
+  //  • totalRate            = all deductions (employee pension + tax + NI + SL) ÷ gross  (= 1 − net/gross)
+  //  • totalRateInclPension = all deductions ÷ (gross + employer pension)
+  const incomeTaxStand     = -incomeTaxY;             // annualise income-tax magnitude
+  const allDeductionsStand = grossStandY - netStandY; // employee pension + tax + NI + SL (annualise)
   const stats: SalaryStats = {
-    incomeTaxRate: taxableFC > 0 ? taxFC / taxableFC : 0,
-    totalRate: grossFC > 0 ? allDeductionsFC / grossFC : 0,
-    totalRateInclPension:
-      grossFC + employerPensionY > 0 ? allDeductionsFC / (grossFC + employerPensionY) : 0,
+    incomeTaxRateGross:   grossStandY > 0 ? incomeTaxStand / grossStandY : 0,
+    incomeTaxRateTaxable: taxableY    > 0 ? incomeTaxStand / taxableY    : 0,
+    totalRate:            grossStandY > 0 ? allDeductionsStand / grossStandY : 0,
+    totalRateInclPension: grossStandY + employerPensionY > 0
+      ? allDeductionsStand / (grossStandY + employerPensionY)
+      : 0,
   };
 
   // Pension — Phase 1: Month + interim annualise Yearly; All-time hidden (null).

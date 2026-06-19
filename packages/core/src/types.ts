@@ -152,8 +152,9 @@ export type RateRow = {
 };
 
 export type SalaryStats = {
-  incomeTaxRate: number;        // income tax ÷ taxable income
-  totalRate: number;            // all deductions ÷ gross
+  incomeTaxRateGross: number;   // income tax ÷ gross income (standard effective rate)
+  incomeTaxRateTaxable: number; // income tax ÷ taxable income (rate on the taxed portion)
+  totalRate: number;            // all deductions ÷ gross (= 1 − net/gross)
   totalRateInclPension: number; // all deductions ÷ (gross + employer pension)
 };
 

@@ -484,16 +484,22 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(rateNet.monthly).toBe(r.netMonthlyPence);
   });
 
-  it('stats: income-tax & total rates are positive fractions; incl-pension is lower than total', () => {
+  it('stats: rates are positive fractions; gross < taxable; incl-pension lowers it', () => {
     const s = calcSalary(BASE).view.stats;
-    expect(s.incomeTaxRate).toBeGreaterThan(0);
-    expect(s.incomeTaxRate).toBeLessThan(1);
+    expect(s.incomeTaxRateGross).toBeGreaterThan(0);
+    expect(s.incomeTaxRateGross).toBeLessThan(1);
+    // income tax as % of gross is lower than as % of taxable (the allowance is untaxed)
+    expect(s.incomeTaxRateGross).toBeLessThan(s.incomeTaxRateTaxable);
     expect(s.totalRate).toBeGreaterThan(0);
     expect(s.totalRate).toBeLessThan(1);
-    // total rate includes employee pension in the numerator → strictly greater than income-tax-only
-    expect(s.totalRate).toBeGreaterThan(s.incomeTaxRate);
     // adding employer pension to the denominator lowers the rate
     expect(s.totalRateInclPension).toBeLessThan(s.totalRate);
+  });
+
+  it('stats: total deductions rate reconciles with the rate strip (totalRate = 1 − net% of gross)', () => {
+    const r = calcSalary(BASE);
+    const net = r.view.rateStrip.find((x) => x.key === 'net')!;
+    expect(r.view.stats.totalRate).toBeCloseTo(1 - net.pctGross, 10);
   });
 
   it('pension: contributions are positive and into-pot = employer + employee', () => {
