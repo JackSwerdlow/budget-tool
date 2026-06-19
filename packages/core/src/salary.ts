@@ -313,13 +313,16 @@ export function calcSalary(
       ] },
   ];
 
-  // Rate strip — standing current rate (annualise; reuse existing annualise figures).
+  // Rate strip — standing current rate. Yearly is the standing annualise (intentionally
+  // distinct from the breakdown's Forecast yearly); the Monthly column is overridden to the
+  // ACTUAL this-month figure for the net rows so it matches the breakdown's Monthly (the
+  // figure written to the ledger) rather than a yearly÷12 that rounds a few pence off.
   const grossStandY = grossY + bonusY;
   const netStandY   = netPayY;                       // existing annualise net
   const netInclY    = netPayY + employerPensionY;
-  const rateRow = (key: string, label: string, yearly: number): RateRow => ({
+  const rateRow = (key: string, label: string, yearly: number, monthlyOverride?: number): RateRow => ({
     key, label, yearly,
-    monthly: Math.round(yearly / 12),
+    monthly: monthlyOverride ?? Math.round(yearly / 12),
     weekly:  Math.round(yearly / cfg.work_weeks_per_year),
     daily:   Math.round(Math.round(yearly / cfg.work_weeks_per_year) / cfg.work_days_per_week),
     hourly:  Math.round(Math.round(yearly / cfg.work_weeks_per_year) / cfg.hours_per_week),
@@ -327,8 +330,8 @@ export function calcSalary(
   });
   const rateStrip: RateRow[] = [
     rateRow('gross', 'Gross Income', grossStandY),
-    rateRow('net', 'Net Income', netStandY),
-    rateRow('netInclPension', 'Net incl. employer pension', netInclY),
+    rateRow('net', 'Net Income', netStandY, netPayMonthly),
+    rateRow('netInclPension', 'Net incl. employer pension', netInclY, netPayMonthly + employerPensionM),
   ];
 
   // Stats — Forecast basis. Numerator excludes pension (saving, not tax).

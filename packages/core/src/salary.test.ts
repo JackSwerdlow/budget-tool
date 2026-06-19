@@ -476,6 +476,14 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(incl.yearly).toBeGreaterThan(net.yearly);
   });
 
+  it('rate strip net Monthly matches the breakdown net Monthly (= netMonthlyPence)', () => {
+    const r = calcSalary(BASE);
+    const rateNet = r.view.rateStrip.find((x) => x.key === 'net')!;
+    const breakdownNet = r.view.breakdown.find((l) => l.key === 'netIncome')!;
+    expect(rateNet.monthly).toBe(breakdownNet.cell.monthly);
+    expect(rateNet.monthly).toBe(r.netMonthlyPence);
+  });
+
   it('stats: rates are positive fractions; incl-employer-pension is the lower one', () => {
     const s = calcSalary(BASE).view.stats;
     expect(s.effectiveRate).toBeGreaterThan(0);
