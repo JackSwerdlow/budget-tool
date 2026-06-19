@@ -519,3 +519,50 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
   });
 });
+
+describe('calcSalary — high earner: personal-allowance taper (>£100k)', () => {
+  const find = (v: import('./types').SalaryView, key: string) => {
+    const walk = (lines: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of lines) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+    };
+    return walk(v.breakdown)!;
+  };
+
+  it('£200k: personal allowance fully tapered → Allowance Used = £0 in every column', () => {
+    const r = calcSalary({ ...BASE, gross_yearly_pence: 20_000_000, sl_enabled: false });
+    const allowance = find(r.view, 'allowanceUsed');
+    expect(allowance.cell.monthly).toBe(0);
+    expect(allowance.cell.forecast).toBe(0);
+    expect(allowance.cell.ytd).toBe(0);
+    // PA = 0 ⇒ taxable income ≈ adjusted net (only the £-flooring differs)
+    expect(Math.abs(find(r.view, 'taxableIncome').cell.forecast - find(r.view, 'adjustedNet').cell.forecast))
+      .toBeLessThan(100);
+  });
+
+  it('£110k: personal allowance partially tapered → 0 < Allowance Used < full PA', () => {
+    const r = calcSalary({ ...BASE, gross_yearly_pence: 11_000_000, sl_enabled: false });
+    const monthly = find(r.view, 'allowanceUsed').cell.monthly;
+    const fullMonthlyPA = Math.round(BASE.personal_allowance_pence / 12); // 104_750
+    expect(monthly).toBeGreaterThan(0);
+    expect(monthly).toBeLessThan(fullMonthlyPA);
+  });
+
+  it('mid-year jump to £200k (viewing July): additional rate £0 this month, but present in the forecast', () => {
+    // Apr–Jun earned at the £59,466 rate, July jumps to £200k. Employed since a prior tax year.
+    // Under cumulative PAYE the 45% band is only deducted once cumulative pay crosses the
+    // cumulative additional-rate threshold — which hasn't happened by July — so THIS month is £0,
+    // while the full-year forecast does cross it. Both are correct.
+    const cfg = { ...BASE, gross_yearly_pence: 20_000_000, sl_enabled: false, bonus_pence: 0 };
+    const r = calcSalary({ ...cfg, year: 2026, month: 7 }, { year: 2025, month: 4 }, {
+      adjustedNetYTDPence: 3 * 468_543 + 1_575_834,
+      priorAdjNetYTDPence: 3 * 468_543,
+      grossYTDPence: 3 * 495_550 + 1_666_667,
+      employeePensionYTDPence: 3 * 27_007 + 90_833,
+      niYTDPence: 0,
+      slYTDPence: 0,
+    });
+    const addl = find(r.view, 'taxAddl');
+    expect(addl.cell.monthly === 0).toBe(true); // not yet due this month (−0/+0 both nil)
+    expect(addl.cell.forecast).toBeLessThan(0); // but the full year incurs it (deduction shown negative)
+  });
+});

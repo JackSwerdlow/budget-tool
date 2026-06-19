@@ -148,8 +148,8 @@ export function calcSalary(
     const M = taxPeriod, N = monthsEmployed;
     const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  N      * adjustedNetM;
     const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (N - 1) * adjustedNetM;
-    PAUsedY = Math.min(cumEarnings, M * monthlyPA);
-    PAUsedM = Math.min(adjustedNetM, (Math.min(cumEarnings, M * monthlyPA) - Math.min(priorEarnings, (M-1) * monthlyPA)));
+    PAUsedY = Math.min(cumEarnings, M * effectivePaM);
+    PAUsedM = Math.min(adjustedNetM, (Math.min(cumEarnings, M * effectivePaM) - Math.min(priorEarnings, (M-1) * effectivePaM)));
     const [basicCum, higherCum, addlCum] = taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
     const [basicPri, higherPri, addlPri] = taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
     basicM = basicCum - basicPri;
@@ -161,8 +161,8 @@ export function calcSalary(
     const M = taxPeriod;
     const cumEarnings   = ytdInput ? ytdInput.adjustedNetYTDPence   :  M      * adjustedNetM;
     const priorEarnings = ytdInput ? ytdInput.priorAdjNetYTDPence   : (M - 1) * adjustedNetM;
-    PAUsedY = Math.min(cumEarnings, M * monthlyPA);
-    PAUsedM = PAUsedY - Math.min(cumEarnings, (M-1) * monthlyPA);
+    PAUsedY = Math.min(cumEarnings, M * effectivePaM);
+    PAUsedM = PAUsedY - Math.min(cumEarnings, (M-1) * effectivePaM);
     const [basicCum, higherCum, addlCum] = taxOnCumulative(cumEarnings,   M,     effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
     const [basicPri, higherPri, addlPri] = taxOnCumulative(priorEarnings, M - 1, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
     basicM = basicCum - basicPri;
@@ -233,14 +233,14 @@ export function calcSalary(
   const empPenFC  = empPenYTDmag  + remaining * -employeePensionMonthly;
   const taxFC     = basicFC + higherFC + addlFC;
   const taxableFC = Math.max(0, Math.floor((forecastAdjNet - 12 * effectivePaM) / 100) * 100);
-  const allowFC   = Math.min(forecastAdjNet, 12 * monthlyPA);
+  const allowFC   = Math.min(forecastAdjNet, 12 * effectivePaM);
   const netFC     = forecastAdjNet - taxFC - niFCmag - slFCmag;
 
   // YTD tax (cumulative through current period) via the validated routine.
   const [basicYTD, higherYTD, addlYTD] = taxOnCumulative(adjNetYTDmag, p, effectivePaM, monthlyBRB, monthlyARTaxable, cfg);
   const taxYTD     = basicYTD + higherYTD + addlYTD;
   const taxableYTD = Math.max(0, Math.floor((adjNetYTDmag - p * effectivePaM) / 100) * 100);
-  const allowYTD   = Math.min(adjNetYTDmag, p * monthlyPA);
+  const allowYTD   = Math.min(adjNetYTDmag, p * effectivePaM);
   const netYTD     = adjNetYTDmag - taxYTD - niYTDmag - slYTDmag;
 
   // Per-period slices of a monthly figure (this month annualised, re-sliced).
