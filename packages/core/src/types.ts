@@ -182,6 +182,8 @@ export type SalaryYTD = {
   priorAdjNetYTDPence: number;
   niYTDPence: number;
   slYTDPence: number;
+  employerPensionYTDPence: number;
+  bonusYTDPence: number;
 };
 
 // Already-fetched YTD totals (all positive magnitudes) fed into the view math.
@@ -192,6 +194,7 @@ export type SalaryYTDInput = {
   employeePensionYTDPence: number;
   niYTDPence: number;
   slYTDPence: number;
+  employerPensionYTDPence: number;
 };
 
 export type SalaryConfigResponse = {

@@ -8,6 +8,7 @@ export type YTDConfigRow = {
   gross_yearly_pence: number;
   bonus_pence: number;
   employee_pension_pct: number;
+  employer_pension_pct: number;
   ni_lower_monthly_pence: number;
   ni_upper_monthly_pence: number;
   ni_primary_pct: number;
@@ -33,10 +34,11 @@ export function computeSalaryYTD(
     taxYear: ty, employmentStart: null,
     grossYTDPence: 0, employeePensionYTDPence: 0, adjustedNetYTDPence: 0,
     priorAdjNetYTDPence: 0, niYTDPence: 0, slYTDPence: 0,
+    employerPensionYTDPence: 0, bonusYTDPence: 0,
   };
   if (!employmentStart) return empty;
 
-  let grossYTD = 0, pensionYTD = 0, adjNetYTD = 0, priorAdjNetYTD = 0, niYTD = 0, slYTD = 0;
+  let grossYTD = 0, pensionYTD = 0, adjNetYTD = 0, priorAdjNetYTD = 0, niYTD = 0, slYTD = 0, empPenYTD = 0, bonusYTD = 0;
 
   let cur = { year: employmentStart.year, month: employmentStart.month };
   while (cur.year < year || (cur.year === year && cur.month <= month)) {
@@ -51,6 +53,7 @@ export function computeSalaryYTD(
       const grossY    = cfg.gross_yearly_pence;
       const bonusY    = cfg.bonus_pence ?? 0;
       const pensionY  = Math.round(grossY * cfg.employee_pension_pct / 100);
+      const empPenY   = Math.round(grossY * cfg.employer_pension_pct / 100);
       const adjNetY   = grossY + bonusY - pensionY;
       const mGross    = (grossY + bonusY) / 12;
       const mAdjNet   = adjNetY / 12;
@@ -71,6 +74,8 @@ export function computeSalaryYTD(
       adjNetYTD  += mAdjNet;
       niYTD      += niPrimary + niUpper;
       slYTD      += slMonthly;
+      empPenYTD  += empPenY / 12;
+      bonusYTD   += bonusY / 12;
     }
 
     if (cur.month === 12) { cur = { year: cur.year + 1, month: 1 }; }
@@ -86,5 +91,7 @@ export function computeSalaryYTD(
     priorAdjNetYTDPence:     Math.round(priorAdjNetYTD),
     niYTDPence:              Math.round(niYTD),
     slYTDPence:              Math.round(slYTD),
+    employerPensionYTDPence: Math.round(empPenYTD),
+    bonusYTDPence:           Math.round(bonusYTD),
   };
 }
