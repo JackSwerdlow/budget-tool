@@ -36,8 +36,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
   const [allConfigs, setAllConfigs] = useState<SalaryConfig[]>([]);
 
   const [configFields, setConfigFields] = useState<ConfigFields>(EMPTY_CONFIG_FIELDS);
-  const [configEditing, setConfigEditing] = useState(false);
-  const [configDraft, setConfigDraft] = useState<ConfigFields>(EMPTY_CONFIG_FIELDS);
 
   const [saving, setSaving] = useState(false);
   const [clearArmed, setClearArmed] = useState(false);
@@ -64,7 +62,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       if (resp.config) {
         const fields = configToFields(resp.config);
         setConfigFields(fields);
-        setConfigDraft(fields);
         const yearlyPounds = resp.config.gross_yearly_pence / 100;
         const wks = resp.config.work_weeks_per_year;
         const days = resp.config.work_days_per_week;
@@ -73,7 +70,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
         setNote(resp.config.note ?? '');
       } else {
         setConfigFields(EMPTY_CONFIG_FIELDS);
-        setConfigDraft(EMPTY_CONFIG_FIELDS);
         setGross({ yearly: '', monthly: '', weekly: '', daily: '', hourly: '' });
         setNote('');
       }
@@ -163,12 +159,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     data.lists.some((l) => l.date.startsWith(ym));
   const showNoTxnWarning = !hasTransactions && ym !== currentYm();
 
-  const startEdit = () => { setConfigDraft({ ...configFields }); setConfigEditing(true); };
-  const cancelEdit = () => setConfigEditing(false);
-  const saveEdit = () => { setConfigFields({ ...configDraft }); setConfigEditing(false); };
-  const setDraft = (key: keyof ConfigFields, value: string | boolean) =>
-    setConfigDraft((prev) => ({ ...prev, [key]: value }));
-
   const saveBarProps = {
     ym,
     breakdown,
@@ -222,13 +212,8 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
         <LifetimeTab />
       ) : (
         <ConfigTab
-          configEditing={configEditing}
           configFields={configFields}
-          configDraft={configDraft}
-          startEdit={startEdit}
-          cancelEdit={cancelEdit}
-          saveEdit={saveEdit}
-          setDraft={setDraft}
+          setConfigFields={setConfigFields}
           saveBarProps={saveBarProps}
         />
       )}
