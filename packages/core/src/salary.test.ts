@@ -431,6 +431,7 @@ describe('calcSalary — view: YTD column', () => {
     const r = calcSalary(BASE, undefined, {
       adjustedNetYTDPence: 10 * 468_543, priorAdjNetYTDPence: 9 * 468_543,
       grossYTDPence: 10 * 495_550, employeePensionYTDPence: 10 * 27_007,
+      employerPensionYTDPence: 10 * 143_561,
       niYTDPence: 10 * 26_666, slYTDPence: 10 * 23_200,
     });
     expect(find(r.view, 'grossIncome').cell.ytd).toBe(10 * 495_550);
@@ -440,6 +441,7 @@ describe('calcSalary — view: YTD column', () => {
     const r = calcSalary(BASE, undefined, {
       adjustedNetYTDPence: 10 * 468_543, priorAdjNetYTDPence: 9 * 468_543,
       grossYTDPence: 10 * 495_550, employeePensionYTDPence: 10 * 27_007,
+      employerPensionYTDPence: 10 * 143_561,
       niYTDPence: 10 * 26_666, slYTDPence: 10 * 23_200,
     });
     const net = find(r.view, 'netIncome').cell.ytd!;
@@ -461,6 +463,7 @@ describe('calcSalary — view: YTD column', () => {
       priorAdjNetYTDPence: 9 * 468_543,
       grossYTDPence: 10 * 495_550,
       employeePensionYTDPence: 10 * 27_007,
+      employerPensionYTDPence: 10 * 143_561,
       niYTDPence: 10 * 26_666,
       slYTDPence: 10 * 23_200,
     });
@@ -583,6 +586,7 @@ describe('calcSalary — high earner: personal-allowance taper (>£100k)', () =>
       priorAdjNetYTDPence: 3 * 468_543,
       grossYTDPence: 3 * 495_550 + 1_666_667,
       employeePensionYTDPence: 3 * 27_007 + 90_833,
+      employerPensionYTDPence: 3 * 143_561 + 482_833,
       niYTDPence: 0,
       slYTDPence: 0,
     });
