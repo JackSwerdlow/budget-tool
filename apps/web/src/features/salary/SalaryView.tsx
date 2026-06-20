@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { formatGBP, type BreakdownLine, type SalaryView } from '@budget/core';
+import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView } from '@budget/core';
+import { lifetimeLines, type LifetimeLine } from './lifetimeLines';
 
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;
 const cell = (v: number | null) => (v == null ? '—' : formatGBP(v));
@@ -201,5 +202,83 @@ export function KeyFigures({ stats, pensionFundPence, studentDebtPence, ymLabel 
         {row('Remaining student debt', studentDebtPence == null ? '—' : formatGBP(studentDebtPence))}
       </dl>
     </section>
+  );
+}
+
+function LifetimeRow({ line, byKey, open, toggle }: {
+  line: LifetimeLine;
+  byKey: Map<string, LifetimeLine>;
+  open: Record<string, boolean>;
+  toggle: (k: string) => void;
+}) {
+  // Visibility: all ancestors must be open
+  let p = line.parent;
+  while (p) {
+    if (!(open[p] ?? false)) return null;
+    p = byKey.get(p)?.parent;
+  }
+
+  const isGroup = !!line.group;
+  const isOpen = open[line.key] ?? false;
+  const pad = (['pr-4', 'pl-4 pr-4', 'pl-8 pr-4'] as const)[line.depth] ?? 'pr-4';
+  const tone =
+    line.tone === 'net' ? 'text-accent' :
+    line.tone === 'deduction' || line.tone === 'muted' ? 'text-ink-muted' :
+    'text-ink';
+  const weight = line.depth === 0 ? 'font-medium' : '';
+  const interactive = isGroup ? 'group cursor-pointer hover:bg-raised/60' : '';
+
+  return (
+    <tr
+      className={`border-b border-hairline ${tone} ${weight} ${interactive}`}
+      onClick={isGroup ? () => toggle(line.key) : undefined}
+      role={isGroup ? 'button' : undefined}
+      tabIndex={isGroup ? 0 : undefined}
+      aria-expanded={isGroup ? isOpen : undefined}
+      onKeyDown={
+        isGroup
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggle(line.key);
+              }
+            }
+          : undefined
+      }
+    >
+      <td className={`py-1.5 ${pad}`}>
+        <span className="inline-flex items-center gap-1">
+          <span className={`inline-block w-3 text-center text-ink-faint ${isGroup ? 'group-hover:text-accent' : ''}`}>
+            {isGroup ? (isOpen ? '▾' : '▸') : ''}
+          </span>
+          <span className={isGroup ? 'group-hover:text-accent' : ''}>{line.label}</span>
+        </span>
+      </td>
+      <td className={td}>{formatGBP(line.pence)}</td>
+    </tr>
+  );
+}
+
+export function LifetimeTotalsTable({ totals }: { totals: LifetimeTotals }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !(o[k] ?? false) }));
+  const lines = lifetimeLines(totals);
+  const byKey = new Map(lines.map((l) => [l.key, l]));
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-hairline">
+            <th className={`${th} text-left`}>&nbsp;</th>
+            <th className={th}>To date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <LifetimeRow key={l.key} line={l} byKey={byKey} open={open} toggle={toggle} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
