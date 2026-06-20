@@ -213,7 +213,8 @@ export type WalkMonth = {
 };
 
 // Cumulative actuals from the first recorded month through the selected month. All positive
-// magnitudes (pence) except netTakeHomePence. Sourced from per-tax-year cumulative slices.
+// magnitudes (pence) — deductions are reported as positive amounts, not signed. Sourced from
+// per-tax-year cumulative slices.
 export type LifetimeTotals = {
   monthsCount: number;
   grossPence: number;

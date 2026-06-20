@@ -69,6 +69,24 @@ test('lifetime income tax = Σ per-tax-year actual PAYE (April reset)', () => {
   expect(life.incomeTaxPence).not.toBe(spanningTax);
 });
 
+// GAP YEAR: a tax year with no saved config in it contributes nothing (mirrors getSalaryYTD's
+// getFirstConfigInTaxYear → null). Employed TY2024, gap in TY2025, employed again TY2026.
+test('a tax year with no saved config contributes nothing (employment gap)', () => {
+  const a = base(2024, 4, 3_000_000);  // TY2024 full year
+  const b = base(2026, 4, 3_000_000);  // TY2026 (nothing recorded in TY2025)
+  const through = { year: 2026, month: 9 };
+  const life = computeLifetime([a, b], through);
+
+  const tyA = computeSalaryYTD([{ ...a, sl_enabled: 1 } as never], { year: 2024, month: 4 }, 2025, 3);
+  const tyAtax = -calcSalaryTaxYTD(a, { year: 2024, month: 4 }, tyA, 2025, 3);
+  const tyB = computeSalaryYTD([{ ...b, sl_enabled: 1 } as never], { year: 2026, month: 4 }, 2026, 9);
+  const tyBtax = -calcSalaryTaxYTD(b, { year: 2026, month: 4 }, tyB, 2026, 9);
+
+  expect(life.incomeTaxPence).toBe(tyAtax + tyBtax);   // TY2025 (gap) adds nothing
+  expect(life.monthsCount).toBe(12 + 6);               // TY2024 full year + TY2026 Apr–Sep; gap skipped
+  expect(life.grossPence).toBe(tyA.grossYTDPence + tyB.grossYTDPence);
+});
+
 // helper: income-tax YTD column from calcSalary for a given (cfg, employmentStart, ytd, y, m)
 function calcSalaryTaxYTD(
   cfg: SalaryConfig, start: { year: number; month: number },
