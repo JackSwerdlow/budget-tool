@@ -202,3 +202,12 @@ export type SalaryConfigResponse = {
   inheritedFrom: { year: number; month: number } | null;
   employmentStart: { year: number; month: number } | null;
 };
+
+// One calendar month in the lifetime walk. `cfg` is the resolved (inherited) config with
+// its year/month set to THIS month; `isExplicit` = this month has its own saved row.
+export type WalkMonth = {
+  year: number;
+  month: number;
+  isExplicit: boolean;
+  cfg: SalaryConfig;
+};
