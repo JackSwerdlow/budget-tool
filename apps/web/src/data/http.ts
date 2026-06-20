@@ -131,9 +131,16 @@ export async function deleteSalaryConfig(year: number, month: number): Promise<v
   if (!res.ok) throw new Error(`deleteSalaryConfig failed: ${res.status}`);
 }
 
+export async function getAllSalaryConfigs(): Promise<SalaryConfig[]> {
+  const res = await fetch(`${API}salary-configs`);
+  if (!res.ok) throw new Error(`getAllSalaryConfigs failed: ${res.status}`);
+  return res.json() as Promise<SalaryConfig[]>;
+}
+
 export const httpPort: DataPort = {
   fetchBootstrap, createEntry, updateEntry, deleteEntry, createList, updateList, deleteList,
   createCategory, updateCategory, deleteCategory, createGroup, updateGroup, deleteGroup,
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
+  getAllSalaryConfigs,
 };

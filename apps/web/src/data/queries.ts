@@ -318,6 +318,13 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
       await exec.execute('DELETE FROM salary_config WHERE year = $1 AND month = $2', [year, month]);
       await exec.execute('DELETE FROM monthly_income WHERE year = $1 AND month = $2', [year, month]);
     },
+
+    async getAllSalaryConfigs() {
+      const rows = await exec.select<SalaryConfigRow>(
+        'SELECT * FROM salary_config ORDER BY year ASC, month ASC',
+      );
+      return rows.map(rowToConfig);
+    },
   };
 
   return port;

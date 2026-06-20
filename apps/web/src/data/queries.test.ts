@@ -156,3 +156,13 @@ test('salary: delete removes config and its income row', async () => {
   expect((await port.getSalaryConfig(2026, 6)).config).toBeNull();
   expect((await port.fetchBootstrap()).income).toEqual([]);
 });
+
+test('salary: getAllSalaryConfigs returns every saved row ascending', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig({ ...SALARY_CFG, year: 2026, month: 6 }, 335_995);
+  await port.saveSalaryConfig({ ...SALARY_CFG, year: 2026, month: 4, gross_yearly_pence: 4_200_000 }, 280_000);
+  const all = await port.getAllSalaryConfigs();
+  expect(all.map((c) => `${c.year}-${c.month}`)).toEqual(['2026-4', '2026-6']);
+  expect(all[0].gross_yearly_pence).toBe(4_200_000);
+  expect(all[1].sl_enabled).toBe(true);
+});

@@ -16,6 +16,7 @@ import {
   getGroup,
   getList,
   deleteSalaryConfig,
+  getAllSalaryConfigs,
   getSalaryConfig,
   getSalaryYTD,
   setDefaultIncome,
@@ -347,6 +348,8 @@ export function createApp(db: DatabaseSync): Hono {
   });
 
   // ── Salary config ───────────────────────────────────────────────────────────
+  api.get('/salary-configs', (c) => c.json(getAllSalaryConfigs(db)));
+
   api.get('/salary-ytd/:year/:month', (c) => {
     const year = Number(c.req.param('year'));
     const month = Number(c.req.param('month'));

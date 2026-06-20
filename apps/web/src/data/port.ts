@@ -56,4 +56,5 @@ export interface DataPort {
   getSalaryYTD(year: number, month: number): Promise<SalaryYTD>;
   saveSalaryConfig(cfg: SalaryConfig, netMonthlyPence: number): Promise<SalaryConfigResponse>;
   deleteSalaryConfig(year: number, month: number): Promise<void>;
+  getAllSalaryConfigs(): Promise<SalaryConfig[]>;
 }

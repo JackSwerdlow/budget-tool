@@ -547,6 +547,11 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
   };
 }
 
+export function getAllSalaryConfigs(db: DatabaseSync): SalaryConfig[] {
+  const rows = db.prepare('SELECT * FROM salary_config ORDER BY year ASC, month ASC').all() as SalaryConfigRow[];
+  return rows.map(rowToConfig);
+}
+
 export function deleteSalaryConfig(db: DatabaseSync, year: number, month: number): { deleted: boolean } {
   db.prepare('DELETE FROM salary_config WHERE year = ? AND month = ?').run(year, month);
   const { changes } = db.prepare('DELETE FROM monthly_income WHERE year = ? AND month = ?').run(year, month);
