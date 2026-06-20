@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatGBP, type BreakdownLine, type SalaryView } from '@budget/core';
 
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;
@@ -170,6 +170,36 @@ export function PensionPanel({ rows }: { rows: SalaryView['pension'] }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+export function KeyFigures({ stats, pensionFundPence, studentDebtPence, ymLabel }: {
+  stats: SalaryView['stats'];
+  pensionFundPence: number | null;
+  studentDebtPence: number | null;
+  ymLabel: string;
+}) {
+  const row = (label: ReactNode, value: string) => (
+    <div className="flex justify-between border-b border-hairline py-1">
+      <dt className="text-ink-muted">{label}</dt><dd className="tabular-nums text-ink">{value}</dd>
+    </div>
+  );
+  return (
+    <section className="rounded-lg border border-hairline bg-panel p-5">
+      <h2 className="mb-4 font-serif text-base font-medium text-ink">
+        Key figures <span className="font-normal text-ink-faint text-sm">— as of {ymLabel}</span>
+      </h2>
+      <dl className="space-y-1 text-sm">
+        <div className="text-xs uppercase tracking-wide text-ink-faint pt-1">Effective rates</div>
+        {row(<>Income tax <span className="text-ink-faint">· of gross</span></>, pct(stats.incomeTaxRateGross))}
+        {row(<>Income tax <span className="text-ink-faint">· of taxable</span></>, pct(stats.incomeTaxRateTaxable))}
+        {row(<>Total deductions <span className="text-ink-faint">· of gross</span></>, pct(stats.totalRate))}
+        {row(<>… incl. employer pension</>, pct(stats.totalRateInclPension))}
+        <div className="text-xs uppercase tracking-wide text-ink-faint pt-2">Position (cumulative to date)</div>
+        {row('Total pension fund', pensionFundPence == null ? '—' : formatGBP(pensionFundPence))}
+        {row('Remaining student debt', studentDebtPence == null ? '—' : formatGBP(studentDebtPence))}
+      </dl>
     </section>
   );
 }

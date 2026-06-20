@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, type LedgerData, type SalaryYTD } from '@budget/core';
-import { deleteSalaryConfig, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
+import { calcSalary, computeLifetime, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
+import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel, Segmented } from '../../components/ui';
 import { useData } from '../../data';
 import { monthLabel } from '../../lib/dates';
@@ -33,8 +33,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
 
   const [gross, setGross] = useState<Record<GrossField, string>>({ yearly: '', monthly: '', weekly: '', daily: '', hourly: '' });
   const [note, setNote] = useState('');
-
-  const [timeOpen, setTimeOpen] = useState(false);
+  const [allConfigs, setAllConfigs] = useState<SalaryConfig[]>([]);
 
   const [configFields, setConfigFields] = useState<ConfigFields>(EMPTY_CONFIG_FIELDS);
   const [configEditing, setConfigEditing] = useState(false);
@@ -52,10 +51,12 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     setClearArmed(false);
     const { year, month } = ymToYearMonth(ymStr);
     try {
-      const [resp, ytd] = await Promise.all([
+      const [resp, ytd, configs] = await Promise.all([
         getSalaryConfig(year, month),
         getSalaryYTD(year, month),
+        getAllSalaryConfigs(),
       ]);
+      setAllConfigs(configs);
       setInheritedFrom(resp.inheritedFrom);
       setEmploymentStart(resp.employmentStart ?? null);
       setYtdData(ytd);
@@ -118,6 +119,8 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     try { return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput); } catch { return null; }
   }, [gross.yearly, note, configFields, ym, employmentStart, ytdData]);
 
+  const lifetime = useMemo(() => computeLifetime(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
+
   const onSave = async () => {
     if (!breakdown) return;
     const yearlyPounds = parsePounds(gross.yearly);
@@ -131,6 +134,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     try {
       await saveSalaryConfig(cfg, breakdown.netMonthlyPence);
       await refresh();
+      setAllConfigs(await getAllSalaryConfigs());
       setSaveSuccess(true);
       setInheritedFrom(null);
     } catch (e) {
@@ -207,11 +211,11 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
           onGrossChange={onGrossChange}
           note={note}
           setNote={setNote}
-          timeOpen={timeOpen}
-          setTimeOpen={setTimeOpen}
           configFields={configFields}
           setConfigFields={setConfigFields}
           breakdown={breakdown}
+          lifetime={lifetime}
+          ym={ym}
           saveBarProps={saveBarProps}
         />
       ) : subtab === 'lifetime' ? (
