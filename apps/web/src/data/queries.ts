@@ -240,7 +240,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     async getSalaryYTD(year, month) {
       const employmentStart = await getFirstConfigInTaxYear(year, month);
       const rows = await exec.select<YTDConfigRow>(
-        `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct,
+        `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
                 ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
                 sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
          FROM salary_config

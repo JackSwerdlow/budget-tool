@@ -145,6 +145,7 @@ test('salary: getSalaryYTD matches the core engine for the saved config', async 
     taxYear: 2026, employmentStart: { year: 2026, month: 6 },
     grossYTDPence: 495_550, employeePensionYTDPence: 27_008, adjustedNetYTDPence: 468_543,
     priorAdjNetYTDPence: 0, niYTDPence: 26_666, slYTDPence: 23_200,
+    employerPensionYTDPence: 143_561, bonusYTDPence: 0,
   });
 });
 

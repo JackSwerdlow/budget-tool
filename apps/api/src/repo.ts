@@ -448,7 +448,7 @@ export function getSalaryConfig(db: DatabaseSync, year: number, month: number): 
 
 type YTDConfigRow = {
   year: number; month: number;
-  gross_yearly_pence: number; bonus_pence: number; employee_pension_pct: number;
+  gross_yearly_pence: number; bonus_pence: number; employee_pension_pct: number; employer_pension_pct: number;
   ni_lower_monthly_pence: number; ni_upper_monthly_pence: number;
   ni_primary_pct: number; ni_upper_pct: number;
   sl_enabled: number; sl_threshold_yearly_pence: number; sl_rate_pct: number;
@@ -463,6 +463,8 @@ type SalaryYTD = {
   priorAdjNetYTDPence: number;
   niYTDPence: number;
   slYTDPence: number;
+  employerPensionYTDPence: number;
+  bonusYTDPence: number;
 };
 
 export function getSalaryYTD(db: DatabaseSync, year: number, month: number): SalaryYTD {
@@ -473,11 +475,12 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
     taxYear: ty, employmentStart: null,
     grossYTDPence: 0, employeePensionYTDPence: 0, adjustedNetYTDPence: 0,
     priorAdjNetYTDPence: 0, niYTDPence: 0, slYTDPence: 0,
+    employerPensionYTDPence: 0, bonusYTDPence: 0,
   };
   if (!employmentStart) return empty;
 
   const taxYearConfigs = db.prepare(
-    `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct,
+    `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
             ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
             sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
      FROM salary_config
@@ -486,7 +489,7 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
      ORDER BY year ASC, month ASC`,
   ).all(ty, ty, ty + 1, ty + 1) as YTDConfigRow[];
 
-  let grossYTD = 0, pensionYTD = 0, adjNetYTD = 0, priorAdjNetYTD = 0, niYTD = 0, slYTD = 0;
+  let grossYTD = 0, pensionYTD = 0, adjNetYTD = 0, priorAdjNetYTD = 0, niYTD = 0, slYTD = 0, empPenYTD = 0, bonusYTD = 0;
 
   let cur = { year: employmentStart.year, month: employmentStart.month };
   while (cur.year < year || (cur.year === year && cur.month <= month)) {
@@ -501,6 +504,7 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
       const grossY    = cfg.gross_yearly_pence;
       const bonusY    = cfg.bonus_pence ?? 0;
       const pensionY  = Math.round(grossY * cfg.employee_pension_pct / 100);
+      const empPenY   = Math.round(grossY * cfg.employer_pension_pct / 100);
       const adjNetY   = grossY + bonusY - pensionY;
       const mGross    = (grossY + bonusY) / 12;
       const mAdjNet   = adjNetY / 12;
@@ -521,6 +525,8 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
       adjNetYTD  += mAdjNet;
       niYTD      += niPrimary + niUpper;
       slYTD      += slMonthly;
+      empPenYTD  += empPenY / 12;
+      bonusYTD   += bonusY / 12;
     }
 
     if (cur.month === 12) { cur = { year: cur.year + 1, month: 1 }; }
@@ -530,12 +536,14 @@ export function getSalaryYTD(db: DatabaseSync, year: number, month: number): Sal
   return {
     taxYear: ty,
     employmentStart,
-    grossYTDPence:          Math.round(grossYTD),
+    grossYTDPence:           Math.round(grossYTD),
     employeePensionYTDPence: Math.round(pensionYTD),
-    adjustedNetYTDPence:    Math.round(adjNetYTD),
-    priorAdjNetYTDPence:    Math.round(priorAdjNetYTD),
-    niYTDPence:             Math.round(niYTD),
-    slYTDPence:             Math.round(slYTD),
+    adjustedNetYTDPence:     Math.round(adjNetYTD),
+    priorAdjNetYTDPence:     Math.round(priorAdjNetYTD),
+    niYTDPence:              Math.round(niYTD),
+    slYTDPence:              Math.round(slYTD),
+    employerPensionYTDPence: Math.round(empPenYTD),
+    bonusYTDPence:           Math.round(bonusYTD),
   };
 }
 
