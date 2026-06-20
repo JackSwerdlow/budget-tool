@@ -348,6 +348,7 @@ describe('calcSalary — widened YTD input is backward compatible', () => {
       employeePensionYTDPence: 10 * 27_007,
       niYTDPence: 10 * 26_666,
       slYTDPence: 10 * 23_200,
+      employerPensionYTDPence: 10 * 143_561,
     });
     expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-82_685);
     expect(r.netMonthlyPence).toBe(335_992);
@@ -510,13 +511,37 @@ describe('calcSalary — view: rate strip, stats, pension', () => {
     expect(tot.month).toBe(er.month + ee.month);
   });
 
-  it('pension yearly uses one consistent annualise basis (into-pot sums; mid-year)', () => {
+  it('pension yearly forecast: into-pot = employer + employee (mid-year)', () => {
     const cfg42k = { ...BASE, gross_yearly_pence: 4_200_000, sl_enabled: false, bonus_pence: 0 };
     const r = calcSalary({ ...cfg42k, year: 2025, month: 11 }, { year: 2025, month: 11 });
     const [er, ee, tot] = r.view.pension;
-    expect(er.yearlyForecast).toBe(er.month * 12);
-    expect(ee.yearlyForecast).toBe(ee.month * 12);
+    // forecast = YTD (1 month) + remaining (4) = 5 × month contribution
+    expect(er.yearlyForecast).toBe(5 * er.month);
+    expect(ee.yearlyForecast).toBe(5 * ee.month);
     expect(tot.yearlyForecast).toBe(er.yearlyForecast + ee.yearlyForecast);
+  });
+});
+
+describe('calcSalary — view: pension forecast', () => {
+  it('steady-state employer/employee forecast equals annualise (full-year span)', () => {
+    const r = calcSalary(BASE);
+    const employer = r.view.pension.find((x) => x.key === 'employer')!;
+    const employee = r.view.pension.find((x) => x.key === 'employee')!;
+    expect(employer.yearlyForecast).toBe(employer.month * 12);
+    expect(employee.yearlyForecast).toBe(employee.month * 12);
+  });
+
+  it('mid-year (Nov start) employer pension forecast is the partial-year figure', () => {
+    const cfg = { ...BASE, year: 2025, month: 11 };
+    const r = calcSalary(cfg, { year: 2025, month: 11 });
+    const employer = r.view.pension.find((x) => x.key === 'employer')!;
+    // Viewing Nov (period 8), started Nov (period 8): 1 month employed + 4 remaining = 5 months
+    expect(employer.yearlyForecast).toBe(5 * employer.month);
+    // total row = employer + employee on the SAME (forecast) basis
+    const total = r.view.pension.find((x) => x.key === 'total')!;
+    expect(total.yearlyForecast).toBe(
+      employer.yearlyForecast + r.view.pension.find((x) => x.key === 'employee')!.yearlyForecast,
+    );
   });
 });
 
