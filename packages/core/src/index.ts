@@ -11,3 +11,4 @@ export * from './netBalance';
 export * from './salary';
 export * from './salaryYtd';
 export * from './salaryWalk';
+export * from './salaryLifetime';

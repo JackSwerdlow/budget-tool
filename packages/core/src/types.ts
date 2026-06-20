@@ -211,3 +211,23 @@ export type WalkMonth = {
   isExplicit: boolean;
   cfg: SalaryConfig;
 };
+
+// Cumulative actuals from the first recorded month through the selected month. All positive
+// magnitudes (pence) except netTakeHomePence. Sourced from per-tax-year cumulative slices.
+export type LifetimeTotals = {
+  monthsCount: number;
+  grossPence: number;
+  basePayPence: number;
+  bonusPence: number;
+  employeePensionPence: number;
+  incomeTaxPence: number;
+  allowanceUsedPence: number;
+  basicPence: number;
+  higherPence: number;
+  additionalPence: number;
+  niPence: number;
+  studentLoanPaidPence: number;   // Σ payroll deductions (payslip fact)
+  netTakeHomePence: number;
+  employerPensionPence: number;
+  pensionPotPence: number;        // employer + employee
+};
