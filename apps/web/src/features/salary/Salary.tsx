@@ -289,6 +289,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
           priorAdjNetYTDPence: ytdData.priorAdjNetYTDPence,
           grossYTDPence: ytdData.grossYTDPence,
           employeePensionYTDPence: ytdData.employeePensionYTDPence,
+          employerPensionYTDPence: ytdData.employerPensionYTDPence,
           niYTDPence: ytdData.niYTDPence,
           slYTDPence: ytdData.slYTDPence,
         }

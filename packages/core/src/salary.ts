@@ -231,7 +231,7 @@ export function calcSalary(
   const niFCmag   = niYTDmag      + remaining * -niMonthly;
   const slFCmag   = slYTDmag      + remaining * -slMonthly;
   const empPenFC  = empPenYTDmag  + remaining * -employeePensionMonthly;
-  const employerPenYTDmag = ytdInput ? ytdInput.employerPensionYTDPence : monthsEmployed * employerPensionM;
+  const employerPenYTDmag = ytdInput ? (ytdInput.employerPensionYTDPence ?? monthsEmployed * employerPensionM) : monthsEmployed * employerPensionM;
   const employerPenFC = employerPenYTDmag + remaining * employerPensionM;
   const taxFC     = basicFC + higherFC + addlFC;
   const taxableFC = Math.max(0, Math.floor((forecastAdjNet - 12 * effectivePaM) / 100) * 100);
