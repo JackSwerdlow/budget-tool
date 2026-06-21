@@ -92,6 +92,7 @@ export type SalaryConfig = {
   sl_balance_pence: number | null;
   sl_interest_rate_pct: number | null;
   bonus_pence?: number;
+  extra_payment_pence?: number;
 };
 
 export type SalaryFigures = {

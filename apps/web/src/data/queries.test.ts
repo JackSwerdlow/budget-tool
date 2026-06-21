@@ -166,3 +166,12 @@ test('salary: getAllSalaryConfigs returns every saved row ascending', async () =
   expect(all[0].gross_yearly_pence).toBe(4_200_000);
   expect(all[1].sl_enabled).toBe(true);
 });
+
+test('salary: extra_payment_pence round-trips', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig({ ...SALARY_CFG, extra_payment_pence: 50_000 }, 335_995);
+  const got = await port.getSalaryConfig(2026, 6);
+  expect(got.config?.extra_payment_pence).toBe(50_000);
+  const def = await port.getSalaryConfig(2026, 8); // inherits — carries the saved row's value
+  expect(def.config?.extra_payment_pence).toBe(50_000);
+});
