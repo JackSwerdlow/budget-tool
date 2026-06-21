@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, computeLifetime, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
+import { calcSalary, computeLifetime, computeStudentLoan, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
 import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel, Segmented } from '../../components/ui';
 import { useData } from '../../data';
@@ -120,6 +120,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
   }, [gross.yearly, note, configFields, ym, employmentStart, ytdData]);
 
   const lifetime = useMemo(() => computeLifetime(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
+  const studentLoan = useMemo(() => computeStudentLoan(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
 
   const onSave = async () => {
     if (!breakdown) return;
@@ -209,11 +210,12 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
           setConfigFields={setConfigFields}
           breakdown={breakdown}
           lifetime={lifetime}
+          studentDebtPence={studentLoan.remainingBalancePence}
           ym={ym}
           saveBarProps={saveBarProps}
         />
       ) : subtab === 'lifetime' ? (
-        <LifetimeTab lifetime={lifetime} ym={ym} />
+        <LifetimeTab lifetime={lifetime} studentLoan={studentLoan} ym={ym} />
       ) : (
         <ConfigTab
           key={ym}

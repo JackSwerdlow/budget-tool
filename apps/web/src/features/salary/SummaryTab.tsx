@@ -16,6 +16,7 @@ export interface SummaryTabProps {
   setConfigFields: (updater: (prev: ConfigFields) => ConfigFields) => void;
   breakdown: SalaryBreakdown | null;
   lifetime: LifetimeTotals;
+  studentDebtPence: number;
   ym: string;
   saveBarProps: SalarySaveBarProps;
 }
@@ -29,6 +30,7 @@ export function SummaryTab({
   setConfigFields,
   breakdown,
   lifetime,
+  studentDebtPence,
   ym,
   saveBarProps,
 }: SummaryTabProps) {
@@ -64,7 +66,7 @@ export function SummaryTab({
           <KeyFigures
             stats={breakdown.view.stats}
             pensionFundPence={lifetime.pensionPotPence}
-            studentDebtPence={null}
+            studentDebtPence={studentDebtPence}
             ymLabel={monthLabel(ym)}
           />
         </>

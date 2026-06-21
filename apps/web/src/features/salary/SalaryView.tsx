@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView } from '@budget/core';
+import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView, type StudentLoanResult } from '@budget/core';
 import { lifetimeLines, type LifetimeLine } from './lifetimeLines';
 
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;
@@ -256,6 +256,32 @@ function LifetimeRow({ line, byKey, open, toggle }: {
       </td>
       <td className={td}>{formatGBP(line.pence)}</td>
     </tr>
+  );
+}
+
+export function StudentLoanTracker({ result, ymLabel }: {
+  result: StudentLoanResult; ymLabel: string;
+}) {
+  const row = (label: string, value: string) => (
+    <div className="flex justify-between border-b border-hairline py-1">
+      <span className="text-ink-muted">{label}</span><span className="tabular-nums text-ink">{value}</span>
+    </div>
+  );
+  const payoff = result.payoff
+    ? `${result.payoff.year}-${String(result.payoff.month).padStart(2, '0')} · ${formatGBP(result.payoff.remainingInterestPence)} interest left`
+    : '—';
+  return (
+    <section className="rounded-lg border border-hairline bg-panel p-5">
+      <h2 className="mb-4 font-serif text-base font-medium text-ink">
+        Student Loan tracker <span className="font-normal text-ink-faint text-sm">— as of {ymLabel}</span>
+      </h2>
+      <dl className="space-y-1 text-sm">
+        {row('Remaining balance', formatGBP(result.remainingBalancePence))}
+        {row('Total interest accrued', formatGBP(result.totalInterestPence))}
+        {row('Total paid toward balance', formatGBP(result.totalPaidTowardBalancePence))}
+        {row('Projected payoff', payoff)}
+      </dl>
+    </section>
   );
 }
 

@@ -1,8 +1,8 @@
-import type { LifetimeTotals } from '@budget/core';
+import type { LifetimeTotals, StudentLoanResult } from '@budget/core';
 import { monthLabel } from '../../lib/dates';
-import { LifetimeTotalsTable } from './SalaryView';
+import { LifetimeTotalsTable, StudentLoanTracker } from './SalaryView';
 
-export function LifetimeTab({ lifetime, ym }: { lifetime: LifetimeTotals; ym: string }) {
+export function LifetimeTab({ lifetime, studentLoan, ym }: { lifetime: LifetimeTotals; studentLoan: StudentLoanResult; ym: string }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-lg border border-hairline bg-panel p-5">
@@ -15,7 +15,7 @@ export function LifetimeTab({ lifetime, ym }: { lifetime: LifetimeTotals; ym: st
         <LifetimeTotalsTable totals={lifetime} />
       </section>
 
-      {/* Student Loan tracker box — added in Spec B */}
+      <StudentLoanTracker result={studentLoan} ymLabel={monthLabel(ym)} />
     </div>
   );
 }
