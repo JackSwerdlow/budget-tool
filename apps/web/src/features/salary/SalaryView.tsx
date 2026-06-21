@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView, type StudentLoanResult } from '@budget/core';
 import { lifetimeLines, type LifetimeLine } from './lifetimeLines';
+import { monthLabel } from '../../lib/dates';
 
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;
 const cell = (v: number | null) => (v == null ? '—' : formatGBP(v));
@@ -264,11 +265,12 @@ export function StudentLoanTracker({ result, ymLabel }: {
 }) {
   const row = (label: string, value: string) => (
     <div className="flex justify-between border-b border-hairline py-1">
-      <span className="text-ink-muted">{label}</span><span className="tabular-nums text-ink">{value}</span>
+      <dt className="text-ink-muted">{label}</dt><dd className="tabular-nums text-ink">{value}</dd>
     </div>
   );
   const payoff = result.payoff
-    ? `${result.payoff.year}-${String(result.payoff.month).padStart(2, '0')} · ${formatGBP(result.payoff.remainingInterestPence)} interest left`
+    ? monthLabel(`${result.payoff.year}-${String(result.payoff.month).padStart(2, '0')}`)
+      + (result.payoff.remainingInterestPence > 0 ? ` · ${formatGBP(result.payoff.remainingInterestPence)} interest left` : '')
     : '—';
   return (
     <section className="rounded-lg border border-hairline bg-panel p-5">
