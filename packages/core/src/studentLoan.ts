@@ -28,6 +28,10 @@ export function computeStudentLoan(
   if (walk.length === 0) return empty;
 
   let balance = 0, totalInterest = 0, totalPaid = 0, anchored = false;
+  // First month of the current zero-balance run (the actual payoff month). Reset whenever the
+  // balance goes positive again (e.g. a re-anchor opening a new loan), so it always reflects
+  // the loan that is current as of `through`.
+  let paidOffAt: { year: number; month: number } | null = null;
   const series: StudentLoanResult['series'] = [];
 
   for (const w of walk) {
@@ -44,20 +48,21 @@ export function computeStudentLoan(
       totalInterest += interest;
       totalPaid += payment;
     }
+    if (anchored) paidOffAt = balance <= 0 ? (paidOffAt ?? { year: w.year, month: w.month }) : null;
     series.push({ year: w.year, month: w.month, balancePence: balance });
   }
 
   let payoff: StudentLoanResult['payoff'] = null;
-  if (!anchored || balance <= 0) {
-    payoff = balance <= 0 && anchored ? { year: through.year, month: through.month, remainingInterestPence: 0 } : null;
-  } else {
+  if (paidOffAt) {
+    // Already paid off within (or at the end of) the recorded window — report the real month.
+    payoff = { ...paidOffAt, remainingInterestPence: 0 };
+  } else if (anchored && balance > 0) {
+    // Forward-walk from `through` at the latest rate + payroll, no extra, until £0.
     const last = walk[walk.length - 1].cfg;
     const rate = last.sl_interest_rate_pct ?? 0;
     const pay = payrollRepayment(last);
-    let bal = balance, y = through.year, m = through.month, interestRem = 0;
-    if (pay <= 0 && monthInterest(bal, rate, y, m) > 0) {
-      payoff = null;
-    } else {
+    if (pay > 0) {
+      let bal = balance, y = through.year, m = through.month, interestRem = 0;
       for (let i = 0; i < 1200 && bal > 0; i++) {
         if (m === 12) { y += 1; m = 1; } else { m += 1; }
         const interest = monthInterest(bal, rate, y, m);
@@ -67,6 +72,7 @@ export function computeStudentLoan(
         if (bal <= 0) { payoff = { year: y, month: m, remainingInterestPence: interestRem }; break; }
       }
     }
+    // pay <= 0 → balance never shrinks → payoff stays null.
   }
 
   return { remainingBalancePence: balance, totalInterestPence: totalInterest, totalPaidTowardBalancePence: totalPaid, series, payoff };

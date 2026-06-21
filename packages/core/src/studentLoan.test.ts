@@ -57,6 +57,26 @@ test('balance floors at £0 and the final payment caps at the outstanding amount
   const r = computeStudentLoan(configs, { year: 2026, month: 7 });
   expect(r.remainingBalancePence).toBe(0);
   expect(r.totalPaidTowardBalancePence).toBe(15_000);
+  // Paid off during the recorded window → payoff is the real zero-crossing month (June), not `through`.
+  expect(r.payoff).toEqual({ year: 2026, month: 6, remainingInterestPence: 0 });
+});
+
+test('a re-anchor after payoff opens a new loan; payoff reflects the current balance', () => {
+  const configs = [
+    cfg(2026, 4, { sl_balance_pence: 5_000, sl_interest_rate_pct: 0 }),   // tiny loan, paid off in May
+    cfg(2026, 6, { sl_balance_pence: 30_000, sl_interest_rate_pct: 0 }),  // new loan terms in June
+  ];
+  const r = computeStudentLoan(configs, { year: 2026, month: 6 });
+  expect(r.remainingBalancePence).toBe(30_000);              // current loan, just anchored
+  // Not "paid off" — forward projection of the new £300 loan at £101/mo: Jul 199, Aug 98, Sep 0.
+  expect(r.payoff).toEqual({ year: 2026, month: 9, remainingInterestPence: 0 });
+});
+
+test('positive balance but no payroll repayment (SL disabled) → payoff null', () => {
+  const configs = [cfg(2026, 4, { sl_balance_pence: 30_000, sl_enabled: false, sl_interest_rate_pct: 0 })];
+  const r = computeStudentLoan(configs, { year: 2026, month: 4 });
+  expect(r.remainingBalancePence).toBe(30_000);
+  expect(r.payoff).toBeNull();
 });
 
 test('inherited months never re-anchor; recurrence runs through them', () => {
