@@ -43,6 +43,12 @@ INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discreti
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     conn.execute_batch(SCHEMA)?;
+    // Column additions for DBs created before a later schema change (CREATE TABLE IF NOT
+    // EXISTS won't add columns to an existing table). Ignore the "duplicate column" error.
+    let _ = conn.execute(
+        "ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     conn.execute_batch(SEED)?;
     Ok(())
 }
@@ -466,6 +472,21 @@ mod tests {
         reorder_groups_tx(&mut c, &reversed).unwrap();
         assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[0])]).unwrap()[0]["s"].as_i64().unwrap(), 0);
         assert_eq!(select(&c, "SELECT sort_order AS s FROM groups WHERE id = $1", &[json!(reversed[4])]).unwrap()[0]["s"].as_i64().unwrap(), 40);
+    }
+
+    #[test]
+    fn migrate_adds_extra_payment_column_to_older_db() {
+        let c = Connection::open_in_memory().unwrap();
+        // Simulate an older DB: a salary_config table missing the new column.
+        c.execute_batch(
+            "CREATE TABLE salary_config (year INTEGER, month INTEGER, gross_yearly_pence INTEGER, PRIMARY KEY(year,month));",
+        ).unwrap();
+        migrate(&c).unwrap();
+        let cols: Vec<String> = c
+            .prepare("PRAGMA table_info(salary_config)").unwrap()
+            .query_map([], |r| r.get::<_, String>(1)).unwrap()
+            .map(|x| x.unwrap()).collect();
+        assert!(cols.iter().any(|c| c == "extra_payment_pence"));
     }
 
     #[test]

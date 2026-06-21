@@ -7,4 +7,5 @@ export function migrate(db: DatabaseSync): void {
   db.exec(sql);
   // Column additions for existing databases
   try { db.exec('ALTER TABLE salary_config ADD COLUMN bonus_pence INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
 }
