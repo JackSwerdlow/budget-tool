@@ -37,6 +37,14 @@ The UK salary breakdown tab is fully built and shipped. Design and implementatio
 - **Design spec:** `docs/SALARY_SPEC.md` — data model, UK tax formulae, config inheritance logic, UI structure, API contract.
 - **Implementation notes:** `docs/SALARY_PLAN.md` — 8-task build log with code and decisions.
 
+**Salary redesign (shipped 2026-06-21):** the tab now has **Summary / Lifetime / Config**
+sub-tabs; a **Lifetime** view aggregating cumulative totals per UK tax year (PAYE resets each
+April, so it sums per-tax-year slices rather than one cumulative span); **pension-accuracy**
+(employer-pension YTD feeds the forecast); and a **student-loan tracker** (running balance
+seeded by a "Set balance" anchor config row, interest accrual, payroll 9% + optional extra
+repayments, and a payoff projection). Design + build logs:
+`docs/superpowers/specs/2026-06-20-*` and `docs/superpowers/plans/2026-06-20-*`.
+
 **Key constraints to preserve if touching this area:**
 
 - **Do NOT `import` (even `import type`) from `@budget/core` in `apps/api/`** — Node 24's
@@ -46,8 +54,9 @@ The UK salary breakdown tab is fully built and shipped. Design and implementatio
   sub-components get new identities on every render, causing inputs to lose focus.
 - **`onGrossChange` derives the other 4 fields only** — never overwrite the field being typed.
 
-**Deferred (do NOT build yet):** student loan balance/payoff tracker, unpaid days off
-effective rate. The data model (`salary_config` table) already supports both.
+**Deferred (do NOT build yet):** unpaid days off effective rate. The data model
+(`salary_config` table) already supports it. (The student-loan balance/payoff tracker,
+formerly deferred here, shipped 2026-06-21 — see the redesign note above.)
 
 ## Desktop App — COMPLETE
 
