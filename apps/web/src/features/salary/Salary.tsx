@@ -216,6 +216,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
         <LifetimeTab lifetime={lifetime} ym={ym} />
       ) : (
         <ConfigTab
+          key={ym}
           configFields={configFields}
           setConfigFields={setConfigFields}
           saveBarProps={saveBarProps}
