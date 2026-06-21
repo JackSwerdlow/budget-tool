@@ -904,7 +904,7 @@ upsertSalaryConfig(db, {
   sl_enabled: true,
   sl_threshold_yearly_pence: 2_847_000,
   sl_rate_pct: 9,
-  sl_balance_pence: 4_587_100,
+  sl_balance_pence: 4_500_000,
   sl_interest_rate_pct: 4.3,
   bonus_pence: 0,
 });
