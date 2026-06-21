@@ -61,6 +61,10 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       setHasSavedConfig(resp.config != null && resp.inheritedFrom === null);
       if (resp.config) {
         const fields = configToFields(resp.config);
+        if (resp.inheritedFrom) {
+          fields.sl_balance_pence = '';
+          fields.extra_payment_pence = '';
+        }
         setConfigFields(fields);
         const yearlyPounds = resp.config.gross_yearly_pence / 100;
         const wks = resp.config.work_weeks_per_year;

@@ -69,6 +69,7 @@ export const EMPTY_CONFIG_FIELDS = {
   sl_rate_pct: '9',
   sl_balance_pence: '',
   sl_interest_rate_pct: '',
+  extra_payment_pence: '',
 };
 
 export type ConfigFields = typeof EMPTY_CONFIG_FIELDS;
@@ -96,6 +97,7 @@ export function configToFields(cfg: import('@budget/core').SalaryConfig): Config
     sl_rate_pct: String(cfg.sl_rate_pct),
     sl_balance_pence: cfg.sl_balance_pence != null ? poundsToDisplay(cfg.sl_balance_pence) : '',
     sl_interest_rate_pct: cfg.sl_interest_rate_pct != null ? String(cfg.sl_interest_rate_pct) : '',
+    extra_payment_pence: cfg.extra_payment_pence && cfg.extra_payment_pence > 0 ? poundsToDisplay(cfg.extra_payment_pence) : '',
   };
 }
 
@@ -128,6 +130,7 @@ export function fieldsToConfig(year: number, month: number, grossPounds: number,
     sl_rate_pct: p('sl_rate_pct'),
     sl_balance_pence: fields.sl_balance_pence ? Math.round(parseFloat(String(fields.sl_balance_pence)) * 100) : null,
     sl_interest_rate_pct: fields.sl_interest_rate_pct ? parseFloat(String(fields.sl_interest_rate_pct)) : null,
+    extra_payment_pence: fields.extra_payment_pence ? Math.max(0, Math.round(parseFloat(String(fields.extra_payment_pence)) * 100)) : 0,
   };
 
   const required: (keyof import('@budget/core').SalaryConfig)[] = [

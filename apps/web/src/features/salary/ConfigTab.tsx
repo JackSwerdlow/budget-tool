@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { inputClass, labelClass, PctInput, PoundInput } from './salaryInputs';
 import type { ConfigFields } from './salaryState';
 import type { SalarySaveBarProps } from './SalarySaveBar';
@@ -12,6 +13,8 @@ export interface ConfigTabProps {
 export function ConfigTab({ configFields, setConfigFields, saveBarProps }: ConfigTabProps) {
   const set = (key: keyof ConfigFields, v: string | boolean) =>
     setConfigFields((p) => ({ ...p, [key]: v }));
+
+  const [showBalance, setShowBalance] = useState(() => configFields.sl_balance_pence !== '');
 
   return (
     <>
@@ -78,11 +81,34 @@ export function ConfigTab({ configFields, setConfigFields, saveBarProps }: Confi
             <label htmlFor="sl-enabled" className="text-sm text-ink">Student Loan enabled</label>
           </div>
           {configFields.sl_enabled && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <PoundInput label="Threshold (yearly)" value={configFields.sl_threshold_yearly_pence} onChange={(v) => set('sl_threshold_yearly_pence', v)} />
-              <PctInput label="Rate" value={configFields.sl_rate_pct} onChange={(v) => set('sl_rate_pct', v)} />
-              <PoundInput label="Balance (optional)" value={configFields.sl_balance_pence} onChange={(v) => set('sl_balance_pence', v)} />
-              <PctInput label="Interest rate (optional)" value={configFields.sl_interest_rate_pct} onChange={(v) => set('sl_interest_rate_pct', v)} />
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <PoundInput label="Threshold (yearly)" value={configFields.sl_threshold_yearly_pence} onChange={(v) => set('sl_threshold_yearly_pence', v)} />
+                <PctInput label="Rate" value={configFields.sl_rate_pct} onChange={(v) => set('sl_rate_pct', v)} />
+                <PctInput label="Annual interest rate (%)" value={configFields.sl_interest_rate_pct} onChange={(v) => set('sl_interest_rate_pct', v)} />
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="sl-set-balance"
+                  checked={configFields.sl_balance_pence !== '' || showBalance}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setShowBalance(true);
+                    } else {
+                      setShowBalance(false);
+                      setConfigFields((p) => ({ ...p, sl_balance_pence: '' }));
+                    }
+                  }}
+                  className="h-4 w-4 accent-accent" />
+                <label htmlFor="sl-set-balance" className="text-sm text-ink">Set balance (new loan terms)</label>
+              </div>
+              {(configFields.sl_balance_pence !== '' || showBalance) && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <PoundInput label="Balance" value={configFields.sl_balance_pence} onChange={(v) => set('sl_balance_pence', v)} />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <PoundInput label="Extra payment this month" value={configFields.extra_payment_pence} onChange={(v) => set('extra_payment_pence', v)} />
+              </div>
             </div>
           )}
         </div>
