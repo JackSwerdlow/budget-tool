@@ -45,6 +45,11 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(SCHEMA)?;
     // Column additions for DBs created before a later schema change (CREATE TABLE IF NOT
     // EXISTS won't add columns to an existing table). Ignore the "duplicate column" error.
+    // Listed in the order the columns were introduced.
+    let _ = conn.execute(
+        "ALTER TABLE salary_config ADD COLUMN bonus_pence INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     let _ = conn.execute(
         "ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0",
         [],
