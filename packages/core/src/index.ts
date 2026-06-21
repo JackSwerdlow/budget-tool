@@ -12,3 +12,4 @@ export * from './salary';
 export * from './salaryYtd';
 export * from './salaryWalk';
 export * from './salaryLifetime';
+export * from './studentLoan';

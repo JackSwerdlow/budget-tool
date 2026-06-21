@@ -213,6 +213,14 @@ export type WalkMonth = {
   cfg: SalaryConfig;
 };
 
+export type StudentLoanResult = {
+  remainingBalancePence: number;
+  totalInterestPence: number;
+  totalPaidTowardBalancePence: number;
+  series: { year: number; month: number; balancePence: number }[];
+  payoff: { year: number; month: number; remainingInterestPence: number } | null;
+};
+
 // Cumulative actuals from the first recorded month through the selected month. All positive
 // magnitudes (pence) — deductions are reported as positive amounts, not signed. Sourced from
 // per-tax-year cumulative slices.
