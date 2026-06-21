@@ -364,6 +364,15 @@ describe('salary config', () => {
     expect(data.inheritedFrom).toBeNull();
   });
 
+  it('PUT round-trips extra_payment_pence (HTTP path must persist it, not drop it)', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put({ ...SALARY_BODY, extra_payment_pence: 50_000 }));
+
+    const get = await app.request('/api/salary-config/2026/6');
+    const data = await body<{ config: { extra_payment_pence: number } }>(get);
+    expect(data.config.extra_payment_pence).toBe(50_000);
+  });
+
   it('GET for later month inherits from saved earlier month', async () => {
     const app = freshApp();
     await app.request('/api/salary-config/2026/6', put(SALARY_BODY));

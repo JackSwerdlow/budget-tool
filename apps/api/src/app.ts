@@ -431,6 +431,7 @@ export function createApp(db: DatabaseSync): Hono {
       sl_threshold_yearly_pence: slThreshold, sl_rate_pct: slRate,
       sl_balance_pence: slBalance, sl_interest_rate_pct: slInterest,
       bonus_pence: body.bonus_pence == null ? 0 : Number(body.bonus_pence),
+      extra_payment_pence: body.extra_payment_pence == null ? 0 : Number(body.extra_payment_pence),
     };
 
     const saved = upsertSalaryConfig(db, cfg);
