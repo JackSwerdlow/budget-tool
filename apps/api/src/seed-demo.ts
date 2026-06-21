@@ -880,10 +880,12 @@ const lists: NewList[] = [
 
 for (const list of lists) createList(db, list);
 
-// Seed salary config from the Excel "Salary & Income" sheet (Nov 2025 as anchor; all
-// other months inherit it). Net monthly = £3,359.95 as computed by calcSalary.
-upsertSalaryConfig(db, {
-  year: 2025, month: 11,
+// Seed salary config from the Excel "Salary & Income" sheet. Two explicit rows so the
+// Lifetime tab (per-tax-year aggregation) climbs past the April tax-year boundary instead
+// of capping at TY 2025/26: Nov 2025 anchors TY 2025/26 (and seeds the student-loan
+// balance), Apr 2026 repeats the same salary to give TY 2026/27 its own explicit slice.
+// Net monthly = £3,359.95 as computed by calcSalary; months between each inherit forward.
+const salaryConfig = {
   gross_yearly_pence: 5_946_600,
   note: null,
   hours_per_week: 37,
@@ -904,10 +906,16 @@ upsertSalaryConfig(db, {
   sl_enabled: true,
   sl_threshold_yearly_pence: 2_847_000,
   sl_rate_pct: 9,
-  sl_balance_pence: 4_500_000,
   sl_interest_rate_pct: 4.3,
   bonus_pence: 0,
-});
+  extra_payment_pence: 0,
+};
+
+// TY 2025/26 anchor: declares the £45,000 student-loan opening balance.
+upsertSalaryConfig(db, { ...salaryConfig, year: 2025, month: 11, sl_balance_pence: 4_500_000 });
+// TY 2026/27 slice: same salary, no re-anchor (sl_balance_pence null) so the loan keeps
+// paying down across the tax-year boundary.
+upsertSalaryConfig(db, { ...salaryConfig, year: 2026, month: 4, sl_balance_pence: null });
 
 setIncome(db, 2025, 11, 335995);
 setIncome(db, 2025, 12, 335995);
