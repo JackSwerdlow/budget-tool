@@ -106,7 +106,6 @@ export function calcSalary(
   const adjustedNetY = adjustedNetM * 12;
 
   // Allowances/Tax Bands
-  const monthlyPA  = cfg.personal_allowance_pence / 12;
   const monthlyBRB = cfg.basic_rate_band_pence / 12;
   const monthlyART = cfg.additional_rate_threshold_pence / 12; 
 
