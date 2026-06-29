@@ -31,7 +31,6 @@
 
 ## Salary
 
-- Spec-conformance + payslip-accurate tests refactor — bring the PAYE engine closer to HMRC's full spec (precise £100k taper start; consider the Maxrate cap, Scottish/Welsh codes, K-codes, exact free-pay/final-penny rounding) **and** add characterization tests built from real payslips. **Needs Jack's real payslip inputs and is best done in a fresh session.** Source: HMRC "Specification for PAYE Tax Table Routines" (linked in SALARY.md).
 - Unpaid-days-off effective rate — display-only effective daily/hourly rate for days actually worked; must never affect tax/NI/SL. Data model supports it.
 - Student-loan plan-type presets — Plan 1/2/4/5 threshold & rate presets (fields are free-form today).
 - Student-loan mini-table / sparkline — per-month balance series on the tracker box (the series is already computed).

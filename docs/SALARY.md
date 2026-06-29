@@ -59,22 +59,22 @@ year-to-date actuals + the rest of the year at the current rate. Pension uses th
 
 The authoritative source is HMRC's **[Specification for PAYE Tax Table Routines](https://www.cipp.org.uk/static/uploaded/7f93046f-e182-418e-856f44a8034cef5e.pdf)**
 (the exact-percentage / table-routines spec). The engine follows it for the standard
-rest-of-UK case and is validated to the penny against real payslips, but it does **not**
-implement the full spec. Known simplifications:
+rest-of-UK case and is validated to the penny against real payslips (TY 2026/27 April,
+May, and June suites in `salary.test.ts`), but it does **not** implement the full spec.
+Known simplifications:
 
-- **£100k personal-allowance taper** — the taper *start* is derived approximately (flagged in
-  `salary.ts`); fine below £100k, rough between £100k–£125k.
+- **£100k personal-allowance taper** — computed on the annual adjusted net income (spec-correct;
+  previously approximated on monthly figures).
 - **Higher/additional-rate boundary** — selected on the exact threshold, not the rounded-up
-  Cvalue the spec uses for its Income Tests (only matters at ~£125k).
+  value the spec uses for its Income Tests (only matters at ~£125k).
 - **Free-pay / final-penny rounding** — uses exact `PA ÷ 12` and component flooring, not the
-  spec's round-up-free-pay / round-down-final-1p steps (no effect when the allowance divides
-  evenly, as £12,570 does).
+  spec's round-up-free-pay / round-down-final-1p steps. No rounding error when the configured
+  allowance divides evenly by 12 (e.g. £12,579.12 → exactly £1,048.26/month); a nominal
+  £12,570 would leave a 50p/month remainder.
 - **Not implemented** — the Maxrate regulatory cap (§4.5.2), Scottish/Welsh tax-code variants,
   K-codes (additional pay), and the week-1/month-1 non-cumulative basis.
 
-None of these affect the standard sub-£100k rUK case the app is built around. A proper
-spec-conformance pass plus payslip-accurate tests is logged in [IDEAS.md](IDEAS.md) (it needs
-real payslip inputs, so it's a fresh-session job).
+None of these affect the standard sub-£100k rUK case the app is built around.
 
 ## Summary
 
