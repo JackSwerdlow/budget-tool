@@ -43,6 +43,9 @@ function pctRow(key: string, label: string, value: number): SalaryRow {
 }
 
 // Cumulative PAYE tax on `cumAdjNetPence` of actual earnings across `m` tax periods.
+// HMRC's cumulative exact-percentage method: taxable pay to date is rounded DOWN to the whole £;
+// the higher-rate branch nets to a marginal-relief form on the EXACT cumulative band (the ceil'd
+// band cancels — see the note below). Payslip-validated; verify any change against a real payslip.
 function  taxOnCumulative(
   cumAdjNetPence: number,
   m: number,
@@ -109,7 +112,8 @@ export function calcSalary(
 
   // Personal allowance tapering: PA reduces by £1 for every £2 of adjusted yearly net income above £100k.
   // The taper start is derived: additional_rate_threshold − 2 × standard_PA = £125,140 − 2×£12,570 = £100,000.
-  // Slightly incorrect as technically this would use a different tax code - fix later.
+  // Approximate taper start (would technically use a different tax code). Fine below £100k;
+  // see SALARY.md "Conformance & known simplifications" and IDEAS.md for the proper fix.
   const paTaperStartM = Math.round((monthlyART) - 2 * (monthlyPA));
   const effectivePaM = Math.max(0, (monthlyPA) - Math.max(0, Math.floor((adjustedNetM - paTaperStartM) / 2)));
   const effectivePaY = effectivePaM * 12;

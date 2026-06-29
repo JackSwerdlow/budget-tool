@@ -95,6 +95,8 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       const hrs = parseFloat(configFields.hours_per_week) || 37;
       const yearlyPounds = toYearlyPounds(field, pounds, wks, days, hrs);
       const derived = deriveFromYearly(yearlyPounds, wks, days, hrs);
+      // Derive the other four fields, but never overwrite the one being typed (it would fight
+      // the user's keystrokes) — re-apply the live value last.
       return { ...derived, [field]: value };
     });
   };
