@@ -111,12 +111,11 @@ export function calcSalary(
   const monthlyART = cfg.additional_rate_threshold_pence / 12; 
 
   // Personal allowance tapering: PA reduces by £1 for every £2 of adjusted yearly net income above £100k.
-  // The taper start is derived: additional_rate_threshold − 2 × standard_PA = £125,140 − 2×£12,570 = £100,000.
-  // Approximate taper start (would technically use a different tax code). Fine below £100k;
-  // see SALARY.md "Conformance & known simplifications" and IDEAS.md for the proper fix.
-  const paTaperStartM = Math.round((monthlyART) - 2 * (monthlyPA));
-  const effectivePaM = Math.max(0, (monthlyPA) - Math.max(0, Math.floor((adjustedNetM - paTaperStartM) / 2)));
-  const effectivePaY = effectivePaM * 12;
+  // Annual basis (spec-correct): taper start = ART − 2×PA = £125,140 − 2×£12,570 = £100,000.
+  const taperStartY  = cfg.additional_rate_threshold_pence - 2 * cfg.personal_allowance_pence;
+  const paReductionY = Math.max(0, Math.floor((adjustedNetY - taperStartY) / 2));
+  const effectivePaY = Math.max(0, cfg.personal_allowance_pence - paReductionY);
+  const effectivePaM = effectivePaY / 12;
 
   const monthlyARTaxable  = Math.max(0, monthlyART - effectivePaM);
 

@@ -595,6 +595,21 @@ describe('calcSalary — high earner: personal-allowance taper (>£100k)', () =>
     expect(addl.cell.monthly === 0).toBe(true); // not yet due this month (−0/+0 both nil)
     expect(addl.cell.forecast).toBeLessThan(0); // but the full year incurs it (deduction shown negative)
   });
+
+  it('£120k (0% pension): annual-basis taper gives exactly 257,000p effective PA', () => {
+    // adjustedNetY = £120,000 exactly (no pension) → taperStart = £100,000 (annual-basis)
+    // → paReductionY = floor((12_000_000 − 10_000_000)/2) = 1_000_000
+    // → effectivePaY = 1_257_000 − 1_000_000 = 257_000 → allowanceUsed.cell.forecast = 257_000.
+    // Monthly-basis (old code) gives effectivePaY = 257_004 (≠ 257_000) — this test pins the fix.
+    const r = calcSalary({
+      ...BASE,
+      gross_yearly_pence: 12_000_000,
+      sl_enabled: false,
+      employee_pension_pct: 0,
+      employer_pension_pct: 0,
+    });
+    expect(find(r.view, 'allowanceUsed').cell.forecast).toBe(257_000);
+  });
 });
 
 // ─── TY 2026/27 payslip-validated suites ────────────────────────────────────
