@@ -595,3 +595,39 @@ describe('calcSalary — high earner: personal-allowance taper (>£100k)', () =>
     expect(addl.cell.forecast).toBeLessThan(0); // but the full year incurs it (deduction shown negative)
   });
 });
+
+// ─── TY 2026/27 payslip-validated suites ────────────────────────────────────
+
+// April 2026: old salary, one-off bonus month. Only PAYE is assertable
+// (config-based NI/SL ≠ actual because the bonus landed in a single month).
+const JACK_APR26: SalaryConfig = {
+  year: 2026, month: 4,
+  gross_yearly_pence: 4_096_500,   // £40,965 base
+  bonus_pence: 100_000,            // £1,000 Special Merit B (one-off annual bonus)
+  note: null,
+  hours_per_week: 37, work_weeks_per_year: 52, work_days_per_week: 5,
+  employee_pension_pct: 5.45, employer_pension_pct: 28.97,
+  personal_allowance_pence: 1_257_912, // £12,579.12 — divides exactly ÷12 → 104,826p
+  basic_rate_band_pence: 3_770_000,
+  additional_rate_threshold_pence: 12_514_000,
+  basic_rate_pct: 20, higher_rate_pct: 40, additional_rate_pct: 45,
+  ni_lower_monthly_pence: 104_800, ni_upper_monthly_pence: 418_900,
+  ni_primary_pct: 8, ni_upper_pct: 2,
+  sl_enabled: true, sl_threshold_yearly_pence: 2_938_500, sl_rate_pct: 9,
+  sl_balance_pence: null, sl_interest_rate_pct: null,
+};
+
+describe('calcSalary — payslip: April 2026 (PAYE only — arrears month)', () => {
+  it('PAYE this month = £643.26', () => {
+    const r = calcSalary(JACK_APR26, undefined, {
+      adjustedNetYTDPence: 422_770,   // Taxable YTD £4,227.70 (= PTD, period 1)
+      priorAdjNetYTDPence: 0,          // first month of TY
+      grossYTDPence: 441_375,          // Basic Pay £3,413.75 + Bonus £1,000 in pence
+      employeePensionYTDPence: 18_605, // Pens Ees YTD £186.05
+      employerPensionYTDPence: 98_896, // Pens Ers YTD £988.96
+      niYTDPence: 25_577,              // NI Ees £255.77 (actual, config-based differs)
+      slYTDPence: 17_600,              // SL £176.00
+    });
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-64_326);
+  });
+});
