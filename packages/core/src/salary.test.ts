@@ -16,10 +16,11 @@ import type { SalaryConfig } from './types';
  * NOTE / lesson learned: the HMRC "Taxable Pay Tables (manual method)" rounds the band
  * limit UP to the nearest £ (FOT spec Def 13). Applying that here drifts ~10–25p/period
  * away from the actual payslip — this payroll behaves like the exact-percentage method
- * (exact band). The payslip wins; see the May cross-check below.
+ * (exact band). The payslip wins; see the payslip-validated tests below.
  *
- * Payslip cross-check (May 2026, period 2): taxable YTD £9,304.71 → tax YTD £1,626.53,
- * period PAYE £983.27, net £3,562.94 — reproduced to the penny by salary.ts.
+ * Payslip-validated test suites for April, May, and June 2026 (TY 2026/27) appear below
+ * in the "calcSalary — payslip:" describe blocks. Derivations and payslip figures are in
+ * memory/salary-ty2627-payslip-design.md.
  *
  * Pension / NI / student-loan figures follow the payslip convention the engine uses: the
  * deduction is computed on the MONTHLY figure, rounded, then annualised (× 12) — what a
@@ -673,5 +674,43 @@ describe('calcSalary — payslip: May 2026 (PAYE + Tax YTD only — arrears mont
       return walk(v.breakdown)!;
     };
     expect(find(r.view, 'incomeTax').cell.ytd).toBe(-162_653);
+  });
+});
+
+describe('calcSalary — payslip: June 2026 (full reconciliation — clean month)', () => {
+  const find = (v: import('./types').SalaryView, key: string): import('./types').BreakdownLine => {
+    const walk = (ls: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of ls) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+    };
+    return walk(v.breakdown)!;
+  };
+  const r = calcSalary({ ...JACK_TY26, month: 6 }, undefined, {
+    adjustedNetYTDPence:     1_403_185,  // Taxable YTD £14,031.85
+    priorAdjNetYTDPence:       930_471,  // May Taxable YTD £9,304.71
+    grossYTDPence:           1_468_450,  // Apr+May+Jun gross £14,684.50
+    employeePensionYTDPence:    65_265,  // Pens Ees YTD £652.65
+    employerPensionYTDPence:   346_923,  // Pens Ers YTD £3,469.23
+    niYTDPence:                 79_618,  // NI Ees YTD £796.18
+    slYTDPence:                 65_800,  // SL YTD (Apr £176 + May £257 + Jun £225)
+  });
+  const get = (key: string) => r.rows.find((x) => x.key === key)!;
+
+  it('PAYE this month = £843.27', () => {
+    expect(get('incomeTax').figures.monthly).toBe(-84_327);
+  });
+  it('Tax YTD = £2,469.80', () => {
+    expect(find(r.view, 'incomeTax').cell.ytd).toBe(-246_980);
+  });
+  it('NI (employee) this month = £266.61', () => {
+    expect(get('ni').figures.monthly).toBe(-26_661);
+  });
+  it('Student loan this month = £225.00', () => {
+    expect(get('sl').figures.monthly).toBe(-22_500);
+  });
+  it('Employee pension this month = £228.36', () => {
+    expect(get('employeePension').figures.monthly).toBe(-22_836);
+  });
+  it('Net pay this month = £3,392.26', () => {
+    expect(r.netMonthlyPence).toBe(339_226);
   });
 });
