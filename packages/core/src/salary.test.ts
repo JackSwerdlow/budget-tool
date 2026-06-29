@@ -631,3 +631,47 @@ describe('calcSalary — payslip: April 2026 (PAYE only — arrears month)', () 
     expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-64_326);
   });
 });
+
+// May–onwards: new salary after April raise. DDaT Special Allowance is non-pensionable →
+// configured as bonus_pence so pension applies only to base gross (verified: 5.45%×£4,190.17=£228.36).
+const JACK_TY26: SalaryConfig = {
+  year: 2026, month: 5,
+  gross_yearly_pence: 5_028_200,   // £50,282 base salary
+  bonus_pence: 918_396,            // DDaT Special Allowance £765.33/mo × 12
+  note: null,
+  hours_per_week: 37, work_weeks_per_year: 52, work_days_per_week: 5,
+  employee_pension_pct: 5.45, employer_pension_pct: 28.97,
+  personal_allowance_pence: 1_257_912,
+  basic_rate_band_pence: 3_770_000,
+  additional_rate_threshold_pence: 12_514_000,
+  basic_rate_pct: 20, higher_rate_pct: 40, additional_rate_pct: 45,
+  ni_lower_monthly_pence: 104_800, ni_upper_monthly_pence: 418_900,
+  ni_primary_pct: 8, ni_upper_pct: 2,
+  sl_enabled: true, sl_threshold_yearly_pence: 2_938_500, sl_rate_pct: 9,
+  sl_balance_pence: null, sl_interest_rate_pct: null,
+};
+
+describe('calcSalary — payslip: May 2026 (PAYE + Tax YTD only — arrears month)', () => {
+  const r = calcSalary(JACK_TY26, undefined, {
+    adjustedNetYTDPence:    930_471,   // Taxable YTD £9,304.71
+    priorAdjNetYTDPence:    422_770,   // April Taxable YTD £4,227.70
+    grossYTDPence:          972_900,   // Apr £4,413.75 + May £5,315.25 = £9,729.00 (informational only)
+    employeePensionYTDPence: 42_429,   // Pens Ees YTD £424.29
+    employerPensionYTDPence: 225_534,  // Pens Ers YTD £2,255.34
+    niYTDPence:              52_957,   // NI Ees YTD £529.57 (actual)
+    slYTDPence:              43_300,   // SL YTD Apr £176 + May £257 = £433
+  });
+
+  it('PAYE this month = £983.27', () => {
+    expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-98_327);
+  });
+  it('Tax YTD = £1,626.53', () => {
+    const find = (v: import('./types').SalaryView, key: string): import('./types').BreakdownLine => {
+      const walk = (ls: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+        for (const l of ls) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+      };
+      return walk(v.breakdown)!;
+    };
+    expect(find(r.view, 'incomeTax').cell.ytd).toBe(-162_653);
+  });
+});
