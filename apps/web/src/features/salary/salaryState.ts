@@ -1,6 +1,39 @@
+import { computeSalaryYTD, type SalaryConfig, type SalaryYTD, type YTDConfigRow } from '@budget/core';
 import { todayISO } from '../../lib/dates';
 
 export const currentYm = () => todayISO().slice(0, 7);
+
+// Year-to-date for the salary PREVIEW, recomputed live from the edited current-month config.
+// The cumulative PAYE method derives this month's tax by differencing cumulative YTD tax, so
+// the YTD's current-month slice MUST reflect the in-progress edit — using the server YTD (built
+// from the persisted config) computes the month's tax against the old salary. Mirrors the
+// server's getSalaryYTD: tax-year configs ascending, current month replaced by the edit.
+export function previewYtd(
+  allConfigs: SalaryConfig[],
+  cfg: SalaryConfig,
+  employmentStart: { year: number; month: number } | null,
+): SalaryYTD {
+  const ty = cfg.month >= 4 ? cfg.year : cfg.year - 1;
+  const inTaxYear = (c: { year: number; month: number }) =>
+    (c.year > ty || (c.year === ty && c.month >= 4)) &&
+    (c.year < ty + 1 || (c.year === ty + 1 && c.month <= 3));
+  const toRow = (c: SalaryConfig): YTDConfigRow => ({
+    year: c.year, month: c.month,
+    gross_yearly_pence: c.gross_yearly_pence, bonus_pence: c.bonus_pence ?? 0,
+    employee_pension_pct: c.employee_pension_pct, employer_pension_pct: c.employer_pension_pct,
+    ni_lower_monthly_pence: c.ni_lower_monthly_pence, ni_upper_monthly_pence: c.ni_upper_monthly_pence,
+    ni_primary_pct: c.ni_primary_pct, ni_upper_pct: c.ni_upper_pct,
+    sl_enabled: c.sl_enabled ? 1 : 0,
+    sl_threshold_yearly_pence: c.sl_threshold_yearly_pence, sl_rate_pct: c.sl_rate_pct,
+  });
+  const rows = allConfigs
+    .filter((c) => inTaxYear(c) && !(c.year === cfg.year && c.month === cfg.month))
+    .concat(cfg)
+    .sort((a, b) => a.year - b.year || a.month - b.month)
+    .map(toRow);
+  const start = employmentStart ?? { year: cfg.year, month: cfg.month };
+  return computeSalaryYTD(rows, start, cfg.year, cfg.month);
+}
 
 export function ymToYearMonth(ym: string): { year: number; month: number } {
   return { year: Number(ym.slice(0, 4)), month: Number(ym.slice(5, 7)) };

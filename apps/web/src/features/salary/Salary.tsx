@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { calcSalary, computeLifetime, computeStudentLoan, type LedgerData, type SalaryConfig, type SalaryYTD } from '@budget/core';
-import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, getSalaryYTD, saveSalaryConfig } from '../../api';
+import { calcSalary, computeLifetime, computeStudentLoan, type LedgerData, type SalaryConfig } from '@budget/core';
+import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, saveSalaryConfig } from '../../api';
 import { MonthPicker, Panel, Segmented } from '../../components/ui';
 import { useData } from '../../data';
 import { monthLabel } from '../../lib/dates';
@@ -14,6 +14,7 @@ import {
   EMPTY_CONFIG_FIELDS,
   fieldsToConfig,
   parsePounds,
+  previewYtd,
   toYearlyPounds,
   ymToYearMonth,
   type ConfigFields,
@@ -27,7 +28,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
   const [subtab, setSubtab] = useState<Subtab>('summary');
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
   const [employmentStart, setEmploymentStart] = useState<{ year: number; month: number } | null>(null);
-  const [ytdData, setYtdData] = useState<SalaryYTD | null>(null);
   const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -49,15 +49,13 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     setClearArmed(false);
     const { year, month } = ymToYearMonth(ymStr);
     try {
-      const [resp, ytd, configs] = await Promise.all([
+      const [resp, configs] = await Promise.all([
         getSalaryConfig(year, month),
-        getSalaryYTD(year, month),
         getAllSalaryConfigs(),
       ]);
       setAllConfigs(configs);
       setInheritedFrom(resp.inheritedFrom);
       setEmploymentStart(resp.employmentStart ?? null);
-      setYtdData(ytd);
       setHasSavedConfig(resp.config != null && resp.inheritedFrom === null);
       if (resp.config) {
         const fields = configToFields(resp.config);
@@ -107,19 +105,13 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     const { year, month } = ymToYearMonth(ym);
     const cfg = fieldsToConfig(year, month, yearlyPounds, note, configFields);
     if (!cfg) return null;
-    const ytdInput = ytdData
-      ? {
-          adjustedNetYTDPence: ytdData.adjustedNetYTDPence,
-          priorAdjNetYTDPence: ytdData.priorAdjNetYTDPence,
-          grossYTDPence: ytdData.grossYTDPence,
-          employeePensionYTDPence: ytdData.employeePensionYTDPence,
-          employerPensionYTDPence: ytdData.employerPensionYTDPence,
-          niYTDPence: ytdData.niYTDPence,
-          slYTDPence: ytdData.slYTDPence,
-        }
-      : undefined;
-    try { return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput); } catch { return null; }
-  }, [gross.yearly, note, configFields, ym, employmentStart, ytdData]);
+    // Recompute YTD live from the edited config (see previewYtd) — the server YTD is built from
+    // the persisted config, so editing this month would otherwise tax it at the old salary.
+    try {
+      const ytdInput = previewYtd(allConfigs, cfg, employmentStart);
+      return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput);
+    } catch { return null; }
+  }, [gross.yearly, note, configFields, ym, employmentStart, allConfigs]);
 
   const lifetime = useMemo(() => computeLifetime(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
   const studentLoan = useMemo(() => computeStudentLoan(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
