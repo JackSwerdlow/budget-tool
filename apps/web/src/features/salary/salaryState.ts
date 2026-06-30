@@ -1,37 +1,40 @@
-import { computeSalaryYTD, type SalaryConfig, type SalaryYTD, type YTDConfigRow } from '@budget/core';
+import { computeSalaryYTD, resolveEmploymentStart, type SalaryConfig, type SalaryYTD, type YTDConfigRow } from '@budget/core';
 import { todayISO } from '../../lib/dates';
 
 export const currentYm = () => todayISO().slice(0, 7);
 
+const toYtdRow = (c: SalaryConfig): YTDConfigRow => ({
+  year: c.year, month: c.month,
+  gross_yearly_pence: c.gross_yearly_pence, bonus_pence: c.bonus_pence ?? 0,
+  employee_pension_pct: c.employee_pension_pct, employer_pension_pct: c.employer_pension_pct,
+  ni_lower_monthly_pence: c.ni_lower_monthly_pence, ni_upper_monthly_pence: c.ni_upper_monthly_pence,
+  ni_primary_pct: c.ni_primary_pct, ni_upper_pct: c.ni_upper_pct,
+  sl_enabled: c.sl_enabled ? 1 : 0,
+  sl_threshold_yearly_pence: c.sl_threshold_yearly_pence, sl_rate_pct: c.sl_rate_pct,
+});
+
+// The saved configs with the live edit of `cfg` substituted in for its own month.
+const withEdit = (allConfigs: SalaryConfig[], cfg: SalaryConfig): SalaryConfig[] =>
+  [...allConfigs.filter((c) => !(c.year === cfg.year && c.month === cfg.month)), cfg];
+
+// The continuous-employment anchor for the previewed month, computed in core from the edited
+// config set (so previewing a first-ever save anchors correctly without a server round-trip).
+export function previewEmploymentStart(allConfigs: SalaryConfig[], cfg: SalaryConfig) {
+  return resolveEmploymentStart(withEdit(allConfigs, cfg), cfg.year, cfg.month);
+}
+
 // Year-to-date for the salary PREVIEW, recomputed live from the edited current-month config.
-// The cumulative PAYE method derives this month's tax by differencing cumulative YTD tax, so
-// the YTD's current-month slice MUST reflect the in-progress edit — using the server YTD (built
-// from the persisted config) computes the month's tax against the old salary. Mirrors the
-// server's getSalaryYTD: tax-year configs ascending, current month replaced by the edit.
-export function previewYtd(
-  allConfigs: SalaryConfig[],
-  cfg: SalaryConfig,
-  employmentStart: { year: number; month: number } | null,
-): SalaryYTD {
-  const ty = cfg.month >= 4 ? cfg.year : cfg.year - 1;
-  const inTaxYear = (c: { year: number; month: number }) =>
-    (c.year > ty || (c.year === ty && c.month >= 4)) &&
-    (c.year < ty + 1 || (c.year === ty + 1 && c.month <= 3));
-  const toRow = (c: SalaryConfig): YTDConfigRow => ({
-    year: c.year, month: c.month,
-    gross_yearly_pence: c.gross_yearly_pence, bonus_pence: c.bonus_pence ?? 0,
-    employee_pension_pct: c.employee_pension_pct, employer_pension_pct: c.employer_pension_pct,
-    ni_lower_monthly_pence: c.ni_lower_monthly_pence, ni_upper_monthly_pence: c.ni_upper_monthly_pence,
-    ni_primary_pct: c.ni_primary_pct, ni_upper_pct: c.ni_upper_pct,
-    sl_enabled: c.sl_enabled ? 1 : 0,
-    sl_threshold_yearly_pence: c.sl_threshold_yearly_pence, sl_rate_pct: c.sl_rate_pct,
-  });
-  const rows = allConfigs
-    .filter((c) => inTaxYear(c) && !(c.year === cfg.year && c.month === cfg.month))
-    .concat(cfg)
+// The cumulative PAYE method derives this month's tax by differencing cumulative YTD tax, so the
+// current-month slice MUST reflect the in-progress edit. Walks ALL configs from the resolved
+// anchor (resolveEmploymentStart) so an inherited prior-year salary seeds every month back to the
+// tax year's April — matching the core-backed server/desktop getSalaryYTD.
+export function previewYtd(allConfigs: SalaryConfig[], cfg: SalaryConfig): SalaryYTD {
+  const merged = withEdit(allConfigs, cfg);
+  const start = resolveEmploymentStart(merged, cfg.year, cfg.month);
+  const rows = merged
+    .slice()
     .sort((a, b) => a.year - b.year || a.month - b.month)
-    .map(toRow);
-  const start = employmentStart ?? { year: cfg.year, month: cfg.month };
+    .map(toYtdRow);
   return computeSalaryYTD(rows, start, cfg.year, cfg.month);
 }
 

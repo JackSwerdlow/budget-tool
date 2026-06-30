@@ -14,6 +14,7 @@ import {
   EMPTY_CONFIG_FIELDS,
   fieldsToConfig,
   parsePounds,
+  previewEmploymentStart,
   previewYtd,
   toYearlyPounds,
   ymToYearMonth,
@@ -27,7 +28,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
   const { refresh } = useData();
   const [subtab, setSubtab] = useState<Subtab>('summary');
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
-  const [employmentStart, setEmploymentStart] = useState<{ year: number; month: number } | null>(null);
   const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +55,6 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       ]);
       setAllConfigs(configs);
       setInheritedFrom(resp.inheritedFrom);
-      setEmploymentStart(resp.employmentStart ?? null);
       setHasSavedConfig(resp.config != null && resp.inheritedFrom === null);
       if (resp.config) {
         const fields = configToFields(resp.config);
@@ -106,12 +105,14 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     const cfg = fieldsToConfig(year, month, yearlyPounds, note, configFields);
     if (!cfg) return null;
     // Recompute YTD live from the edited config (see previewYtd) — the server YTD is built from
-    // the persisted config, so editing this month would otherwise tax it at the old salary.
+    // the persisted config, so editing this month would otherwise tax it at the old salary. The
+    // continuous-employment anchor is resolved in core from the edited config set.
     try {
-      const ytdInput = previewYtd(allConfigs, cfg, employmentStart);
-      return calcSalary(cfg, employmentStart ?? { year, month }, ytdInput);
+      const ytdInput = previewYtd(allConfigs, cfg);
+      const anchor = previewEmploymentStart(allConfigs, cfg);
+      return calcSalary(cfg, anchor ?? { year, month }, ytdInput);
     } catch { return null; }
-  }, [gross.yearly, note, configFields, ym, employmentStart, allConfigs]);
+  }, [gross.yearly, note, configFields, ym, allConfigs]);
 
   const lifetime = useMemo(() => computeLifetime(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);
   const studentLoan = useMemo(() => computeStudentLoan(allConfigs, ymToYearMonth(ym)), [allConfigs, ym]);

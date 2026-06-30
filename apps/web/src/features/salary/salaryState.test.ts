@@ -52,14 +52,30 @@ describe('previewYtd — live YTD reflects the edited current-month config', () 
   const editedApril: SalaryConfig = { ...base, gross_yearly_pence: 4_096_500, bonus_pence: 1_200_000 };
 
   it('YTD adjusted net reflects the edited config, not the saved one', () => {
-    const ytd = previewYtd([savedApril], editedApril, { year: 2026, month: 4 });
+    const ytd = previewYtd([savedApril], editedApril);
     expect(ytd.adjustedNetYTDPence).toBe(422_770); // £4,227.70, not the stale £4,685.43
   });
 
   it('composed monthly PAYE and net match the April payslip (£643.26 / £3,152.67)', () => {
-    const ytd = previewYtd([savedApril], editedApril, { year: 2026, month: 4 });
+    const ytd = previewYtd([savedApril], editedApril);
     const r = calcSalary(editedApril, { year: 2026, month: 4 }, ytd);
     expect(r.rows.find((x) => x.key === 'incomeTax')!.figures.monthly).toBe(-64_326);
     expect(r.netMonthlyPence).toBe(315_267);
+  });
+});
+
+// Continuous employment: a salary saved in one tax year, viewed in a later year with nothing
+// saved there, must accumulate from that year's April — not collapse to a single month (which
+// decayed PAYE to £0). The preview includes the inherited prior-year config as the seed.
+describe('previewYtd — inherited salary viewed in a later tax year accumulates', () => {
+  const june2026: SalaryConfig = {
+    ...base, year: 2026, month: 6, gross_yearly_pence: 5_028_200, bonus_pence: 918_396,
+  };
+  const sept2027: SalaryConfig = { ...june2026, year: 2027, month: 9 }; // inherited, shown at Sep 2027
+
+  it('YTD adjusted net is ~6 months (Apr–Sep 2027), not a single month', () => {
+    const oneMonth = previewYtd([june2026], june2026).adjustedNetYTDPence; // June 2026 alone
+    const ytd = previewYtd([june2026], sept2027);
+    expect(ytd.adjustedNetYTDPence).toBeGreaterThan(oneMonth * 5);
   });
 });
