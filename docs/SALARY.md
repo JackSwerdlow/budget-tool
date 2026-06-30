@@ -106,5 +106,8 @@ from the annual rate), and shrinks by the **payroll repayment** plus any **extra
 
 All tax/pension/NI/SL parameters, always editable in place: the five gross fields, pension %s,
 income-tax bands & rates, NI thresholds & rates, and the student-loan settings — plus the
-"Set balance" anchor and the optional extra monthly payment. No hardcoded UK defaults; the
-first-ever entry starts blank.
+"Set balance" anchor and the optional extra monthly payment. A first-ever month pre-fills the
+statutory tax/NI/SL parameters (allowance, bands, rates, thresholds) and the time fields with
+current UK values as a convenience (`EMPTY_CONFIG_FIELDS` in `salaryState.ts`, kept matching the
+payslip-validated set); gross pay, pension %s and the student-loan balance/interest start blank,
+and nothing persists until you Save.

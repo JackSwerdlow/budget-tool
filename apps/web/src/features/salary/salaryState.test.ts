@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { calcSalary, type SalaryConfig } from '@budget/core';
-import { previewYtd } from './salaryState';
+import { EMPTY_CONFIG_FIELDS, previewYtd } from './salaryState';
+
+describe('EMPTY_CONFIG_FIELDS — statutory defaults match payslip-validated TY 2026/27 values', () => {
+  // A first-ever month pre-fills these; wrong defaults silently produce wrong figures.
+  it('income-tax parameters', () => {
+    expect(EMPTY_CONFIG_FIELDS.personal_allowance_pence).toBe('12579.12'); // divides evenly ÷12
+    expect(EMPTY_CONFIG_FIELDS.basic_rate_band_pence).toBe('37700.00');
+    expect(EMPTY_CONFIG_FIELDS.additional_rate_threshold_pence).toBe('125140.00');
+    expect(EMPTY_CONFIG_FIELDS.basic_rate_pct).toBe('20');
+    expect(EMPTY_CONFIG_FIELDS.higher_rate_pct).toBe('40');
+    expect(EMPTY_CONFIG_FIELDS.additional_rate_pct).toBe('45');
+  });
+  it('NI thresholds & rates', () => {
+    expect(EMPTY_CONFIG_FIELDS.ni_lower_monthly_pence).toBe('1048.00'); // primary threshold, not 1480
+    expect(EMPTY_CONFIG_FIELDS.ni_upper_monthly_pence).toBe('4189.00');
+    expect(EMPTY_CONFIG_FIELDS.ni_primary_pct).toBe('8');
+    expect(EMPTY_CONFIG_FIELDS.ni_upper_pct).toBe('2');
+  });
+  it('student-loan parameters', () => {
+    expect(EMPTY_CONFIG_FIELDS.sl_threshold_yearly_pence).toBe('29385.00');
+    expect(EMPTY_CONFIG_FIELDS.sl_rate_pct).toBe('9');
+  });
+});
 
 // Regression: editing the current month's config must recompute the YTD the cumulative
 // PAYE method differences against. Before the fix, the preview used the server YTD (built
