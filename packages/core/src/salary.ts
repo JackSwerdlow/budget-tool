@@ -251,10 +251,14 @@ export function calcSalary(
   const wk = (monthly: number) => Math.round((monthly * 12) / cfg.work_weeks_per_year);
   const dy = (monthly: number) => Math.round(((monthly * 12) / cfg.work_weeks_per_year) / cfg.work_days_per_week);
   const hr = (monthly: number) => Math.round(((monthly * 12) / cfg.work_weeks_per_year) / cfg.hours_per_week);
+  // Money is integer pence everywhere (money.ts); a forecast = YTD + remaining×monthly carries
+  // fractional pence when monthly doesn't divide evenly, so round every cell value to whole pence
+  // here — else formatGBP renders the raw float as "£59,283.96.3333…".
+  const r2 = (n: number) => Math.round(n);
   const rated = (forecast: number, monthly: number, ytd: number | null): BreakdownCell =>
-    ({ forecast, monthly, weekly: wk(monthly), daily: dy(monthly), hourly: hr(monthly), ytd });
+    ({ forecast: r2(forecast), monthly: r2(monthly), weekly: wk(monthly), daily: dy(monthly), hourly: hr(monthly), ytd: ytd == null ? null : r2(ytd) });
   const flatCell = (forecast: number, monthly: number, ytd: number | null): BreakdownCell =>
-    ({ forecast, monthly, weekly: null, daily: null, hourly: null, ytd });
+    ({ forecast: r2(forecast), monthly: r2(monthly), weekly: null, daily: null, hourly: null, ytd: ytd == null ? null : r2(ytd) });
 
   // This-month figures (signed; deductions negative) already computed above:
   //   grossM+bonusM, employeePensionMonthly, incomeTaxMonthly, niMonthly, slMonthly,

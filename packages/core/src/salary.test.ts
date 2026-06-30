@@ -729,3 +729,27 @@ describe('calcSalary — payslip: June 2026 (full reconciliation — clean month
     expect(r.netMonthlyPence).toBe(339_226);
   });
 });
+
+describe('calcSalary — view: breakdown cells are whole pence (no float display artifacts)', () => {
+  const find = (v: import('./types').SalaryView, key: string): import('./types').BreakdownLine => {
+    const walk = (ls: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of ls) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+    };
+    return walk(v.breakdown)!;
+  };
+
+  it('forecast cells are integer pence when YTD makes the projection fractional', () => {
+    // (grossY+bonusY) = 5,946,596 is not divisible by 12 → monthlyGross is fractional, so a
+    // mid-year forecast (YTD + remaining×monthly) carries fractional pence. Those must be whole
+    // pence in the view or formatGBP renders "£59,283.96.3333…". Period 4 (July) → remaining 8.
+    const r = calcSalary({ ...JACK_TY26, month: 7 }, undefined, {
+      adjustedNetYTDPence: 1_875_898, priorAdjNetYTDPence: 1_403_185,
+      grossYTDPence: 1_964_000, employeePensionYTDPence: 108_815,
+      employerPensionYTDPence: 578_205, niYTDPence: 106_280, slYTDPence: 88_300,
+    });
+    for (const key of ['grossIncome', 'basePay', 'bonusPay', 'deductions', 'incomeTax', 'netIncome', 'adjustedNet', 'taxableIncome']) {
+      const f = find(r.view, key).cell.forecast;
+      expect(Number.isInteger(f), `${key}.forecast=${f}`).toBe(true);
+    }
+  });
+});
