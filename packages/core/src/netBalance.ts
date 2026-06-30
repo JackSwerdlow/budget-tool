@@ -1,6 +1,6 @@
-import type { LedgerData } from './types.js';
-import { monthTotal } from './ledger.js';
-import { monthKey, ymOf } from './time.js';
+import type { LedgerData } from './types.ts';
+import { monthTotal } from './ledger.ts';
+import { monthKey, ymOf } from './time.ts';
 
 // The explicit per-month figure, or null if no figure is recorded for that month.
 // (The raw value — does NOT fall back to the default; use income() for the resolved one.)

@@ -98,5 +98,7 @@ desktop app (needs the Rust toolchain).
 > them. Logged in [IDEAS.md](IDEAS.md).
 
 - _None at present._ (`apps/api` now imports `@budget/core` directly — core's internal imports
-  carry `.js` extensions, so `nodenext` resolution is happy and the salary-YTD math lives in one
-  place.)
+  carry explicit **`.ts`** extensions (with `allowImportingTsExtensions`), which both `tsc`'s
+  `nodenext` check and Node's runtime type-stripping resolve, so the salary-YTD math lives in one
+  place. `.js` extensions satisfy `tsc` but **not** Node's loader, which runs `apps/api` off the
+  `.ts` source directly.)

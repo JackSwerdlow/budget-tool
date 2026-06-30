@@ -1,4 +1,4 @@
-import type { SalaryConfig, WalkMonth } from './types.js';
+import type { SalaryConfig, WalkMonth } from './types.ts';
 
 const idx = (y: number, m: number) => y * 12 + (m - 1);
 const taxYearOf = (y: number, m: number) => (m >= 4 ? y : y - 1);

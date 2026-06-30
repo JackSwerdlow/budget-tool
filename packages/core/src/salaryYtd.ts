@@ -1,4 +1,4 @@
-import type { SalaryYTD } from './types.js';
+import type { SalaryYTD } from './types.ts';
 
 // Per-month config rows for a tax year, ordered ascending by (year, month). Mirrors the
 // columns selected by the salary-YTD query.

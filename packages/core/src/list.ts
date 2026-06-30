@@ -1,5 +1,5 @@
-import { splitCost } from './shares.js';
-import type { BudgetList, ListItem } from './types.js';
+import { splitCost } from './shares.ts';
+import type { BudgetList, ListItem } from './types.ts';
 
 // My cost for one item is the half-up split's remainder (mine). NEVER round a total.
 export function itemMyCost(item: ListItem): number {
