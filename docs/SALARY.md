@@ -38,8 +38,10 @@ saved configs (`taxYear(y,m) = m>=4 ? y : y-1`):
 
 The same anchor + walk feed every surface: the API/desktop `getSalaryYTD`, the Summary preview
 (`salaryState.previewYtd`, which seeds the inherited prior-year config so every month resolves),
-and `calcSalary`. Lifetime and the student-loan tracker stay bounded to tax years that have a
-saved config — they do **not** project into the future.
+`calcSalary`, Lifetime, and the student-loan tracker. All of them carry the brought-forward salary
+forward, so a non-saved future (or gap) year is treated **as if** its inherited config were saved
+— a rough/cheap forecast with no growth or band-uprating assumptions (those are a later, separate
+forecast surface).
 
 **On save:** upsert the config, compute net pay, upsert `monthly_income` for that month, and —
 **only if the saved month ≥ the current calendar month** — update the default income too
@@ -102,8 +104,12 @@ forecast pension pot). A key-figures box surfaces the headline numbers, includin
 ## Lifetime
 
 Cumulative earnings/tax/pension **per UK tax year** (`core/salaryLifetime`). Because PAYE
-resets each April, this sums per-tax-year slices rather than one continuous span. It also shows
-**Student loan paid** = Σ of the payroll deductions over time.
+resets each April, this sums per-tax-year slices rather than one continuous span. Every tax year
+from the first saved config through the viewed month is counted — a year with no saved config is
+**filled with the brought-forward salary** (April-anchored), so Lifetime keeps climbing into
+future/forecast years instead of freezing at the last saved year (matching the Summary forecast
+and the tracker; see "Data model & inheritance"). It also shows **Student loan paid** = Σ of the
+payroll deductions over time.
 
 > Two "paid" figures exist and are **deliberately different**: Lifetime's *Student loan paid*
 > is payroll-only (a historical fact); the tracker's *paid toward balance* (below) is payroll +

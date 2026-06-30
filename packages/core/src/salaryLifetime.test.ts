@@ -69,22 +69,45 @@ test('lifetime income tax = Σ per-tax-year actual PAYE (April reset)', () => {
   expect(life.incomeTaxPence).not.toBe(spanningTax);
 });
 
-// GAP YEAR: a tax year with no saved config in it contributes nothing (Lifetime is bounded to
-// tax years that have a saved config). Employed TY2024, gap in TY2025, employed again TY2026.
-test('a tax year with no saved config contributes nothing (employment gap)', () => {
-  const a = base(2024, 4, 3_000_000);  // TY2024 full year
-  const b = base(2026, 4, 3_000_000);  // TY2026 (nothing recorded in TY2025)
+// BROUGHT-FORWARD FILL: a tax year with no saved config is filled with the inherited
+// (brought-forward) salary — there is no "employment gap" in this model; every year from the
+// first config onward is treated as if its inherited config were saved (a rough/cheap forecast).
+// Employed TY2024 (£30k), nothing saved TY2025 → TY2025 inherits the TY2024 salary.
+test('a tax year with no saved config is filled with the brought-forward salary (no gaps)', () => {
+  const a = base(2024, 4, 3_000_000);  // TY2024 saved
+  const b = base(2026, 4, 3_000_000);  // TY2026 saved (nothing recorded in TY2025)
   const through = { year: 2026, month: 9 };
   const life = computeLifetime([a, b], through);
 
+  // TY2025 is filled by the inherited TY2024 config (April-anchored, full year).
   const tyA = computeSalaryYTD([{ ...a, sl_enabled: 1 } as never], { year: 2024, month: 4 }, 2025, 3);
-  const tyAtax = -calcSalaryTaxYTD(a, { year: 2024, month: 4 }, tyA, 2025, 3);
+  const tyGap = computeSalaryYTD([{ ...a, sl_enabled: 1 } as never], { year: 2025, month: 4 }, 2026, 3);
   const tyB = computeSalaryYTD([{ ...b, sl_enabled: 1 } as never], { year: 2026, month: 4 }, 2026, 9);
+  const tyAtax = -calcSalaryTaxYTD(a, { year: 2024, month: 4 }, tyA, 2025, 3);
+  const tyGapTax = -calcSalaryTaxYTD(a, { year: 2025, month: 4 }, tyGap, 2026, 3);
   const tyBtax = -calcSalaryTaxYTD(b, { year: 2026, month: 4 }, tyB, 2026, 9);
 
-  expect(life.incomeTaxPence).toBe(tyAtax + tyBtax);   // TY2025 (gap) adds nothing
-  expect(life.monthsCount).toBe(12 + 6);               // TY2024 full year + TY2026 Apr–Sep; gap skipped
-  expect(life.grossPence).toBe(tyA.grossYTDPence + tyB.grossYTDPence);
+  expect(life.incomeTaxPence).toBe(tyAtax + tyGapTax + tyBtax); // TY2025 now contributes
+  expect(life.monthsCount).toBe(12 + 12 + 6);                   // 2024 full + 2025 filled + 2026 Apr–Sep
+  expect(life.grossPence).toBe(tyA.grossYTDPence + tyGap.grossYTDPence + tyB.grossYTDPence);
+});
+
+// FORWARD PROJECTION: with the latest salary saved in TY2026/27, viewing a later tax year
+// projects that salary forward (brought-forward defaults treated as saved), so Lifetime keeps
+// growing instead of freezing at the last saved year.
+test('projects the brought-forward salary into a future tax year', () => {
+  const cfg = base(2026, 6, 5_028_200); // only June 2026 saved (firstTY 2026)
+  const atMar27 = computeLifetime([cfg], { year: 2027, month: 3 }); // end of saved span
+  const atNov27 = computeLifetime([cfg], { year: 2027, month: 11 }); // 8 months into the projected year
+
+  expect(atMar27.monthsCount).toBe(10);        // Jun 2026 → Mar 2027
+  expect(atNov27.monthsCount).toBe(10 + 8);    // + Apr 2027 → Nov 2027 (projected)
+  expect(atNov27.grossPence).toBeGreaterThan(atMar27.grossPence); // no longer frozen
+  expect(atNov27.netTakeHomePence).toBeGreaterThan(atMar27.netTakeHomePence);
+
+  // The projected year matches a real per-tax-year cumulative slice of the inherited salary.
+  const ty2027 = computeSalaryYTD([{ ...cfg, sl_enabled: 1 } as never], { year: 2027, month: 4 }, 2027, 11);
+  expect(atNov27.grossPence).toBe(atMar27.grossPence + ty2027.grossYTDPence);
 });
 
 // helper: income-tax YTD column from calcSalary for a given (cfg, employmentStart, ytd, y, m)

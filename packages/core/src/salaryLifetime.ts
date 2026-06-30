@@ -1,6 +1,7 @@
 import type { LifetimeTotals, SalaryConfig, SalaryView } from './types.ts';
 import { calcSalary } from './salary.ts';
 import { computeSalaryYTD, type YTDConfigRow } from './salaryYtd.ts';
+import { resolveEmploymentStart } from './salaryWalk.ts';
 
 const idx = (y: number, m: number) => y * 12 + (m - 1);
 const taxYearOf = (y: number, m: number) => (m >= 4 ? y : y - 1);
@@ -27,10 +28,12 @@ function findCell(view: SalaryView, key: string) {
   return walk(view.breakdown);
 }
 
-// Cumulative actuals first→through. Sums per-tax-year cumulative slices (each via the
-// validated computeSalaryYTD + calcSalary YTD column) so PAYE resets every April. A tax year
-// with no saved config in it contributes nothing — Lifetime stays bounded to saved tax years
-// and never projects the inherited salary into the future.
+// Cumulative figures first→through. Sums per-tax-year cumulative slices (each via the validated
+// computeSalaryYTD + calcSalary YTD column) so PAYE resets every April. Every tax year from the
+// first config through `through` is counted: a year with no saved config is FILLED with the
+// brought-forward (inherited) salary, anchored at that year's April (continuous employment) —
+// a rough/cheap forecast that mirrors what saving the inherited config in each month would show,
+// and keeps Lifetime consistent with the Summary forecast and the student-loan tracker.
 export function computeLifetime(
   configs: SalaryConfig[],
   through: { year: number; month: number },
@@ -42,19 +45,20 @@ export function computeLifetime(
   const firstTY = taxYearOf(sorted[0].year, sorted[0].month);
   const throughTY = taxYearOf(through.year, through.month);
   const out: LifetimeTotals = { ...zero };
+  const allRows = sorted.map(toYtdRow);
 
   for (let ty = firstTY; ty <= throughTY; ty++) {
-    const inTY = sorted.filter((c) => taxYearOf(c.year, c.month) === ty);
-    if (inTY.length === 0) continue;
-    const start = { year: inTY[0].year, month: inTY[0].month };
     // slice end: full year (March) for a completed TY, else `through`.
     const end = ty < throughTY ? { year: ty + 1, month: 3 } : through;
-    if (idx(start.year, start.month) > idx(end.year, end.month)) continue;
+    // slice start: the continuous-employment anchor for this tax year (first employed year keeps
+    // its real start; later years anchor at April). Non-null since `end` is at/after the first config.
+    const start = resolveEmploymentStart(sorted, end.year, end.month);
+    if (!start || idx(start.year, start.month) > idx(end.year, end.month)) continue;
 
-    const ytd = computeSalaryYTD(inTY.map(toYtdRow), start, end.year, end.month);
-    // last saved config at or before `end` (drives this TY's bands)
-    let lastCfg = inTY[0];
-    for (const c of inTY) { if (idx(c.year, c.month) <= idx(end.year, end.month)) lastCfg = c; }
+    const ytd = computeSalaryYTD(allRows, start, end.year, end.month);
+    // latest saved config at or before `end` drives this slice's bands/display.
+    let lastCfg = sorted[0];
+    for (const c of sorted) { if (idx(c.year, c.month) <= idx(end.year, end.month)) lastCfg = c; }
     const view = calcSalary({ ...lastCfg, year: end.year, month: end.month }, start, {
       adjustedNetYTDPence: ytd.adjustedNetYTDPence, priorAdjNetYTDPence: ytd.priorAdjNetYTDPence,
       grossYTDPence: ytd.grossYTDPence, employeePensionYTDPence: ytd.employeePensionYTDPence,
