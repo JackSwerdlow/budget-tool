@@ -1,6 +1,6 @@
-import type { LifetimeTotals, SalaryConfig, SalaryView } from './types';
-import { calcSalary } from './salary';
-import { computeSalaryYTD, type YTDConfigRow } from './salaryYtd';
+import type { LifetimeTotals, SalaryConfig, SalaryView } from './types.js';
+import { calcSalary } from './salary.js';
+import { computeSalaryYTD, type YTDConfigRow } from './salaryYtd.js';
 
 const idx = (y: number, m: number) => y * 12 + (m - 1);
 const taxYearOf = (y: number, m: number) => (m >= 4 ? y : y - 1);

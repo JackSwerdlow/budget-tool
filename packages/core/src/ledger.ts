@@ -1,6 +1,6 @@
-import { listCategorySubtotals } from './list';
-import type { LedgerData } from './types';
-import { ymOf } from './time';
+import { listCategorySubtotals } from './list.js';
+import type { LedgerData } from './types.js';
+import { ymOf } from './time.js';
 
 // Combines normal entries with each itemised list's per-category my-share subtotals.
 

@@ -1,4 +1,4 @@
-import type { SalaryConfig, WalkMonth } from './types';
+import type { SalaryConfig, WalkMonth } from './types.js';
 
 const idx = (y: number, m: number) => y * 12 + (m - 1);
 

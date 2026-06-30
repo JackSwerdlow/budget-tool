@@ -1,7 +1,7 @@
 import type {
   SalaryConfig, SalaryBreakdown, SalaryFigures, SalaryRow,
   SalaryView, SalaryYTDInput, BreakdownLine, BreakdownCell, RateRow, SalaryStats, PensionRow,
-} from './types';
+} from './types.js';
 
 function figures(yearly: number, cfg: SalaryConfig, monthlyOverride?: number): SalaryFigures {
   const weekly = Math.round(yearly / cfg.work_weeks_per_year);
