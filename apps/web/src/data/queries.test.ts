@@ -117,7 +117,7 @@ const SALARY_CFG: SalaryConfig = {
   sl_balance_pence: null, sl_interest_rate_pct: null, bonus_pence: 0,
 };
 
-test('salary: save writes config + income; get returns exact, inherits, falls forward', async () => {
+test('salary: save writes config + income; get returns exact, inherits forward, blank before first', async () => {
   const { port } = freshPort();
   await port.saveSalaryConfig(SALARY_CFG, 335_995);
 
@@ -130,11 +130,30 @@ test('salary: save writes config + income; get returns exact, inherits, falls fo
   expect(later.config?.gross_yearly_pence).toBe(5_946_600);
   expect(later.inheritedFrom).toEqual({ year: 2026, month: 6 });
 
+  // A month before the first-ever config is blank — no backward projection.
   const earlier = await port.getSalaryConfig(2026, 3);
-  expect(earlier.inheritedFrom).toEqual({ year: 2026, month: 6 });
+  expect(earlier.config).toBeNull();
+  expect(earlier.inheritedFrom).toBeNull();
+  expect(earlier.employmentStart).toBeNull();
 
   // Income write-through.
   expect((await port.fetchBootstrap()).income).toContainEqual({ year: 2026, month: 6, amount_pence: 335_995 });
+});
+
+test('salary: getSalaryYTD inherits an earlier-tax-year salary forward (no £0 decay)', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig(SALARY_CFG, 335_995); // only TY 2026/27 saved
+
+  // Viewing TY 2027/28: continuous employment anchors April 2027 and accumulates.
+  const apr = await port.getSalaryYTD(2027, 4);
+  const sep = await port.getSalaryYTD(2027, 9);
+  expect(apr.employmentStart).toEqual({ year: 2027, month: 4 });
+  expect(sep.employmentStart).toEqual({ year: 2027, month: 4 });
+  expect(apr.adjustedNetYTDPence).toBeGreaterThan(0);
+  // Six months accumulated (~6× the one-month figure), not the one-month value that decayed
+  // PAYE to £0. Allow a few pence of per-month rounding drift.
+  expect(sep.adjustedNetYTDPence).toBeGreaterThan(apr.adjustedNetYTDPence * 5);
+  expect(sep.adjustedNetYTDPence).toBeLessThanOrEqual(apr.adjustedNetYTDPence * 6 + 100);
 });
 
 test('salary: getSalaryYTD matches the core engine for the saved config', async () => {

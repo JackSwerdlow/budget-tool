@@ -383,14 +383,34 @@ describe('salary config', () => {
     expect(data.inheritedFrom).toEqual({ year: 2026, month: 6 });
   });
 
-  it('GET for earlier month falls forward to saved later month', async () => {
+  it('GET for a month before the first-ever config is blank (no backward projection)', async () => {
     const app = freshApp();
     await app.request('/api/salary-config/2026/6', put(SALARY_BODY));
 
     const get = await app.request('/api/salary-config/2026/3');
-    const data = await body<{ config: { gross_yearly_pence: number }; inheritedFrom: { year: number; month: number } }>(get);
-    expect(data.config.gross_yearly_pence).toBe(5_946_600);
-    expect(data.inheritedFrom).toEqual({ year: 2026, month: 6 });
+    const data = await body<{ config: null; inheritedFrom: null; employmentStart: null }>(get);
+    expect(data.config).toBeNull();
+    expect(data.inheritedFrom).toBeNull();
+    expect(data.employmentStart).toBeNull();
+  });
+
+  it('getSalaryYTD inherits an earlier-tax-year salary forward (no £0 decay)', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put(SALARY_BODY)); // only TY 2026/27 saved
+
+    const apr = await body<{ adjustedNetYTDPence: number; employmentStart: { year: number; month: number } }>(
+      await app.request('/api/salary-ytd/2027/4'),
+    );
+    const sep = await body<{ adjustedNetYTDPence: number; employmentStart: { year: number; month: number } }>(
+      await app.request('/api/salary-ytd/2027/9'),
+    );
+    expect(apr.employmentStart).toEqual({ year: 2027, month: 4 });
+    expect(sep.employmentStart).toEqual({ year: 2027, month: 4 });
+    expect(apr.adjustedNetYTDPence).toBeGreaterThan(0);
+    // Six months accumulated (~6× the one-month figure), not the one-month value that
+    // decayed PAYE to £0. Allow a few pence of per-month rounding drift.
+    expect(sep.adjustedNetYTDPence).toBeGreaterThan(apr.adjustedNetYTDPence * 5);
+    expect(sep.adjustedNetYTDPence).toBeLessThanOrEqual(apr.adjustedNetYTDPence * 6 + 100);
   });
 
   it('PUT writes net monthly pay to bootstrap income', async () => {

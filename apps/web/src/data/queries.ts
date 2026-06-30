@@ -1,5 +1,5 @@
 import type { BudgetList, Category, Entry, Group, LedgerData, SalaryConfig } from '@budget/core';
-import { computeSalaryYTD, type YTDConfigRow } from '@budget/core';
+import { computeSalaryYTD, resolveEmploymentStart, type YTDConfigRow } from '@budget/core';
 import type { SqlExecutor } from './executor';
 import type { DataPort } from './port';
 
@@ -30,17 +30,15 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     );
   };
 
-  const getFirstConfigInTaxYear = async (year: number, month: number) => {
-    const ty = month >= 4 ? year : year - 1;
-    const rows = await exec.select<{ year: number; month: number }>(
-      `SELECT year, month FROM salary_config
-       WHERE (year > $1 OR (year = $2 AND month >= 4))
-         AND (year < $3 OR (year = $4 AND month <= 3))
-       ORDER BY year ASC, month ASC LIMIT 1`,
-      [ty, ty, ty + 1, ty + 1],
+  // All saved configs' YTD-relevant columns, ascending — fed to the core walk so an inherited
+  // prior-year salary is resolved for every month from the anchor.
+  const getAllYTDConfigRows = () =>
+    exec.select<YTDConfigRow>(
+      `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
+              ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
+              sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
+       FROM salary_config ORDER BY year ASC, month ASC`,
     );
-    return rows[0] ?? null;
-  };
 
   const port: DataPort = {
     async fetchBootstrap() {
@@ -212,7 +210,10 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     },
 
     async getSalaryConfig(year, month) {
-      const employmentStart = await getFirstConfigInTaxYear(year, month);
+      const all = await exec.select<{ year: number; month: number }>(
+        'SELECT year, month FROM salary_config ORDER BY year ASC, month ASC',
+      );
+      const employmentStart = resolveEmploymentStart(all, year, month);
       const backward = (await exec.select<SalaryConfigRow>(
         `SELECT * FROM salary_config WHERE (year < $1) OR (year = $2 AND month <= $3)
          ORDER BY year DESC, month DESC LIMIT 1`,
@@ -226,29 +227,14 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
           employmentStart,
         };
       }
-      const forward = (await exec.select<SalaryConfigRow>(
-        `SELECT * FROM salary_config WHERE (year > $1) OR (year = $2 AND month >= $3)
-         ORDER BY year ASC, month ASC LIMIT 1`,
-        [year, year, month],
-      ))[0];
-      if (forward) {
-        return { config: rowToConfig(forward), inheritedFrom: { year: forward.year, month: forward.month }, employmentStart };
-      }
+      // No config at or before the month → before the first-ever config → blank.
       return { config: null, inheritedFrom: null, employmentStart: null };
     },
 
     async getSalaryYTD(year, month) {
-      const employmentStart = await getFirstConfigInTaxYear(year, month);
-      const rows = await exec.select<YTDConfigRow>(
-        `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
-                ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
-                sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
-         FROM salary_config
-         WHERE (year > $1 OR (year = $2 AND month >= 4)) AND (year < $3 OR (year = $4 AND month <= 3))
-         ORDER BY year ASC, month ASC`,
-        [month >= 4 ? year : year - 1, month >= 4 ? year : year - 1, (month >= 4 ? year : year - 1) + 1, (month >= 4 ? year : year - 1) + 1],
-      );
-      return computeSalaryYTD(rows, employmentStart, year, month);
+      const configs = await getAllYTDConfigRows();
+      const employmentStart = resolveEmploymentStart(configs, year, month);
+      return computeSalaryYTD(configs, employmentStart, year, month);
     },
 
     async saveSalaryConfig(cfg, netMonthlyPence) {

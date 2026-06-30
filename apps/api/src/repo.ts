@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { computeSalaryYTD, resolveEmploymentStart, type SalaryYTD, type YTDConfigRow } from '@budget/core';
 
 // The API is a thin store: it returns raw rows and lets @budget/core derive every
 // view client-side. /api/bootstrap ships the whole ledger in one shot.
@@ -401,19 +402,21 @@ function rowToConfig(row: SalaryConfigRow): SalaryConfig {
   return { ...row, sl_enabled: row.sl_enabled === 1 };
 }
 
-function getFirstConfigInTaxYear(db: DatabaseSync, year: number, month: number): { year: number; month: number } | null {
-  const ty = month >= 4 ? year : year - 1;
-  const row = db.prepare(
-    `SELECT year, month FROM salary_config
-     WHERE (year > ? OR (year = ? AND month >= 4))
-       AND (year < ? OR (year = ? AND month <= 3))
-     ORDER BY year ASC, month ASC LIMIT 1`,
-  ).get(ty, ty, ty + 1, ty + 1) as { year: number; month: number } | undefined;
-  return row ?? null;
+// All saved configs' YTD-relevant columns, ascending — fed to the core walk so an inherited
+// prior-year salary is resolved for every month from the anchor.
+function getAllYTDConfigRows(db: DatabaseSync): YTDConfigRow[] {
+  return db.prepare(
+    `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
+            ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
+            sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
+     FROM salary_config ORDER BY year ASC, month ASC`,
+  ).all() as YTDConfigRow[];
 }
 
 export function getSalaryConfig(db: DatabaseSync, year: number, month: number): SalaryConfigResponse {
-  const employmentStart = getFirstConfigInTaxYear(db, year, month);
+  const all = db.prepare('SELECT year, month FROM salary_config ORDER BY year ASC, month ASC')
+    .all() as { year: number; month: number }[];
+  const employmentStart = resolveEmploymentStart(all, year, month);
 
   const backward = db.prepare(
     `SELECT * FROM salary_config
@@ -430,122 +433,14 @@ export function getSalaryConfig(db: DatabaseSync, year: number, month: number): 
     };
   }
 
-  const forward = db.prepare(
-    `SELECT * FROM salary_config
-     WHERE (year > ?) OR (year = ? AND month >= ?)
-     ORDER BY year ASC, month ASC LIMIT 1`,
-  ).get(year, year, month) as SalaryConfigRow | undefined;
-
-  if (forward) {
-    return {
-      config: rowToConfig(forward),
-      inheritedFrom: { year: forward.year, month: forward.month },
-      employmentStart,
-    };
-  }
-
+  // No config at or before the month → before the first-ever config → blank (no projection back).
   return { config: null, inheritedFrom: null, employmentStart: null };
 }
 
-type YTDConfigRow = {
-  year: number; month: number;
-  gross_yearly_pence: number; bonus_pence: number; employee_pension_pct: number; employer_pension_pct: number;
-  ni_lower_monthly_pence: number; ni_upper_monthly_pence: number;
-  ni_primary_pct: number; ni_upper_pct: number;
-  sl_enabled: number; sl_threshold_yearly_pence: number; sl_rate_pct: number;
-};
-
-type SalaryYTD = {
-  taxYear: number;
-  employmentStart: { year: number; month: number } | null;
-  grossYTDPence: number;
-  employeePensionYTDPence: number;
-  adjustedNetYTDPence: number;
-  priorAdjNetYTDPence: number;
-  niYTDPence: number;
-  slYTDPence: number;
-  employerPensionYTDPence: number;
-  bonusYTDPence: number;
-};
-
 export function getSalaryYTD(db: DatabaseSync, year: number, month: number): SalaryYTD {
-  const ty = month >= 4 ? year : year - 1;
-  const employmentStart = getFirstConfigInTaxYear(db, year, month);
-
-  const empty: SalaryYTD = {
-    taxYear: ty, employmentStart: null,
-    grossYTDPence: 0, employeePensionYTDPence: 0, adjustedNetYTDPence: 0,
-    priorAdjNetYTDPence: 0, niYTDPence: 0, slYTDPence: 0,
-    employerPensionYTDPence: 0, bonusYTDPence: 0,
-  };
-  if (!employmentStart) return empty;
-
-  const taxYearConfigs = db.prepare(
-    `SELECT year, month, gross_yearly_pence, bonus_pence, employee_pension_pct, employer_pension_pct,
-            ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
-            sl_enabled, sl_threshold_yearly_pence, sl_rate_pct
-     FROM salary_config
-     WHERE (year > ? OR (year = ? AND month >= 4))
-       AND (year < ? OR (year = ? AND month <= 3))
-     ORDER BY year ASC, month ASC`,
-  ).all(ty, ty, ty + 1, ty + 1) as YTDConfigRow[];
-
-  let grossYTD = 0, pensionYTD = 0, adjNetYTD = 0, priorAdjNetYTD = 0, niYTD = 0, slYTD = 0, empPenYTD = 0, bonusYTD = 0;
-
-  let cur = { year: employmentStart.year, month: employmentStart.month };
-  while (cur.year < year || (cur.year === year && cur.month <= month)) {
-    // Last config in the tax year at or before this month (employmentStart guarantees one exists).
-    let cfg: YTDConfigRow | undefined;
-    for (let i = taxYearConfigs.length - 1; i >= 0; i--) {
-      const c = taxYearConfigs[i];
-      if (c.year < cur.year || (c.year === cur.year && c.month <= cur.month)) { cfg = c; break; }
-    }
-
-    if (cfg) {
-      const grossY    = cfg.gross_yearly_pence;
-      const bonusY    = cfg.bonus_pence ?? 0;
-      const pensionY  = Math.round(grossY * cfg.employee_pension_pct / 100);
-      const empPenY   = Math.round(grossY * cfg.employer_pension_pct / 100);
-      const adjNetY   = grossY + bonusY - pensionY;
-      const mGross    = (grossY + bonusY) / 12;
-      const mAdjNet   = adjNetY / 12;
-
-      const niPrimary = Math.max(0, Math.min(mGross, cfg.ni_upper_monthly_pence) - cfg.ni_lower_monthly_pence) * cfg.ni_primary_pct / 100;
-      const niUpper   = Math.max(0, mGross - cfg.ni_upper_monthly_pence) * cfg.ni_upper_pct / 100;
-
-      let slMonthly = 0;
-      if (cfg.sl_enabled !== 0 && (grossY + bonusY) > cfg.sl_threshold_yearly_pence) {
-        slMonthly = Math.floor(((grossY + bonusY - cfg.sl_threshold_yearly_pence) * cfg.sl_rate_pct / 100) / 12 / 100) * 100;
-      }
-
-      const isCurrentMonth = cur.year === year && cur.month === month;
-      if (!isCurrentMonth) priorAdjNetYTD += mAdjNet;
-
-      grossYTD   += mGross;
-      pensionYTD += pensionY / 12;
-      adjNetYTD  += mAdjNet;
-      niYTD      += niPrimary + niUpper;
-      slYTD      += slMonthly;
-      empPenYTD  += empPenY / 12;
-      bonusYTD   += bonusY / 12;
-    }
-
-    if (cur.month === 12) { cur = { year: cur.year + 1, month: 1 }; }
-    else { cur = { year: cur.year, month: cur.month + 1 }; }
-  }
-
-  return {
-    taxYear: ty,
-    employmentStart,
-    grossYTDPence:           Math.round(grossYTD),
-    employeePensionYTDPence: Math.round(pensionYTD),
-    adjustedNetYTDPence:     Math.round(adjNetYTD),
-    priorAdjNetYTDPence:     Math.round(priorAdjNetYTD),
-    niYTDPence:              Math.round(niYTD),
-    slYTDPence:              Math.round(slYTD),
-    employerPensionYTDPence: Math.round(empPenYTD),
-    bonusYTDPence:           Math.round(bonusYTD),
-  };
+  const configs = getAllYTDConfigRows(db);
+  const employmentStart = resolveEmploymentStart(configs, year, month);
+  return computeSalaryYTD(configs, employmentStart, year, month);
 }
 
 export function getAllSalaryConfigs(db: DatabaseSync): SalaryConfig[] {
