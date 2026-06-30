@@ -46,7 +46,6 @@
 
 ## Tech debt / tooling
 
-- Make `core` `nodenext`-compatible — add `.js` extensions to core's internal relative imports so `apps/api` can import `@budget/core` directly, removing the no-import workaround and the duplicated salary-YTD math (see ARCHITECTURE.md "Known workarounds").
 - Turn "add a data operation" into a skill — the both-adapters + parity recipe as an on-demand skill, to keep CLAUDE.md lean.
 
 ## Desktop

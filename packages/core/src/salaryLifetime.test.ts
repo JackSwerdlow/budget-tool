@@ -69,8 +69,8 @@ test('lifetime income tax = Σ per-tax-year actual PAYE (April reset)', () => {
   expect(life.incomeTaxPence).not.toBe(spanningTax);
 });
 
-// GAP YEAR: a tax year with no saved config in it contributes nothing (mirrors getSalaryYTD's
-// getFirstConfigInTaxYear → null). Employed TY2024, gap in TY2025, employed again TY2026.
+// GAP YEAR: a tax year with no saved config in it contributes nothing (Lifetime is bounded to
+// tax years that have a saved config). Employed TY2024, gap in TY2025, employed again TY2026.
 test('a tax year with no saved config contributes nothing (employment gap)', () => {
   const a = base(2024, 4, 3_000_000);  // TY2024 full year
   const b = base(2026, 4, 3_000_000);  // TY2026 (nothing recorded in TY2025)

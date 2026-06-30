@@ -28,9 +28,9 @@ function findCell(view: SalaryView, key: string) {
 }
 
 // Cumulative actuals first→through. Sums per-tax-year cumulative slices (each via the
-// validated computeSalaryYTD + calcSalary YTD column) so PAYE resets every April. Months in a
-// tax year with no saved config in that tax year contribute nothing (mirrors getSalaryYTD's
-// getFirstConfigInTaxYear contract).
+// validated computeSalaryYTD + calcSalary YTD column) so PAYE resets every April. A tax year
+// with no saved config in it contributes nothing — Lifetime stays bounded to saved tax years
+// and never projects the inherited salary into the future.
 export function computeLifetime(
   configs: SalaryConfig[],
   through: { year: number; month: number },

@@ -19,11 +19,27 @@ Loading a month resolves inheritance (`repo.ts:getSalaryConfig`, and `core/salar
 
 1. **Backward** — the latest saved config at or before the month (so one saved config propagates
    forward to all later months automatically).
-2. **Forward** — if none, the earliest saved config after the month.
-3. **Empty** — if there are no configs at all, a blank form.
+2. **Blank** — a month **before the first-ever saved config** shows a blank form (no backward
+   projection); and if there are no configs at all, likewise blank.
 
-The response carries `inheritedFrom` (which month's values are shown) and `employmentStart`
-(the first saved config in the tax year — where YTD accumulation begins).
+The response carries `inheritedFrom` (which month's values are shown).
+
+**Continuous employment (the YTD anchor).** Cumulative PAYE accumulates from an
+`employmentStart` anchor, resolved in core by `salaryWalk.resolveEmploymentStart` over **all**
+saved configs (`taxYear(y,m) = m>=4 ? y : y-1`):
+
+- A month in a **later** tax year than the first config anchors at **that tax year's April** —
+  an inherited salary is treated as continuous employment, so YTD accumulates Apr→now instead of
+  decaying to a fresh-starter £0. A future mid-year **raise** still anchors April (the raise's
+  config simply applies from the raise month onward).
+- The **genuine first** employed tax year keeps its real mid-year start (e.g. first job in
+  November → that year's YTD starts in November).
+- Before the first-ever config → `null` (blank).
+
+The same anchor + walk feed every surface: the API/desktop `getSalaryYTD`, the Summary preview
+(`salaryState.previewYtd`, which seeds the inherited prior-year config so every month resolves),
+and `calcSalary`. Lifetime and the student-loan tracker stay bounded to tax years that have a
+saved config — they do **not** project into the future.
 
 **On save:** upsert the config, compute net pay, upsert `monthly_income` for that month, and —
 **only if the saved month ≥ the current calendar month** — update the default income too

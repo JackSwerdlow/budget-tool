@@ -97,9 +97,6 @@ desktop app (needs the Rust toolchain).
 > True today, but only because of fixable setup — not laws. A deliberate refactor should remove
 > them. Logged in [IDEAS.md](IDEAS.md).
 
-- **`apps/api` cannot import `@budget/core`.** Under Node's `nodenext` module resolution the
-  API trips on core's extensionless relative imports (TS2835), so it stays a thin store using
-  **local type aliases**, and the salary year-to-date math exists in **two copies that must be
-  kept in step** (`core/salaryYtd.ts` and `repo.ts`'s inline `getSalaryYTD`). Fix: add `.js`
-  extensions to core's internal relative imports → the API can import core directly → the
-  duplicate math goes away.
+- _None at present._ (`apps/api` now imports `@budget/core` directly — core's internal imports
+  carry `.js` extensions, so `nodenext` resolution is happy and the salary-YTD math lives in one
+  place.)
