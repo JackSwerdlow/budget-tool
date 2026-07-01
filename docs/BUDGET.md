@@ -43,9 +43,12 @@ has an incl/excl toggle.
 ## Add
 
 - **Single** (`features/AddSingle.tsx`) — the fast path: amount (with the live sum-helper), a
-  category grid with type-to-filter (`nic` ⏎ → Nicotine), date (defaults to today), optional
+  category picker with type-to-filter (`nic` ⏎ → Nicotine), date (defaults to today), optional
   note, and a **save-and-clear loop** (Enter saves and refocuses the amount) with an "added
-  just now" session list that can undo a line.
+  just now" session list that can undo a line. Categories render one group per row, each a
+  connected button row (`components/CategoryGrid.tsx`, M3 "connected button group" styling) —
+  buttons keep a per-category colour dot and morph to a rounder shape when selected; a row
+  wraps onto a new line rather than scrolling if a group has too many categories to fit.
 - **List** (`features/AddList.tsx` + the shared `features/ListForm.tsx`) — itemised rows with
   an inline average unit price (price ÷ qty), and three totals: **Full list**, **Your share**
   (what counts), and **Flatmate** (reference only). Flatmate shares are treated as **settled** —

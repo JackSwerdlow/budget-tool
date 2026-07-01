@@ -24,32 +24,45 @@ export function CategoryGrid({
   }
 
   return (
-    <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex flex-col gap-y-4">
       {visibleGroups.map(({ group, cats }) => (
         <div key={group.id}>
           <div className="mb-2 flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />
             <span className="text-xs uppercase tracking-wide text-ink-faint">{group.name}</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {cats.map((c) => {
+          {/* M3 "connected" button group, single-select: buttons keep individual tonal fills
+             and 2dp gaps. End buttons stay fully rounded on their outer edge; inner buttons
+             rest as slightly-rounded squares and morph to a larger radius when selected. */}
+          <div className="inline-flex flex-wrap gap-0.5">
+            {cats.map((c, i) => {
                 const selected = c.id === selectedId;
+                const isFirst = i === 0;
+                const isLast = i === cats.length - 1;
+                const roundedClass = isFirst && isLast
+                  ? selected ? 'rounded-full' : 'rounded-md'
+                  : isFirst
+                    ? selected ? 'rounded-full' : 'rounded-l-full'
+                    : isLast
+                      ? selected ? 'rounded-full' : 'rounded-r-full'
+                      : selected
+                        ? 'rounded-xl'
+                        : 'rounded-md';
                 return (
                   <button
                     key={c.id}
                     type="button"
                     onClick={() => onSelect(c.id)}
                     aria-pressed={selected}
-                    className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm text-ink transition ${
-                      selected
-                        ? 'bg-paper shadow-sm'
-                        : 'border-hairline bg-panel hover:border-ink/30'
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-all duration-100 ${roundedClass} ${
+                      selected ? 'text-ink' : 'text-ink-muted hover:text-ink'
                     }`}
-                    style={
-                      selected
-                        ? { borderColor: c.color, boxShadow: `inset 0 0 0 1px ${c.color}` }
-                        : undefined
-                    }
+                    style={{
+                      backgroundColor: selected
+                        ? `color-mix(in srgb, ${c.color} 32%, var(--color-panel))`
+                        : `color-mix(in srgb, ${group.color} 18%, var(--color-panel))`,
+                      boxShadow: selected ? `inset 0 0 0 1px ${c.color}` : undefined,
+                    }}
                   >
                     <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: c.color }} />
                     {c.name}
