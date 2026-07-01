@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   evalSum,
   formatGBP,
@@ -14,6 +14,7 @@ import { CategorySelect } from '../components/CategorySelect';
 
 let rowSeq = 1;
 type Row = { key: number; name: string; qtyText: string; priceText: string; sharePct: number; categoryId: number };
+type ItemMemory = { name: string; pricePence: number; categoryId: number };
 
 function newRow(categoryId: number): Row {
   return { key: rowSeq++, name: '', qtyText: '1', priceText: '', sharePct: 0, categoryId };
@@ -84,6 +85,40 @@ export function ListForm({
         }))
       : [newRow(groceriesId), newRow(groceriesId)],
   );
+  // Past item names → their most recent price + category, most-recently-used first, for the
+  // name-field autocomplete below. Dedupe is case-insensitive; first hit wins since lists are
+  // sorted newest-date-first, tie-broken by created_at so same-day lists still order by save time.
+  const itemHistory = useMemo(() => {
+    const sorted = [...data.lists].sort(
+      (a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at),
+    );
+    const seen = new Set<string>();
+    const out: ItemMemory[] = [];
+    for (const list of sorted) {
+      for (const item of list.items) {
+        const key = item.name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push({ name: item.name, pricePence: item.price_pence, categoryId: item.category_id });
+      }
+    }
+    return out;
+  }, [data.lists]);
+  const [suggestOpenKey, setSuggestOpenKey] = useState<number | null>(null);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  function matchesFor(text: string): ItemMemory[] {
+    const q = text.trim().toLowerCase();
+    if (!q) return [];
+    return itemHistory.filter((h) => h.name.toLowerCase().includes(q)).slice(0, 8);
+  }
+
+  function applyMemory(rowKey: number, m: ItemMemory) {
+    updateRow(rowKey, { name: m.name, priceText: penceToText(m.pricePence), categoryId: m.categoryId });
+    setSuggestOpenKey(null);
+  }
+
   const [deliveryOpen, setDeliveryOpen] = useState((initial?.delivery_fee_pence ?? 0) > 0);
   const [deliveryFeeText, setDeliveryFeeText] = useState(
     initial && initial.delivery_fee_pence > 0 ? penceToText(initial.delivery_fee_pence) : '',
@@ -194,17 +229,76 @@ export function ListForm({
           const qty = Math.max(1, Number.parseInt(row.qtyText, 10) || 1);
           const mine = price !== null && price > 0 ? splitCost(price, row.sharePct).mine : null;
           const unit = price !== null && price > 0 && qty > 1 ? Math.round(price / qty) : null;
+          const matches = suggestOpenKey === row.key ? matchesFor(row.name) : [];
+          const highlighted = Math.min(highlightIndex, matches.length - 1);
           return (
             <div
               key={row.key}
+              ref={(el) => {
+                rowRefs.current[row.key] = el;
+              }}
               className="grid grid-cols-2 items-center gap-2 rounded-md border border-hairline bg-panel p-2 lg:grid-cols-[1fr_4rem_8rem_7rem_11rem_5.5rem_1.5rem] lg:border-0 lg:bg-transparent lg:p-1"
             >
-              <input
-                value={row.name}
-                onChange={(e) => updateRow(row.key, { name: e.target.value })}
-                placeholder="Item name"
-                className="col-span-2 rounded-md border border-hairline bg-paper px-2 py-1.5 text-sm text-ink outline-none focus:border-ink/40 lg:col-span-1"
-              />
+              <div className="relative col-span-2 lg:col-span-1">
+                <input
+                  value={row.name}
+                  onChange={(e) => {
+                    updateRow(row.key, { name: e.target.value });
+                    setSuggestOpenKey(row.key);
+                    setHighlightIndex(0);
+                  }}
+                  onFocus={() => {
+                    setSuggestOpenKey(row.key);
+                    setHighlightIndex(0);
+                  }}
+                  onBlur={() => setSuggestOpenKey((k) => (k === row.key ? null : k))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      if (matches.length === 0) return;
+                      e.preventDefault();
+                      setHighlightIndex((i) => Math.min(i + 1, matches.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      if (matches.length === 0) return;
+                      e.preventDefault();
+                      setHighlightIndex((i) => Math.max(i - 1, 0));
+                    } else if (e.key === 'Enter' || e.key === 'Tab') {
+                      // Enter/Tab both select the highlighted match (top match by default),
+                      // same "confirm the filter" convention as the Single category filter.
+                      // Tab then continues its normal job of advancing focus to Qty.
+                      if (matches.length === 0) return;
+                      e.preventDefault();
+                      applyMemory(row.key, matches[highlighted]);
+                      if (e.key === 'Tab') {
+                        rowRefs.current[row.key]?.querySelector<HTMLInputElement>('input[aria-label="Quantity"]')?.focus();
+                      }
+                    } else if (e.key === 'Escape') {
+                      setSuggestOpenKey(null);
+                    }
+                  }}
+                  placeholder="Item name"
+                  autoComplete="off"
+                  className="w-full rounded-md border border-hairline bg-paper px-2 py-1.5 text-sm text-ink outline-none focus:border-ink/40"
+                />
+                {matches.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-md border border-hairline bg-panel shadow-lg">
+                    {matches.map((m, i) => (
+                      <button
+                        key={m.name}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setHighlightIndex(i)}
+                        onClick={() => applyMemory(row.key, m)}
+                        className={`flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-sm text-ink ${
+                          i === highlighted ? 'bg-paper' : 'hover:bg-paper'
+                        }`}
+                      >
+                        <span className="truncate">{m.name}</span>
+                        <span className="ml-2 shrink-0 tabular-nums text-ink-faint">{formatGBP(m.pricePence)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <input
                 value={row.qtyText}
                 onChange={(e) => updateRow(row.key, { qtyText: e.target.value })}

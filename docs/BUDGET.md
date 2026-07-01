@@ -53,7 +53,11 @@ has an incl/excl toggle.
   an inline average unit price (price ÷ qty), and three totals: **Full list**, **Your share**
   (what counts), and **Flatmate** (reference only). Flatmate shares are treated as **settled** —
   there is no running balance of what's owed. The delivery/bag fee is collapsed and £0 by
-  default. On save the list fans out into one per-category your-share subtotal.
+  default. On save the list fans out into one per-category your-share subtotal. Typing an item
+  name suggests past items (case-insensitive substring match, most-recently-used first, drawn
+  from all saved lists — same-day saves tie-broken by save time); picking a suggestion fills in
+  that item's last price and category. Keyboard: **↑/↓** moves the highlight, **Enter** fills the
+  highlighted suggestion, **Tab** fills it and then advances to Qty as normal.
 
 ## Manage
 

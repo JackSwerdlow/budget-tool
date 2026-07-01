@@ -10,7 +10,6 @@
 ## Add / entry
 
 - Recurring / auto-filled entries — Rent/Bills/Subs templates. Bills vary and subs change, so a "confirm a pre-filled monthly checklist" form is safer than naive auto-fill.
-- Item memory / autocomplete-with-last-price — typing an item name suggests it and its last saved price. Cheap: `list_items` already store name + price + date.
 - Per-entry cost sharing beyond itemised lists — flatmate share on ordinary entries, not just grocery lists.
 
 ## Overview / analysis
