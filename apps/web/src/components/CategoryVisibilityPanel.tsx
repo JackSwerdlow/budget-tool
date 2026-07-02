@@ -53,8 +53,9 @@ export function CategoryVisibilityPanel({
           {shownTotal} of {allIds.length} shown
         </span>
       </div>
-      {/* Groups flow side by side and wrap, so the panel uses the full width instead of stacking. */}
-      <div className="flex flex-wrap gap-x-8 gap-y-3">
+      {/* Fixed 3-column grid so group starts align vertically (collapsing on narrow screens);
+         a group with too many categories wraps its buttons onto a new row within its cell. */}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
         {data.groups.map((group) => {
           const cats = data.categories.filter((c) => c.group_id === group.id);
           if (cats.length === 0) return null;
