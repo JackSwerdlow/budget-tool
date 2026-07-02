@@ -66,8 +66,9 @@ Balance's money is the one thing it never touches.
 
 **Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell
 colour is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
-`±%` vs the previous month; near-flat rows are muted; groups expand to categories. Uses the same
-shared category filter as Month.
+`±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group with
+only one visible category (e.g. after filtering) can't expand, so its row shows that category's
+name and colour instead of the group's. Uses the same shared category filter as Month.
 
 ## Add
 

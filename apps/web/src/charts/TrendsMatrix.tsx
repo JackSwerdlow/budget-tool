@@ -120,8 +120,11 @@ export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hi
     const expandable = x.cats.length > 1;
     const open = expanded.has(x.g.id);
     const groupPrevPence = x.cats.reduce((s, c) => s + (prevCatTotals.get(c.id) ?? 0), 0);
+    // A group reduced to one visible category (e.g. by the filter) can't expand, so its row
+    // IS that category — label it as such rather than misleadingly showing the group name.
+    const only = x.cats.length === 1 ? x.cats[0] : null;
     const rows: RenderRow[] = [
-      { key: `g${x.g.id}`, name: x.g.name, color: x.g.color, strong: true, expandable, open, groupId: x.g.id, cells: groupMatrix[gi].cells, prevMonthPence: groupPrevPence },
+      { key: `g${x.g.id}`, name: only?.name ?? x.g.name, color: only?.color ?? x.g.color, strong: true, expandable, open, groupId: x.g.id, cells: groupMatrix[gi].cells, prevMonthPence: groupPrevPence },
     ];
     if (open && expandable) {
       const catData = x.cats
