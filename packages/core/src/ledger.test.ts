@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LedgerData } from './types';
-import { categoryTotals, groupTotals, monthTotal, runningCumulative, yearTotal } from './ledger';
+import { categoryTotals, groupTotals, monthTotal, runningCumulative, runningCumulativeByGroup, yearTotal } from './ledger';
 
 function makeData(): LedgerData {
   return {
@@ -93,6 +93,34 @@ describe('runningCumulative', () => {
   });
 });
 
+describe('runningCumulativeByGroup', () => {
+  it('produces per-group running totals whose parts sum to the total cumulative', () => {
+    const points = runningCumulativeByGroup(makeData(), '2026-06');
+    expect(points.map((p) => ({ date: p.date, byGroup: Object.fromEntries(p.cumulativeByGroup) }))).toEqual([
+      { date: '2026-06-01', byGroup: { 1: 120000 } },
+      { date: '2026-06-03', byGroup: { 1: 124000, 2: 1500 } },
+      { date: '2026-06-10', byGroup: { 1: 126000, 2: 1500 } },
+    ]);
+    const totals = runningCumulative(makeData(), '2026-06');
+    points.forEach((p, i) => {
+      const partsSum = [...p.cumulativeByGroup.values()].reduce((a, b) => a + b, 0);
+      expect(partsSum).toBe(totals[i].cumulativePence);
+    });
+  });
+
+  it('excludes the given category ids, dropping dates left with nothing', () => {
+    const points = runningCumulativeByGroup(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) });
+    expect(points.map((p) => ({ date: p.date, byGroup: Object.fromEntries(p.cumulativeByGroup) }))).toEqual([
+      { date: '2026-06-03', byGroup: { 1: 4000, 2: 1500 } },
+      { date: '2026-06-10', byGroup: { 1: 6000, 2: 1500 } },
+    ]);
+  });
+
+  it('is empty for a month with no spend', () => {
+    expect(runningCumulativeByGroup(makeData(), '2026-04')).toEqual([]);
+  });
+});
+
 describe('with itemised lists (fan-out into the ledger)', () => {
   function dataWithList(): LedgerData {
     return {
@@ -125,6 +153,15 @@ describe('with itemised lists (fan-out into the ledger)', () => {
       { date: '2026-06-03', cumulativePence: 5500 },
       { date: '2026-06-05', cumulativePence: 6100 },
       { date: '2026-06-10', cumulativePence: 8100 },
+    ]);
+  });
+
+  it('folds the list my-share into the per-group running cumulative on the list date', () => {
+    const points = runningCumulativeByGroup(dataWithList(), '2026-06', { excludedCategoryIds: new Set([10]) });
+    expect(points.map((p) => ({ date: p.date, byGroup: Object.fromEntries(p.cumulativeByGroup) }))).toEqual([
+      { date: '2026-06-03', byGroup: { 1: 4000, 2: 1500 } },
+      { date: '2026-06-05', byGroup: { 1: 4600, 2: 1500 } },
+      { date: '2026-06-10', byGroup: { 1: 6600, 2: 1500 } },
     ]);
   });
 });

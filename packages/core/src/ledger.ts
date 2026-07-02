@@ -58,6 +58,45 @@ export function yearTotal(data: LedgerData, ym: string, options: TotalOptions = 
 }
 
 export type CumulativePoint = { date: string; cumulativePence: number };
+export type CumulativeByGroupPoint = { date: string; cumulativeByGroup: Map<number, number> };
+
+// runningCumulative split by group: one point per spend date (sorted), each carrying the
+// running total per group id so far. A point's parts always sum exactly to the total running
+// cumulative at that date — parts are integer pence summed, never re-rounded (Invariant 1).
+export function runningCumulativeByGroup(
+  data: LedgerData,
+  ym: string,
+  options: TotalOptions = {},
+): CumulativeByGroupPoint[] {
+  const excluded = options.excludedCategoryIds ?? EMPTY_SET;
+  const groupOfCategory = new Map<number, number>();
+  for (const category of data.categories) groupOfCategory.set(category.id, category.group_id);
+
+  const byDate = new Map<string, Map<number, number>>();
+  const add = (date: string, categoryId: number, pence: number) => {
+    if (excluded.has(categoryId) || pence === 0) return;
+    const groupId = groupOfCategory.get(categoryId);
+    if (groupId === undefined) return;
+    let day = byDate.get(date);
+    if (!day) byDate.set(date, (day = new Map()));
+    day.set(groupId, (day.get(groupId) ?? 0) + pence);
+  };
+  for (const entry of data.entries) {
+    if (ymOf(entry.date) === ym) add(entry.date, entry.category_id, entry.amount_pence);
+  }
+  for (const list of data.lists) {
+    if (ymOf(list.date) !== ym) continue;
+    for (const [categoryId, pence] of listCategorySubtotals(list)) add(list.date, categoryId, pence);
+  }
+
+  const running = new Map<number, number>();
+  return [...byDate.keys()].sort().map((date) => {
+    for (const [groupId, pence] of byDate.get(date)!) {
+      running.set(groupId, (running.get(groupId) ?? 0) + pence);
+    }
+    return { date, cumulativeByGroup: new Map(running) };
+  });
+}
 
 export function runningCumulative(data: LedgerData, ym: string, options: TotalOptions = {}): CumulativePoint[] {
   const excluded = options.excludedCategoryIds ?? EMPTY_SET;

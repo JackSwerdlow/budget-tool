@@ -33,8 +33,13 @@ to the viewed month, so browsing to an earlier month excludes anything after it,
 averaging in the future; a Net Balance card (income − total spend, plus its own income/avg-net
 line on the same viewed-month bound (`averageNet`) — the money itself always includes
 *everything*, regardless of the category filter below, only the averaging window moves with the
-month picker); a running-total chart through the month toward a dashed target at last month's
-total (`RunningChart`); a grouping donut that explodes a group into its categories on click
+month picker); a running-total chart through the month (`RunningChart`) — a stepped line (impulse
+on the spend day, flat between) over a **stacked** per-group fill (donut colours/proportions, via
+`core/ledger.runningCumulativeByGroup`), toward a dashed target at last month's total plus a dashed
+**income** line (right-anchored label, so it never collides with the left-anchored Last Month one;
+green while spend-so-far is under income, red once over — the income figure ignores the category
+filter, like Net Balance), with a hover tooltip that also breaks the day's cumulative down by
+group; a grouping donut that explodes a group into its categories on click
 (`GroupingDonut`); and "vs last month" bars — each row (group, expandable to its categories) fills
 toward 100% of *its own* last-month total, green under / red over (`ComparisonBars`,
 `comparison.comparePct`).

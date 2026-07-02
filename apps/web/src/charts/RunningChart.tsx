@@ -2,14 +2,17 @@ import { useState, type MouseEvent } from 'react';
 import { area, curveStepAfter, line } from 'd3-shape';
 import {
   formatGBP,
+  income,
   monthTotal,
   previousMonth,
-  runningCumulative,
+  runningCumulativeByGroup,
   type LedgerData,
 } from '@budget/core';
 import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
 
 type Pt = { day: number; value: number };
+type StackPt = { day: number; byGroup: Map<number, number>; total: number };
+type BandPt = { day: number; lower: number; upper: number };
 
 const W = 720;
 const H = 230;
@@ -22,8 +25,8 @@ const INNER_H = H - PAD_TOP - PAD_BOTTOM;
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const BOX_W = 122;
-const BOX_H = 58;
+const BOX_W = 150;
+const BOX_H = 58; // grows by 13 per group line in the hover breakdown
 
 function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
@@ -44,15 +47,26 @@ function dayTicks(days: number): number[] {
 export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
 
-  const points = runningCumulative(data, ym, { excludedCategoryIds: hiddenCategoryIds });
+  const sumParts = (m: Map<number, number>) => {
+    let s = 0;
+    for (const v of m.values()) s += v;
+    return s;
+  };
+
+  const byGroupPoints = runningCumulativeByGroup(data, ym, { excludedCategoryIds: hiddenCategoryIds });
   const target = monthTotal(data, previousMonth(ym), { excludedCategoryIds: hiddenCategoryIds });
   const days = daysInMonth(ym);
-  const current = points.length > 0 ? points[points.length - 1].cumulativePence : 0;
+  const current = byGroupPoints.length > 0 ? sumParts(byGroupPoints[byGroupPoints.length - 1].cumulativeByGroup) : 0;
 
-  const isCurrentMonth = ym === todayISO().slice(0, 7);
+  const currentYm = todayISO().slice(0, 7);
+  const isCurrentMonth = ym === currentYm;
   const todayDay = isCurrentMonth ? dayOfMonth(todayISO()) : null;
 
-  const dataMax = Math.max(target, current);
+  // The month's income (resolved incl. the default) — drawn as a dashed pace line. Its money is
+  // never touched by the category filter, matching Net Balance.
+  const incomePence = income(data, ym, currentYm);
+
+  const dataMax = Math.max(target, current, incomePence);
   // Always scale to the next £500 ceiling so grid lines stay consistent across months.
   const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
   const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
@@ -62,19 +76,40 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   for (let v = 0; v <= yMax; v += 50000) yTicks.push(v);
   const xTicks = dayTicks(days);
 
-  const series: Pt[] = [{ day: 0, value: 0 }, ...points.map((p) => ({ day: dayOfMonth(p.date), value: p.cumulativePence }))];
+  const pts: StackPt[] = [
+    { day: 0, byGroup: new Map(), total: 0 },
+    ...byGroupPoints.map((p) => ({
+      day: dayOfMonth(p.date),
+      byGroup: p.cumulativeByGroup,
+      total: sumParts(p.cumulativeByGroup),
+    })),
+  ];
 
   // Extend flat line: current month → today; past months → last day of month.
   const lineEndDay = isCurrentMonth ? (todayDay ?? 1) : days;
-  const lastSeriesDay = series[series.length - 1].day;
-  if (lastSeriesDay < lineEndDay) series.push({ day: lineEndDay, value: series[series.length - 1].value });
+  if (pts[pts.length - 1].day < lineEndDay) pts.push({ ...pts[pts.length - 1], day: lineEndDay });
+
+  const series: Pt[] = pts.map((p) => ({ day: p.day, value: p.total }));
 
   // Step, not smoothed: a cumulative total is factually flat between spends — the line jumps
   // ("impulse") on the day of a spend and holds level until the next one.
   const lineGen = line<Pt>().x((d) => x(d.day)).y((d) => y(d.value)).curve(curveStepAfter);
-  const areaGen = area<Pt>().x((d) => x(d.day)).y0(y(0)).y1((d) => y(d.value)).curve(curveStepAfter);
   const linePath = lineGen(series) ?? '';
-  const areaPath = areaGen(series) ?? '';
+
+  // The fill under the line is a stack of per-group bands (donut order, donut colours), so the
+  // area's make-up mirrors the grouping donut's proportions at every day.
+  const lastByGroup = pts[pts.length - 1].byGroup;
+  const stackGroups = data.groups.filter((g) => (lastByGroup.get(g.id) ?? 0) > 0);
+  const bands = stackGroups.map((group) => ({ group, pts: [] as BandPt[] }));
+  for (const p of pts) {
+    let lower = 0;
+    for (const b of bands) {
+      const v = p.byGroup.get(b.group.id) ?? 0;
+      b.pts.push({ day: p.day, lower, upper: lower + v });
+      lower += v;
+    }
+  }
+  const bandGen = area<BandPt>().x((d) => x(d.day)).y0((d) => y(d.lower)).y1((d) => y(d.upper)).curve(curveStepAfter);
 
   // Build a dense day-by-day value array (carry-forward on empty days) for hover.
   const maxHoverDay = lineEndDay;
@@ -98,6 +133,21 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const delta = hoveredDay !== null && hoveredDay > 1
     ? denseByDay[hoveredDay] - denseByDay[hoveredDay - 1]
     : null;
+
+  // Per-group make-up of the hovered day's cumulative (carry-forward, same as denseByDay).
+  const hoverByGroup = hoveredDay !== null
+    ? (() => {
+        let m: Map<number, number> = new Map();
+        for (const p of pts) {
+          if (p.day <= hoveredDay) m = p.byGroup;
+          else break;
+        }
+        return stackGroups
+          .map((g) => ({ id: g.id, name: g.name, color: g.color, value: m.get(g.id) ?? 0 }))
+          .filter((r) => r.value > 0);
+      })()
+    : [];
+  const boxH = hoverByGroup.length > 0 ? 62 + hoverByGroup.length * 13 : BOX_H;
 
   const monthName = MONTH_NAMES[parseInt(ym.split('-')[1]) - 1];
 
@@ -155,12 +205,42 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           </>
         )}
 
+        {/* income pace line — green while spend-so-far is under it, red once over; its label
+           anchors right so it can never collide with the left-anchored Last Month label */}
+        {incomePence > 0 && (() => {
+          const cls = current <= incomePence ? 'stroke-under' : 'stroke-over';
+          const label = `Income:  ${formatGBP(incomePence)}`;
+          const labelW = Math.ceil(label.length * 5.35);
+          return (
+            <>
+              <line
+                x1={PAD_LEFT}
+                y1={y(incomePence)}
+                x2={W - PAD_RIGHT}
+                y2={y(incomePence)}
+                className={cls}
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+              <g transform={`translate(${W - PAD_RIGHT - labelW - 3.5}, ${y(incomePence) + 2.5})`}>
+                <rect x={0} y={0} width={labelW} height={14} rx={6} fill="var(--color-raised)" />
+                <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+                  {label}
+                </text>
+              </g>
+            </>
+          );
+        })()}
+
         {/* today marker */}
         {todayDay !== null && (
           <line x1={x(todayDay)} y1={PAD_TOP - 6} x2={x(todayDay)} y2={y(0)} className="stroke-accent/40" strokeWidth={1} strokeDasharray="2 3" />
         )}
 
-        <path d={areaPath} className="fill-accent/10" />
+        {/* stacked per-group make-up of the running total (donut colours & proportions) */}
+        {bands.map((b) => (
+          <path key={b.group.id} d={bandGen(b.pts) ?? ''} fill={b.group.color} fillOpacity={0.3} />
+        ))}
         <path d={linePath} className="stroke-accent" strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
 
         {/* final dot — hidden while hovering since the hover dot takes over */}
@@ -173,13 +253,13 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           const hx = x(hoveredPt.day);
           const hy = y(hoveredPt.value);
           const boxX = hx > W / 2 ? hx - BOX_W - 10 : hx + 10;
-          const boxY = Math.max(PAD_TOP + 4, Math.min(hy - BOX_H / 2, H - PAD_BOTTOM - BOX_H));
+          const boxY = Math.max(PAD_TOP + 4, Math.min(hy - boxH / 2, H - PAD_BOTTOM - boxH));
           return (
             <g>
               <line x1={hx} y1={PAD_TOP} x2={hx} y2={y(0)} className="stroke-ink/20" strokeWidth={1} />
               <circle cx={hx} cy={hy} r={4.5} className="fill-accent" stroke="var(--color-panel)" strokeWidth={2} />
               <g transform={`translate(${boxX},${boxY})`}>
-                <rect width={BOX_W} height={BOX_H} rx={4} fill="var(--color-raised)" className="stroke-hairline" strokeWidth={1} />
+                <rect width={BOX_W} height={boxH} rx={4} fill="var(--color-raised)" className="stroke-hairline" strokeWidth={1} />
                 <text x={10} y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">{hoveredPt.day} {monthName}</text>
                 <text x={10} y={35} className="fill-ink text-[14px] tabular-nums" fontWeight={600}>{formatGBP(hoveredPt.value)}</text>
                 {delta !== null && (
@@ -187,6 +267,16 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                     {delta > 0 ? '+' : ''}{formatGBP(delta)}
                   </text>
                 )}
+                {/* per-group make-up of the cumulative total (matches the stacked bands) */}
+                {hoverByGroup.map((r, i) => (
+                  <g key={r.id}>
+                    <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
+                    <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">{r.name}</text>
+                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
+                      {formatGBP(r.value)}
+                    </text>
+                  </g>
+                ))}
               </g>
             </g>
           );
