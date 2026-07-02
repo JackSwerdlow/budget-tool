@@ -103,15 +103,6 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
   // Thin the x labels when the range is long (the matrix scrolls; this chart is fixed-width).
   const labelStep = Math.ceil(months.length / 12);
 
-  // Reference labels sit at the left end; a later label slides right past an earlier one
-  // when the lines run close (same placement rule as the running chart).
-  const avgLabel = `Avg. Spend:  ${formatGBP(avgSpend)}`;
-  const avgLabelW = Math.ceil(avgLabel.length * 5.35);
-  const incomeLabelW = Math.ceil('Income'.length * 5.35) + 9;
-  const avgLabelX = PAD_LEFT + 3.5;
-  const incomeLabelX = PAD_LEFT + 3.5 +
-    (avgVisible && Math.abs(y(avgSpend) - y(incomes[0])) < 18 ? avgLabelW + 8 : 0);
-
   const hovered = hoveredIdx !== null
     ? (() => {
         const i = hoveredIdx;
@@ -145,7 +136,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
           <div className="flex items-center gap-1">
             {hasAvg && (
               <LineToggle
-                label="Avg. Spend"
+                label={`Avg. Spend: ${formatGBP(avgSpend)}`}
                 pressed={showAvg}
                 color="var(--color-accent)"
                 onClick={() => setShowAvg((s) => !s)}
@@ -206,16 +197,10 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
                     width={barW}
                     height={h}
                     fill={g.color}
-                    fillOpacity={0.3}
-                    stroke="var(--color-panel)"
-                    strokeWidth={1}
+                    fillOpacity={0.55}
                   />
                 );
               })}
-              {/* accent cap on the bar total — the echo of the running chart's line */}
-              {monthTotals[i] > 0 && (
-                <line x1={barX(i)} y1={y(monthTotals[i])} x2={barX(i) + barW} y2={y(monthTotals[i])} className="stroke-accent" strokeWidth={2} />
-              )}
             </g>
           );
         })}
@@ -257,24 +242,6 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
           );
         })}
 
-        {/* reference labels (drawn after the lines so nothing paints over them) */}
-        {avgVisible && (
-          <g transform={`translate(${avgLabelX}, ${y(avgSpend) + 2.5})`}>
-            <rect x={0} y={0} width={avgLabelW} height={14} rx={6} fill="var(--color-raised)" />
-            <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-              {avgLabel}
-            </text>
-          </g>
-        )}
-        {incomeVisible && (
-          <g transform={`translate(${incomeLabelX}, ${y(incomes[0]) + 2.5})`}>
-            <rect x={0} y={0} width={incomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
-            <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-              Income
-            </text>
-          </g>
-        )}
-
         {/* hover tooltip — same column-aligned box as the running chart, month-granular */}
         {hovered && (() => {
           const bx = barX(hovered.i);
@@ -286,7 +253,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
               <rect width={BOX_W} height={boxH} rx={4} fill="var(--color-raised)" className="stroke-hairline" strokeWidth={1} />
               <text x={10} y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">{monthLabel(hovered.ym)}</text>
               <text x={10} y={35} className="fill-ink text-[14px] tabular-nums" fontWeight={600}>{formatGBP(hovered.total)}</text>
-              <text x={10} y={51} className={`text-[10px] tabular-nums ${hovered.delta !== 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
+              <text x={10} y={51} className={`text-[10px] tabular-nums ${hovered.delta > 0 ? 'fill-under' : hovered.delta < 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
                 {hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)} vs last month` : '— vs last month'}
               </text>
               {hovered.rows.map((r, i) => (
@@ -302,7 +269,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
                     x={BOX_W - 10}
                     y={66 + i * 13}
                     textAnchor="end"
-                    className={`text-[8.5px] tabular-nums ${r.delta !== 0 ? 'fill-accent' : 'fill-ink-faint'}`}
+                    className={`text-[8.5px] tabular-nums ${r.delta > 0 ? 'fill-under' : r.delta < 0 ? 'fill-accent' : 'fill-ink-faint'}`}
                   >
                     {r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—'}
                   </text>

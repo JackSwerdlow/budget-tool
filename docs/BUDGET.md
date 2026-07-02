@@ -73,13 +73,14 @@ last 6 months; custom From/To picker in the matrix header) and the same shared c
 as Month:
 
 - **Spend by month** (`charts/TrendsBars.tsx`) — a stacked per-month bar chart in the running
-  chart's visual language: group colours/stack order matching the donut, an accent cap on each
-  bar's total, and two pill toggles — **Avg. Spend** (on by default; a dotted line averaging
-  *complete* months only, so a half-finished current month doesn't drag it down) and **Income**
-  (off by default; a dashed step at each month's own resolved income, each step green while
-  that month's bar is under it, red once over). Hovering a bar shows the running-chart-style
-  breakdown box: month, total, ±delta vs the previous month, then per-group rows with their own
-  deltas (the first month compares against the month before the range).
+  chart's visual language: group colours/stack order matching the donut, and two pill toggles —
+  **Avg. Spend** (on by default; a dotted line averaging *complete* months only, so a
+  half-finished current month doesn't drag it down; the pill carries the value, so the chart
+  needs no on-bar labels) and **Income** (off by default; a dashed step at each month's own
+  resolved income, each step green while that month's bar is under it, red once over).
+  Hovering a bar shows the running-chart-style breakdown box: month, total, ±delta vs the
+  previous month (green up / red down, matching the matrix arrows), then per-group rows with
+  their own deltas (the first month compares against the month before the range).
 - **Category × month** heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell colour
   is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
   `±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group
