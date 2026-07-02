@@ -12,7 +12,7 @@ export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerDat
   const avgSpend = averageSpend(data, ym, { excludedCategoryIds: hiddenCategoryIds });
   const net = monthNet(data, ym, currentYm);
   const inc = income(data, ym, currentYm);
-  const avg = averageNet(data, currentYm);
+  const avg = averageNet(data, ym, currentYm);
   const noData = data.entries.length === 0 && data.lists.length === 0 && data.income.length === 0;
 
   return (

@@ -80,15 +80,21 @@ describe('monthNet (includes Rent as real money out)', () => {
   });
 });
 
-describe('averageNet (mean over months with ANY activity; gaps skipped)', () => {
+describe('averageNet (mean over active months through the viewed month; gaps skipped)', () => {
   it('divides by active months only, never counting a gap month as £0', () => {
     // (125000 + 75000 - 8000) / 3 = 64000. Counting March as £0 would give 48000.
-    expect(averageNet(makeData(), NOW)).toBe(64000);
+    expect(averageNet(makeData(), NOW, NOW)).toBe(64000);
+  });
+
+  it('excludes active months after the viewed month — moves as the viewed month changes', () => {
+    // Viewing April: May and June haven't happened yet from that vantage point.
+    // net April = income(0) - monthTotal(8000) = -8000, averaged over just that one month.
+    expect(averageNet(makeData(), '2026-04', '2026-04')).toBe(-8000);
   });
 
   it('returns 0 when there is no activity at all', () => {
     expect(
-      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, NOW),
+      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, NOW, NOW),
     ).toBe(0);
   });
 
@@ -96,7 +102,7 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
     // June active via entries (125000 incl-Rent spend), no explicit income, default 200000
     // -> net June = 75000. April -8000, May 75000. avg = (75000 + 75000 - 8000) / 3.
     const data = { ...makeData(), income: [{ year: 2026, month: 5, amount_pence: 75000 }], defaultIncomePence: 200000 };
-    expect(averageNet(data, NOW)).toBe(Math.round((75000 + 75000 - 8000) / 3));
+    expect(averageNet(data, NOW, NOW)).toBe(Math.round((75000 + 75000 - 8000) / 3));
   });
 
   it('rounds the mean to the nearest pence (half-up)', () => {
@@ -112,7 +118,7 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
       views: [],
       defaultIncomePence: null,
     };
-    expect(averageNet(data, NOW)).toBe(101); // (100 + 101) / 2 = 100.5 -> 101
+    expect(averageNet(data, NOW, NOW)).toBe(101); // (100 + 101) / 2 = 100.5 -> 101
   });
 });
 

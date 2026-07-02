@@ -29,6 +29,11 @@ export function App() {
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
   const [showFilter, setShowFilter] = useState(false);
 
+  // A button is "active" when the live filter exactly matches its target set — not tracked
+  // state, so it naturally clears once the Categories checklist diverges from the preset.
+  const isActiveFilter = (ids: number[]) =>
+    ids.length === hiddenCategoryIds.size && ids.every((id) => hiddenCategoryIds.has(id));
+
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
     : null;
@@ -131,7 +136,7 @@ export function App() {
                       type="button"
                       onClick={() => setHiddenCategoryIds(new Set())}
                       className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                        hiddenCategoryIds.size === 0 ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+                        isActiveFilter([]) ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
                       }`}
                     >
                       All
@@ -141,7 +146,9 @@ export function App() {
                         key={v.id}
                         type="button"
                         onClick={() => setHiddenCategoryIds(new Set(v.hidden_category_ids))}
-                        className="rounded-md px-3 py-1 text-xs text-ink-muted transition-colors hover:text-ink"
+                        className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                          isActiveFilter(v.hidden_category_ids) ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+                        }`}
                       >
                         {v.name}
                       </button>
