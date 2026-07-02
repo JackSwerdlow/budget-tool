@@ -41,7 +41,6 @@
 
 ## Tech debt / tooling
 
-- Turn "add a data operation" into a skill — the both-adapters + parity recipe as an on-demand skill, to keep CLAUDE.md lean.
 - Drop the vestigial `exclude_from_discretionary` column — dead since Views replaced the discretionary concept (no feature reads it); removal touches the schema (+ a migration for existing DBs), seed, `Category` type, both adapters, `db.rs`, and tests.
 
 ## Desktop

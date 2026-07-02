@@ -49,7 +49,8 @@ done on both paths is a **new data operation** (a new `DataPort` method): implem
 `apps/web/src/data/http.ts` (→ `apps/api` route + `repo.ts`) **and** `data/queries.ts` (+ a Rust
 command in `db.rs` if it needs a transaction), and cover it in **both** `queries.test.ts` and the
 `db.rs` tests. Touch only the HTTP side and the desktop app silently breaks. Full detail:
-[`docs/DESKTOP.md`](docs/DESKTOP.md).
+[`docs/DESKTOP.md`](docs/DESKTOP.md); step-by-step checklist: the `add-data-operation` skill
+(`.claude/skills/add-data-operation/SKILL.md`).
 
 ## Before calling work done
 

@@ -38,6 +38,9 @@ Registered commands (`lib.rs` `generate_handler!`):
 
 ## Adding a data operation (the one rule, in detail)
 
+> Also available as an on-demand skill: `.claude/skills/add-data-operation/SKILL.md` — the same
+> recipe as a step-by-step checklist (contract → both paths → schema → export → tests).
+
 A new `DataPort` method must be implemented on **both** transports or the desktop app silently
 breaks:
 
