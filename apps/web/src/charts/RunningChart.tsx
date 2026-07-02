@@ -327,10 +327,13 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                 {hoverByGroup.map((r, i) => (
                   <g key={r.id}>
                     <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
-                    <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">{r.name}</text>
+                    {/* long names are ellipsised so they can never run into the totals column */}
+                    <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">
+                      {r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name}
+                    </text>
                     {/* two fixed columns so every total ends at the same x; a flat group gets
                        a faint dash in the delta column rather than an empty gap */}
-                    <text x={BOX_W - 62} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
+                    <text x={BOX_W - 48} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
                       {formatGBP(r.value)}
                     </text>
                     <text
