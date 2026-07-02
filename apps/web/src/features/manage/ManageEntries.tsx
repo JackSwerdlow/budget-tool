@@ -3,8 +3,8 @@ import { evalSum, formatGBP, listTotals, ymOf, type BudgetList, type Entry, type
 import { deleteEntry, deleteList, updateEntry, updateList } from '../../api';
 import { useData } from '../../data';
 import { MonthPicker, Segmented } from '../../components/ui';
-import { CategoryGrid } from '../../components/CategoryGrid';
 import { CategorySelect } from '../../components/CategorySelect';
+import { CategoryVisibilityPanel } from '../../components/CategoryVisibilityPanel';
 import { ConfirmButton } from '../../components/ConfirmButton';
 import { ListForm } from '../ListForm';
 import { dayHeading, monthLabel } from '../../lib/dates';
@@ -17,27 +17,27 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const { refresh } = useData();
   const [editing, setEditing] = useState<number | null>(null);
   const [editingList, setEditingList] = useState<number | null>(null);
-  const [catFilter, setCatFilter] = useState<number | null>(null);
+  const [hiddenCats, setHiddenCats] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<'month' | 'all'>('month');
   const [showCatPicker, setShowCatPicker] = useState(false);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
-  const filterCat = catFilter !== null ? cat(catFilter) : undefined;
 
   // A filter or search stays scoped to the picked month by default (so the term persists while
   // browsing months), with an "All months" scope for finding an entry whose month is unknown.
   const term = search.trim().toLowerCase();
-  const searching = catFilter !== null || term !== '';
+  const filtering = hiddenCats.size > 0;
+  const searching = filtering || term !== '';
   const allMonths = searching && scope === 'all';
 
   const entryMatches = (e: Entry): boolean => {
-    if (catFilter !== null && e.category_id !== catFilter) return false;
+    if (filtering && hiddenCats.has(e.category_id)) return false;
     if (term && !(e.note ?? '').toLowerCase().includes(term)) return false;
     return true;
   };
   const listMatches = (l: BudgetList): boolean => {
-    if (catFilter !== null && !(l.items.some((it) => it.category_id === catFilter) || l.delivery_category_id === catFilter)) {
+    if (filtering && !(l.items.some((it) => !hiddenCats.has(it.category_id)) || !hiddenCats.has(l.delivery_category_id))) {
       return false;
     }
     if (term && !((l.note ?? '').toLowerCase().includes(term) || l.items.some((it) => it.name.toLowerCase().includes(term)))) {
@@ -74,7 +74,7 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   };
 
   const clearFilters = () => {
-    setCatFilter(null);
+    setHiddenCats(new Set());
     setSearch('');
     setScope('month');
   };
@@ -92,12 +92,9 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
           onClick={() => setShowCatPicker((s) => !s)}
           aria-expanded={showCatPicker}
           aria-label="Filter by category"
-          className={`flex items-center gap-1.5 rounded-md border border-hairline bg-paper px-2.5 py-1.5 text-sm outline-none transition-colors ${
-            filterCat ? 'text-ink' : 'text-ink-muted hover:text-ink'
-          }`}
+          className={`text-xs transition-colors hover:text-accent ${filtering ? 'text-accent' : 'text-ink-muted'}`}
         >
-          {filterCat && <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: filterCat.color }} />}
-          {filterCat ? filterCat.name : 'All categories'} {showCatPicker ? '▴' : '▾'}
+          Categories {showCatPicker ? '▴' : '▾'}
         </button>
         <input
           value={search}
@@ -127,30 +124,10 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
         )}
       </div>
 
-      {/* Unfolding category picker (same idiom as Overview's filter section): single-select,
-         clicking the active category again clears back to All. */}
+      {/* The same unfolding filter panel as Overview's: multi-select, pressed = shown. */}
       {showCatPicker && (
-        <div className="mb-4 rounded-lg border border-hairline bg-panel p-3">
-          <button
-            type="button"
-            onClick={() => setCatFilter(null)}
-            aria-pressed={catFilter === null}
-            className={`mb-3 px-2.5 py-1 text-xs transition-all duration-100 ${
-              catFilter === null ? 'rounded-full text-ink' : 'rounded-md text-ink-faint hover:text-ink-muted'
-            }`}
-            style={{
-              backgroundColor: `color-mix(in srgb, var(--color-ink) ${catFilter === null ? 16 : 6}%, var(--color-panel))`,
-              boxShadow: catFilter === null ? 'inset 0 0 0 1px var(--color-ink-faint)' : undefined,
-            }}
-          >
-            All categories
-          </button>
-          <CategoryGrid
-            groups={data.groups}
-            categories={data.categories}
-            selectedId={catFilter}
-            onSelect={(id) => setCatFilter(id === catFilter ? null : id)}
-          />
+        <div className="mb-4">
+          <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCats} onChange={setHiddenCats} />
         </div>
       )}
 
