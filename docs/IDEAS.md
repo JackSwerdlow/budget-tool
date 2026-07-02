@@ -20,7 +20,6 @@
 - Sankey / flow view — net pay flowing into the month's categories. Pure re-visualisation of existing numbers (no new logic); bridges the Salary take-home and the ledger.
 - Optional per-category target — a user-set number shown next to actual spend (display only; no enforcement/rollover). Note: partly overlaps the existing "vs last month" baseline — weigh whether it adds signal or competes with it.
 - Configurable widget dashboard — let the user pick which charts/summaries appear on Overview instead of the fixed layout. Heaviest of these for the least obvious payoff on a single-user tool.
-- "Save as View" from Overview's live filter — an ad hoc Categories-checklist selection can only become a View by re-picking it in Manage → Views; add a save-as-View affordance where the filter is actually built (createView exists on both data paths; respect the 4-View cap).
 
 ## Manage / entries
 

@@ -44,7 +44,9 @@ Trends below) shares one category/group show-hide filter: an "All" + saved-**Vie
 (the currently-active preset is highlighted), plus a "Categories ▾" checklist for ad hoc tweaks
 (both live in `App.tsx`, threaded down as a `hiddenCategoryIds` prop). A View is a named, saved
 preset of that filter — create/rename/edit/delete them from Manage → **Views** (its own tab,
-capped at 4). The filter always starts at "All" (no default exclusion) each session — Net
+capped at 4), or save the live ad hoc filter directly from Overview: when the checklist selection
+matches no existing View (and the cap isn't hit), a "save as View" affordance appears next to
+"Categories ▾". The filter always starts at "All" (no default exclusion) each session — Net
 Balance's money is the one thing it never touches.
 
 **Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell

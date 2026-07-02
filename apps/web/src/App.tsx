@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nextMonth, previousMonth } from '@budget/core';
+import { createView } from './api';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
@@ -20,19 +21,33 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'manage', label: '⚙ Manage' },
 ];
 
+// Mirrors the cap enforced by both data layers (repo.ts / queries.ts) and Manage → Views.
+const MAX_VIEWS = 4;
+
 export function App() {
-  const { data, error, loading } = useData();
+  const { data, error, loading, refresh } = useData();
   const [tab, setTab] = useState<Tab>('overview');
   const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
   const [showFilter, setShowFilter] = useState(false);
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [viewName, setViewName] = useState('');
 
   // A button is "active" when the live filter exactly matches its target set — not tracked
   // state, so it naturally clears once the Categories checklist diverges from the preset.
   const isActiveFilter = (ids: number[]) =>
     ids.length === hiddenCategoryIds.size && ids.every((id) => hiddenCategoryIds.has(id));
+
+  const onSaveView = async () => {
+    const name = viewName.trim();
+    if (!name) return;
+    await createView({ name, hidden_category_ids: [...hiddenCategoryIds] });
+    await refresh();
+    setSaveViewOpen(false);
+    setViewName('');
+  };
 
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
@@ -169,6 +184,44 @@ export function App() {
                     </div>
                   )}
                 </div>
+                {hiddenCategoryIds.size > 0 &&
+                  data.views.length < MAX_VIEWS &&
+                  !data.views.some((v) => isActiveFilter(v.hidden_category_ids)) &&
+                  (saveViewOpen ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void onSaveView();
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        autoFocus
+                        value={viewName}
+                        onChange={(e) => setViewName(e.target.value)}
+                        placeholder="View name"
+                        className="w-28 rounded-md border border-hairline bg-paper px-2 py-1 text-xs text-ink outline-none focus:border-ink/40"
+                      />
+                      <button type="submit" disabled={viewName.trim() === ''} className="text-xs text-accent disabled:cursor-not-allowed disabled:opacity-40">
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSaveViewOpen(false); setViewName(''); }}
+                        className="text-xs text-ink-muted hover:text-ink"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSaveViewOpen(true)}
+                      className="text-xs text-ink-muted transition-colors hover:text-accent"
+                    >
+                      save as View
+                    </button>
+                  ))}
               </div>
               {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
             </div>
