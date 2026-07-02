@@ -56,6 +56,23 @@ export function Segmented<T extends string>({
   );
 }
 
+export function EditableText({ value, onCommit, className = '' }: { value: string; onCommit: (v: string) => void; className?: string }) {
+  return (
+    <input
+      key={value}
+      defaultValue={value}
+      onBlur={(e) => {
+        const v = e.target.value.trim();
+        if (v && v !== value) onCommit(v);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      className={`rounded-md border border-transparent bg-transparent px-1.5 py-1 text-ink outline-none hover:border-hairline focus:border-ink/40 focus:bg-paper ${className}`}
+    />
+  );
+}
+
 export function MonthPicker({ ym, onChange }: { ym: string; onChange: (ym: string) => void }) {
   const currentYm = todayISO().slice(0, 7);
   return (
