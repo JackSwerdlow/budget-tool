@@ -494,7 +494,6 @@ function AddGroup({ onAdd }: { onAdd: (name: string) => void }) {
   );
 }
 
-
 function ReassignDialog({ category, data, onCancel, onConfirm }: { category: Category; data: LedgerData; onCancel: () => void; onConfirm: (targetId: number) => void }) {
   const options = data.categories.filter((c) => c.id !== category.id);
   const [target, setTarget] = useState(options[0]?.id ?? 0);
