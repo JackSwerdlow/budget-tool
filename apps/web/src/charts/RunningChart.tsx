@@ -25,7 +25,7 @@ const INNER_H = H - PAD_TOP - PAD_BOTTOM;
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const BOX_W = 170;
+const BOX_W = 178;
 const BOX_H = 58; // grows by 13 per group line in the hover breakdown
 
 function axisGBP(pence: number): string {
@@ -332,8 +332,9 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                       {r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name}
                     </text>
                     {/* two fixed columns so every total ends at the same x; a flat group gets
-                       a faint dash in the delta column rather than an empty gap */}
-                    <text x={BOX_W - 48} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
+                       a faint dash in the delta column rather than an empty gap. The delta
+                       column is sized for a four-figure "+£1,234.56" so the two never collide. */}
+                    <text x={BOX_W - 58} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
                       {formatGBP(r.value)}
                     </text>
                     <text
