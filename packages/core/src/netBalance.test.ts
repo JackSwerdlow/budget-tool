@@ -23,6 +23,7 @@ function makeData(): LedgerData {
       { year: 2026, month: 6, amount_pence: 250000 },
       { year: 2026, month: 5, amount_pence: 75000 },
     ],
+    views: [],
     defaultIncomePence: null,
   };
 }
@@ -87,7 +88,7 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
 
   it('returns 0 when there is no activity at all', () => {
     expect(
-      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], defaultIncomePence: null }, NOW),
+      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, NOW),
     ).toBe(0);
   });
 
@@ -108,6 +109,7 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
         { year: 2026, month: 6, amount_pence: 100 },
         { year: 2026, month: 5, amount_pence: 101 },
       ],
+      views: [],
       defaultIncomePence: null,
     };
     expect(averageNet(data, NOW)).toBe(101); // (100 + 101) / 2 = 100.5 -> 101

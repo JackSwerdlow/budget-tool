@@ -22,6 +22,7 @@ function makeData(): LedgerData {
     ],
     lists: [],
     income: [],
+    views: [],
     defaultIncomePence: null,
   };
 }

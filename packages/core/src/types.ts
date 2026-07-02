@@ -54,6 +54,15 @@ export type MonthlyIncome = {
   amount_pence: number;
 };
 
+// A named, saved snapshot of Overview's category-hide filter (not a per-category tag —
+// hidden_category_ids is that View's own copy of which category ids are hidden).
+export type View = {
+  id: number;
+  name: string;
+  sort_order: number;
+  hidden_category_ids: number[];
+};
+
 // The whole ledger, as returned by GET /api/bootstrap.
 export type LedgerData = {
   groups: Group[];
@@ -61,6 +70,7 @@ export type LedgerData = {
   entries: Entry[];
   lists: BudgetList[];
   income: MonthlyIncome[];
+  views: View[];
   // Optional default monthly income: fills the current and future months that have no
   // explicit figure (never a past one). null when no default is set.
   defaultIncomePence: number | null;
