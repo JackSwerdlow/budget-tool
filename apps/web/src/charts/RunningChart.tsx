@@ -25,7 +25,7 @@ const INNER_H = H - PAD_TOP - PAD_BOTTOM;
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const BOX_W = 150;
+const BOX_W = 170;
 const BOX_H = 58; // grows by 13 per group line in the hover breakdown
 
 function axisGBP(pence: number): string {
@@ -135,16 +135,28 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     ? denseByDay[hoveredDay] - (hoveredDay > 1 ? denseByDay[hoveredDay - 1] : 0)
     : null;
 
-  // Per-group make-up of the hovered day's cumulative (carry-forward, same as denseByDay).
+  // Per-group make-up of the hovered day's cumulative (carry-forward, same as denseByDay),
+  // with each group's own day delta — the deltas sum exactly to the top +delta figure.
+  const byGroupAt = (day: number) => {
+    let m: Map<number, number> = new Map();
+    for (const p of pts) {
+      if (p.day <= day) m = p.byGroup;
+      else break;
+    }
+    return m;
+  };
   const hoverByGroup = hoveredDay !== null
     ? (() => {
-        let m: Map<number, number> = new Map();
-        for (const p of pts) {
-          if (p.day <= hoveredDay) m = p.byGroup;
-          else break;
-        }
+        const m = byGroupAt(hoveredDay);
+        const prev = hoveredDay > 1 ? byGroupAt(hoveredDay - 1) : new Map<number, number>();
         return stackGroups
-          .map((g) => ({ id: g.id, name: g.name, color: g.color, value: m.get(g.id) ?? 0 }))
+          .map((g) => ({
+            id: g.id,
+            name: g.name,
+            color: g.color,
+            value: m.get(g.id) ?? 0,
+            delta: (m.get(g.id) ?? 0) - (prev.get(g.id) ?? 0),
+          }))
           .filter((r) => r.value > 0);
       })()
     : [];
@@ -268,13 +280,19 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                     {delta > 0 ? '+' : ''}{formatGBP(delta)}
                   </text>
                 )}
-                {/* per-group make-up of the cumulative total (matches the stacked bands) */}
+                {/* per-group make-up of the cumulative total (matches the stacked bands),
+                   with the group's own day delta when it moved */}
                 {hoverByGroup.map((r, i) => (
                   <g key={r.id}>
                     <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
                     <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">{r.name}</text>
-                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
-                      {formatGBP(r.value)}
+                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="text-[9.5px] tabular-nums">
+                      {r.delta !== 0 && (
+                        <tspan className={r.delta > 0 ? 'fill-accent' : 'fill-ink-faint'}>
+                          {r.delta > 0 ? '+' : ''}{formatGBP(r.delta)}{'  '}
+                        </tspan>
+                      )}
+                      <tspan className="fill-ink-muted">{formatGBP(r.value)}</tspan>
                     </text>
                   </g>
                 ))}
