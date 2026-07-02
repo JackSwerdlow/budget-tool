@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   categoryTotals,
   comparePct,
@@ -10,8 +10,13 @@ import {
 
 type Row = { id: number; name: string; color: string; thisPence: number; lastFullPence: number };
 
+// The Total row hovers to a per-group breakdown; group rows to per-category (id 0 = Total).
+type Hover = { id: number; x: number; y: number };
+
 export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [hover, setHover] = useState<Hover | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   const thisCat = categoryTotals(data, ym);
   const lastCat = categoryTotals(data, previousMonth(ym));
@@ -62,8 +67,19 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
   const totalThis = groupRows.reduce((s, r) => s + r.thisPence, 0);
   const totalLast = groupRows.reduce((s, r) => s + r.lastFullPence, 0);
 
+  const onRowHover = (e: ReactMouseEvent, id: number) => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setHover({ id, x: e.clientX - r.left, y: e.clientY - r.top });
+  };
+
+  // Same box as the running chart's tooltip: rows column-aligned, totals to one edge, the
+  // smaller vs-last % in its own column with a "new" dash when there's no baseline.
+  const hoverRows: Row[] = hover === null ? [] : hover.id === 0 ? groupRows : categoryRows(hover.id);
+  const hoverTitle = hover === null ? '' : hover.id === 0 ? 'By group' : data.groups.find((g) => g.id === hover.id)?.name ?? '';
+
   return (
-    <div>
+    <div ref={wrapRef} className="relative">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h3 className="font-serif text-base text-ink">Vs last month</h3>
@@ -83,7 +99,11 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
         <p className="py-6 text-center text-sm text-ink-muted">Nothing to compare yet.</p>
       ) : (
         <>
-          <div className="overflow-hidden rounded-t">
+          <div
+            className="overflow-hidden rounded-t"
+            onMouseMove={(e) => onRowHover(e, 0)}
+            onMouseLeave={() => setHover(null)}
+          >
             <TotalRow thisPence={totalThis} lastFullPence={totalLast} />
           </div>
           <div>
@@ -92,7 +112,9 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
               const cats = categoryRows(row.id);
               return (
                 <div key={row.id} className={`overflow-hidden border-t border-hairline ${index === groupRows.length - 1 ? 'rounded-b' : ''}`}>
-                  <BarRow row={row} strong expandable={groupCatCount(row.id) > 1} open={open} onToggle={groupCatCount(row.id) > 1 ? () => toggle(row.id) : undefined} />
+                  <div onMouseMove={(e) => onRowHover(e, row.id)} onMouseLeave={() => setHover(null)}>
+                    <BarRow row={row} strong expandable={groupCatCount(row.id) > 1} open={open} onToggle={groupCatCount(row.id) > 1 ? () => toggle(row.id) : undefined} />
+                  </div>
                   {open && (
                     <div>
                       {cats.map((c) => (
@@ -106,6 +128,39 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
           </div>
         </>
       )}
+
+      {hover !== null && hoverRows.length > 0 && (() => {
+        const boxW = 230;
+        const width = wrapRef.current?.clientWidth ?? boxW;
+        const left = Math.min(Math.max(hover.x + 14, 0), width - boxW);
+        return (
+          <div
+            className="pointer-events-none absolute z-10 rounded border border-hairline bg-raised px-3 py-2 shadow-sm"
+            style={{ left, top: hover.y + 14, width: boxW }}
+          >
+            <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-faint">{hoverTitle}</div>
+            {hoverRows.map((r) => {
+              const pct = comparePct(r.thisPence, r.lastFullPence);
+              const over = pct !== null && pct > 100;
+              const warn = pct !== null && pct >= 75 && pct <= 100;
+              return (
+                <div key={r.id} className="flex items-center gap-1.5 py-0.5">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ backgroundColor: r.color }} />
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">{r.name}</span>
+                  <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">{formatGBP(r.thisPence)}</span>
+                  <span
+                    className={`w-11 shrink-0 text-right text-[10px] tabular-nums ${
+                      pct === null ? 'text-ink-faint' : over ? 'text-over' : warn ? 'text-warn' : 'text-under'
+                    }`}
+                  >
+                    {pct === null ? '—' : `${pct}%`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }

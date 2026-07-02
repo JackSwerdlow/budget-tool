@@ -45,7 +45,9 @@ also breaks the day's cumulative down by group, each row with its own smaller da
 grouping donut that explodes a group into its categories on click
 (`GroupingDonut`); and "vs last month" bars — each row (group, expandable to its categories) fills
 toward 100% of *its own* last-month total, green under / red over (`ComparisonBars`,
-`comparison.comparePct`).
+`comparison.comparePct`); hovering a group row (or the Total row) shows a column-aligned
+breakdown box — its categories (or the groups), each with this month's total and its own
+vs-last %, matching the running chart's tooltip.
 
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
 Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row
