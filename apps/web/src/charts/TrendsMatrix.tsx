@@ -63,28 +63,27 @@ type RenderRow = {
   prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
-export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hiddenCategoryIds: Set<number> }) {
+export function TrendsMatrix({ data, hiddenCategoryIds, months, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange }: {
+  data: LedgerData;
+  hiddenCategoryIds: Set<number>;
+  // The month range is owned by OverviewTrends so the bar chart above shares it.
+  // displayStart/End are the resolved picks (may not match months[] when the range is empty).
+  months: string[];
+  displayStart: string;
+  displayEnd: string;
+  isCustomRange: boolean;
+  onRangeStart: (ym: string) => void;
+  onRangeEnd: (ym: string) => void;
+  onResetRange: () => void;
+}) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-
   const [showRange, setShowRange] = useState(false);
-  const [rangeStart, setRangeStart] = useState<string | null>(null);
-  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
 
   const currentYm = todayISO().slice(0, 7);
-
-  let defaultStart = currentYm;
-  for (let i = 0; i < 5; i++) defaultStart = previousMonth(defaultStart);
-
-  const displayStart = rangeStart ?? defaultStart;
-  const displayEnd = rangeEnd ?? currentYm;
-  const months = monthsRange(displayStart, displayEnd, 60);
 
   let optStart = currentYm;
   for (let i = 0; i < 47; i++) optStart = previousMonth(optStart);
   const monthOptions = monthsRange(optStart, currentYm, 48);
-
-  const isCustomRange = rangeStart !== null || rangeEnd !== null;
-  const resetRange = () => { setRangeStart(null); setRangeEnd(null); };
 
   const totalsByMonth = new Map(months.map((m) => [m, categoryTotals(data, m)]));
 
@@ -165,7 +164,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hi
           <span>From</span>
           <select
             value={displayStart}
-            onChange={(e) => setRangeStart(e.target.value)}
+            onChange={(e) => onRangeStart(e.target.value)}
             className="rounded border border-hairline bg-panel px-1.5 py-0.5 text-xs text-ink"
           >
             {monthOptions.map((m) => (
@@ -175,7 +174,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hi
           <span>to</span>
           <select
             value={displayEnd}
-            onChange={(e) => setRangeEnd(e.target.value)}
+            onChange={(e) => onRangeEnd(e.target.value)}
             className="rounded border border-hairline bg-panel px-1.5 py-0.5 text-xs text-ink"
           >
             {monthOptions.map((m) => (
@@ -183,7 +182,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hi
             ))}
           </select>
           {isCustomRange && (
-            <button type="button" onClick={resetRange} className="text-ink-muted transition-colors hover:text-accent">
+            <button type="button" onClick={onResetRange} className="text-ink-muted transition-colors hover:text-accent">
               Reset
             </button>
           )}

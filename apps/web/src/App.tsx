@@ -9,7 +9,7 @@ import { AddList } from './features/AddList';
 import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
-import { TrendsMatrix } from './charts/TrendsMatrix';
+import { OverviewTrends } from './features/OverviewTrends';
 import { CategoryVisibilityPanel } from './components/CategoryVisibilityPanel';
 
 type Tab = 'overview' | 'add' | 'manage' | 'salary';
@@ -227,7 +227,7 @@ export function App() {
             {overviewView === 'month' ? (
               <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
             ) : (
-              <TrendsMatrix data={data} hiddenCategoryIds={hiddenCategoryIds} />
+              <OverviewTrends data={data} hiddenCategoryIds={hiddenCategoryIds} />
             )}
           </div>
         ) : tab === 'salary' ? (

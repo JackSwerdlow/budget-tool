@@ -8,6 +8,7 @@ import {
   runningCumulativeByGroup,
   type LedgerData,
 } from '@budget/core';
+import { LineToggle } from '../components/LineToggle';
 import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
 
 type Pt = { day: number; value: number };
@@ -30,28 +31,6 @@ const BOX_H = 58; // grows by 13 per group line in the hover breakdown
 
 function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
-}
-
-// Same pressed/idle look as the category-filter buttons (CategoryVisibilityPanel).
-function LineToggle({ label, pressed, color, onClick }: {
-  label: string; pressed: boolean; color: string; onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={pressed}
-      className={`px-2.5 py-1 text-xs transition-all duration-100 ${
-        pressed ? 'rounded-full text-ink' : 'rounded-md text-ink-faint hover:text-ink-muted'
-      }`}
-      style={{
-        backgroundColor: `color-mix(in srgb, ${color} ${pressed ? 32 : 8}%, var(--color-panel))`,
-        boxShadow: pressed ? `inset 0 0 0 1px ${color}` : undefined,
-      }}
-    >
-      {label}
-    </button>
-  );
 }
 
 // Weekly x ticks starting at 0 (0, 7, 14, …), always ending with the last day of the month.

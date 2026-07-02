@@ -68,11 +68,23 @@ matches no existing View (and the cap isn't hit), a "save as View" affordance ap
 "Categories ▾". The filter always starts at "All" (no default exclusion) each session — Net
 Balance's money is the one thing it never touches.
 
-**Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell
-colour is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
-`±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group with
-only one visible category (e.g. after filtering) can't expand, so its row shows that category's
-name and colour instead of the group's. Uses the same shared category filter as Month.
+**Trends** (`features/OverviewTrends.tsx`) has two sections sharing one month range (default
+last 6 months; custom From/To picker in the matrix header) and the same shared category filter
+as Month:
+
+- **Spend by month** (`charts/TrendsBars.tsx`) — a stacked per-month bar chart in the running
+  chart's visual language: group colours/stack order matching the donut, an accent cap on each
+  bar's total, and two pill toggles — **Avg. Spend** (on by default; a dotted line averaging
+  *complete* months only, so a half-finished current month doesn't drag it down) and **Income**
+  (off by default; a dashed step at each month's own resolved income, each step green while
+  that month's bar is under it, red once over). Hovering a bar shows the running-chart-style
+  breakdown box: month, total, ±delta vs the previous month, then per-group rows with their own
+  deltas (the first month compares against the month before the range).
+- **Category × month** heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell colour
+  is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
+  `±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group
+  with only one visible category (e.g. after filtering) can't expand, so its row shows that
+  category's name and colour instead of the group's.
 
 ## Add
 
