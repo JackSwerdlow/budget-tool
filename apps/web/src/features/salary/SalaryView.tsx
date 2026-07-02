@@ -300,14 +300,18 @@ function BalanceSparkline({ series }: { series: StudentLoanResult['series'] }) {
   if (pts.length < 2) return null;
 
   const W = 640, H = 64, PAD = 5;
+  // The y-axis spans min→max, not 0→max: against a £40k+ balance a £60 monthly payment is
+  // invisible on a zero-based scale, and the movement is the whole point of the sparkline.
   const max = Math.max(...pts.map((p) => p.balancePence));
+  const min = Math.min(...pts.map((p) => p.balancePence));
+  const span = max - min || 1;
   const x = (i: number) => PAD + (i / (pts.length - 1)) * (W - 2 * PAD);
-  const y = (v: number) => PAD + (1 - v / max) * (H - 2 * PAD);
+  const y = (v: number) => PAD + (1 - (v - min) / span) * (H - 2 * PAD);
 
   type Pt = { i: number; v: number };
   const data: Pt[] = pts.map((p, i) => ({ i, v: p.balancePence }));
   const linePath = line<Pt>().x((d) => x(d.i)).y((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
-  const areaPath = area<Pt>().x((d) => x(d.i)).y0(y(0)).y1((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
+  const areaPath = area<Pt>().x((d) => x(d.i)).y0(H - PAD).y1((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
 
   const onMove = (e: ReactMouseEvent<SVGRectElement>) => {
     const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
