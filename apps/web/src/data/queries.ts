@@ -1,4 +1,4 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, SalaryConfig } from '@budget/core';
+import type { BudgetList, Category, Entry, Group, LedgerData, SalaryConfig, View } from '@budget/core';
 import { computeSalaryYTD, resolveEmploymentStart, type YTDConfigRow } from '@budget/core';
 import type { SqlExecutor } from './executor';
 import type { DataPort } from './port';
@@ -20,6 +20,14 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
 
   const getGroup = async (id: number) =>
     (await exec.select<Group>('SELECT id, name, sort_order, color FROM groups WHERE id = $1', [id]))[0];
+
+  type ViewRow = { id: number; name: string; sort_order: number; hidden_category_ids: string };
+  const rowToView = (row: ViewRow): View => ({ ...row, hidden_category_ids: JSON.parse(row.hidden_category_ids) as number[] });
+
+  const getView = async (id: number): Promise<View | undefined> => {
+    const rows = await exec.select<ViewRow>('SELECT id, name, sort_order, hidden_category_ids FROM views WHERE id = $1', [id]);
+    return rows[0] ? rowToView(rows[0]) : undefined;
+  };
 
   const categoryUsage = async (id: number): Promise<number> => {
     const q = async (sql: string) => (await exec.select<{ n: number }>(sql, [id]))[0].n;
@@ -63,13 +71,15 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
         lists.push({ ...l, items } as BudgetList);
       }
       const income = await exec.select('SELECT year, month, amount_pence FROM monthly_income ORDER BY year, month');
+      const viewRows = await exec.select<ViewRow>('SELECT id, name, sort_order, hidden_category_ids FROM views ORDER BY sort_order, id');
+      const views = viewRows.map(rowToView);
       const def = await exec.select<{ value: string }>("SELECT value FROM settings WHERE key = 'default_income_pence'");
       let defaultIncomePence: number | null = null;
       if (def[0]) {
         const n = Number(def[0].value);
         defaultIncomePence = Number.isSafeInteger(n) ? n : null;
       }
-      return { groups, categories, entries, lists, income, defaultIncomePence } as LedgerData;
+      return { groups, categories, entries, lists, income, views, defaultIncomePence } as LedgerData;
     },
 
     async createEntry(input) {
@@ -170,6 +180,34 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
       const n = (await exec.select<{ n: number }>('SELECT COUNT(*) AS n FROM categories WHERE group_id = $1', [id]))[0].n;
       if (n > 0) return { deleted: false, nonEmpty: true };
       const r = await exec.execute('DELETE FROM groups WHERE id = $1', [id]);
+      return { deleted: r.rowsAffected > 0 };
+    },
+
+    async createView(input) {
+      const countRows = await exec.select<{ n: number }>('SELECT COUNT(*) AS n FROM views');
+      if (countRows[0].n >= 4) throw new Error('cannot have more than 4 views');
+      const m = (await exec.select<{ m: number }>('SELECT COALESCE(MAX(sort_order), 0) AS m FROM views'))[0].m;
+      const r = await exec.execute('INSERT INTO views (name, sort_order, hidden_category_ids) VALUES ($1, $2, $3)', [
+        input.name,
+        m + 1,
+        JSON.stringify(input.hidden_category_ids),
+      ]);
+      return (await getView(r.lastInsertId))!;
+    },
+
+    async updateView(id, patch) {
+      const ex = await getView(id);
+      if (!ex) throw new Error(`view ${id} not found`);
+      await exec.execute('UPDATE views SET name = $1, hidden_category_ids = $2 WHERE id = $3', [
+        patch.name ?? ex.name,
+        JSON.stringify(patch.hidden_category_ids ?? ex.hidden_category_ids),
+        id,
+      ]);
+      return (await getView(id))!;
+    },
+
+    async deleteView(id) {
+      const r = await exec.execute('DELETE FROM views WHERE id = $1', [id]);
       return { deleted: r.rowsAffected > 0 };
     },
 

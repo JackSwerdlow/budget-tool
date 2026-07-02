@@ -91,6 +91,22 @@ test('group create / update / delete (nonEmpty refuses)', async () => {
   expect(await port.deleteGroup(essentials.id)).toEqual({ deleted: false, nonEmpty: true });
 });
 
+test('view create / update / delete, and refuses a 5th view (cap of 4)', async () => {
+  const { port } = freshPort();
+  const v = await port.createView({ name: 'Excl. Rent', hidden_category_ids: [1] });
+  expect(v.name).toBe('Excl. Rent');
+  expect(v.hidden_category_ids).toEqual([1]);
+
+  const u = await port.updateView(v.id, { hidden_category_ids: [1, 2] });
+  expect(u.hidden_category_ids).toEqual([1, 2]);
+
+  expect(await port.deleteView(v.id)).toEqual({ deleted: true });
+  expect((await port.fetchBootstrap()).views).toEqual([]);
+
+  for (let i = 0; i < 4; i++) await port.createView({ name: `V${i}`, hidden_category_ids: [] });
+  await expect(port.createView({ name: 'V5', hidden_category_ids: [] })).rejects.toThrow();
+});
+
 test('income: monthly set/delete and default set/clear', async () => {
   const { port } = freshPort();
   await port.setIncome(2026, 1, 250000);
