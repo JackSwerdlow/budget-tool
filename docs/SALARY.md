@@ -124,7 +124,9 @@ from the annual rate), and shrinks by the **payroll repayment** plus any **extra
 (extra applies only in months with an explicit config). The balance is floored at zero, and a
 **payoff projection** forward-walks from the latest rate + payroll until it clears. The tracker
 box ends with a per-month balance **sparkline** (`BalanceSparkline` in `SalaryView.tsx`, drawn
-from the already-computed `series`; the pre-anchor £0 lead-in is trimmed).
+from the already-computed `series`; the pre-anchor £0 lead-in is trimmed). Hovering it shows a
+crosshair and swaps the strip below to that month's balance and its change vs the previous month
+(up = red, down = green).
 
 ## Config
 
