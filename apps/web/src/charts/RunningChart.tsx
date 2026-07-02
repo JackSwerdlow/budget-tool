@@ -130,8 +130,9 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   };
 
   const hoveredPt = hoveredDay !== null ? { day: hoveredDay, value: denseByDay[hoveredDay] } : null;
-  const delta = hoveredDay !== null && hoveredDay > 1
-    ? denseByDay[hoveredDay] - denseByDay[hoveredDay - 1]
+  // Day 1's baseline is £0, so its delta is simply that day's cumulative.
+  const delta = hoveredDay !== null
+    ? denseByDay[hoveredDay] - (hoveredDay > 1 ? denseByDay[hoveredDay - 1] : 0)
     : null;
 
   // Per-group make-up of the hovered day's cumulative (carry-forward, same as denseByDay).
