@@ -9,7 +9,7 @@ export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerDat
   const currentYm = todayISO().slice(0, 7);
   const total = monthTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
   const yearSpend = yearTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
-  const avgSpend = averageSpend(data, { excludedCategoryIds: hiddenCategoryIds });
+  const avgSpend = averageSpend(data, ym, { excludedCategoryIds: hiddenCategoryIds });
   const net = monthNet(data, ym, currentYm);
   const inc = income(data, ym, currentYm);
   const avg = averageNet(data, currentYm);

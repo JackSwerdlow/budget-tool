@@ -116,20 +116,25 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
   });
 });
 
-describe('averageSpend (all-time mean monthly spend; gaps skipped)', () => {
-  it('divides by active months only, never counting a gap month as £0', () => {
+describe('averageSpend (mean monthly spend through the viewed month; gaps skipped)', () => {
+  it('divides by active months up to and including throughYm, never counting a gap month as £0', () => {
     // April 8000, May 0 (income-only), June 125000 (incl Rent) -> (8000+0+125000)/3 = 44333.33 -> 44333
-    expect(averageSpend(makeData())).toBe(44333);
+    expect(averageSpend(makeData(), '2026-06')).toBe(44333);
+  });
+
+  it('excludes active months after throughYm — moves as the viewed month changes', () => {
+    // Viewing April: May and June haven't happened yet from that vantage point, so only April counts.
+    expect(averageSpend(makeData(), '2026-04')).toBe(8000);
   });
 
   it('respects excludedCategoryIds', () => {
     // April 8000, May 0, June 5000 (excl Rent) -> (8000+0+5000)/3 = 4333.33 -> 4333
-    expect(averageSpend(makeData(), { excludedCategoryIds: new Set([10]) })).toBe(4333);
+    expect(averageSpend(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) })).toBe(4333);
   });
 
   it('returns 0 when there is no activity at all', () => {
     expect(
-      averageSpend({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }),
+      averageSpend({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, '2026-06'),
     ).toBe(0);
   });
 });

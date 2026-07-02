@@ -43,10 +43,12 @@ export function averageNet(data: LedgerData, currentYm: string): number {
   return Math.round(sum / months.length);
 }
 
-// All-time average monthly spend (mirrors averageNet's all-time scope) — respects the same
+// Average monthly spend over active months through (and including) the viewed month — unlike
+// averageNet (pinned to currentYm, the real today, so it never moves), this moves with the
+// month picker so it never counts months after the one you're looking at. Respects the same
 // TotalOptions filter as monthTotal, so it stays consistent with whatever's currently hidden.
-export function averageSpend(data: LedgerData, options: TotalOptions = {}): number {
-  const months = activeMonths(data);
+export function averageSpend(data: LedgerData, throughYm: string, options: TotalOptions = {}): number {
+  const months = activeMonths(data).filter((ym) => ym <= throughYm);
   if (months.length === 0) return 0;
   let sum = 0;
   for (const ym of months) sum += monthTotal(data, ym, options);
