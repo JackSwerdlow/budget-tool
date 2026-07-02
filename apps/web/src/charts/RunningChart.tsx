@@ -32,6 +32,28 @@ function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
 }
 
+// Same pressed/idle look as the category-filter buttons (CategoryVisibilityPanel).
+function LineToggle({ label, pressed, color, onClick }: {
+  label: string; pressed: boolean; color: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      className={`px-2.5 py-1 text-xs transition-all duration-100 ${
+        pressed ? 'rounded-full text-ink' : 'rounded-md text-ink-faint hover:text-ink-muted'
+      }`}
+      style={{
+        backgroundColor: `color-mix(in srgb, ${color} ${pressed ? 32 : 8}%, var(--color-panel))`,
+        boxShadow: pressed ? `inset 0 0 0 1px ${color}` : undefined,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 // Weekly x ticks starting at 0 (0, 7, 14, …), always ending with the last day of the month.
 // Replaces the final weekly tick with the last day if they're only 1 apart (e.g. Feb non-leap).
 function dayTicks(days: number): number[] {
@@ -46,6 +68,10 @@ function dayTicks(days: number): number[] {
 
 export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  // The reference lines are toggleable: hiding one also releases the y-axis from its value
+  // (useful when a filtered-down total sits far below income).
+  const [showTarget, setShowTarget] = useState(true);
+  const [showIncome, setShowIncome] = useState(true);
 
   const sumParts = (m: Map<number, number>) => {
     let s = 0;
@@ -66,7 +92,10 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   // never touched by the category filter, matching Net Balance.
   const incomePence = income(data, ym, currentYm);
 
-  const dataMax = Math.max(target, current, incomePence);
+  const targetVisible = showTarget && target > 0;
+  const incomeVisible = showIncome && incomePence > 0;
+
+  const dataMax = Math.max(current, targetVisible ? target : 0, incomeVisible ? incomePence : 0);
   // Always scale to the next £500 ceiling so grid lines stay consistent across months.
   const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
   const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
@@ -75,6 +104,16 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const yTicks: number[] = [];
   for (let v = 0; v <= yMax; v += 50000) yTicks.push(v);
   const xTicks = dayTicks(days);
+
+  // Both reference labels sit at the left end (away from the line, which is highest on the
+  // right); when the two lines run close together, the Income label slides right past the
+  // Last Month one instead of overlapping it.
+  const targetLabel = `Last Month:  ${formatGBP(target)}`;
+  const targetLabelW = Math.ceil(targetLabel.length * 5.35);
+  const incomeLabel = `Income:  ${formatGBP(incomePence)}`;
+  const incomeLabelW = Math.ceil(incomeLabel.length * 5.35);
+  const labelsCollide = targetVisible && Math.abs(y(target) - y(incomePence)) < 18;
+  const incomeLabelX = PAD_LEFT + 3.5 + (labelsCollide ? targetLabelW + 8 : 0);
 
   const pts: StackPt[] = [
     { day: 0, byGroup: new Map(), total: 0 },
@@ -168,9 +207,24 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h3 className="font-serif text-base text-ink">Running total</h3>
-        <span className="text-sm text-ink-muted">
-          {formatGBP(current)} <span className="text-ink-faint">so far</span>
-        </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            {target > 0 && (
+              <LineToggle label="Last Month" pressed={showTarget} color="var(--color-ink-faint)" onClick={() => setShowTarget((s) => !s)} />
+            )}
+            {incomePence > 0 && (
+              <LineToggle
+                label="Income"
+                pressed={showIncome}
+                color={current <= incomePence ? 'var(--color-under)' : 'var(--color-over)'}
+                onClick={() => setShowIncome((s) => !s)}
+              />
+            )}
+          </div>
+          <span className="text-sm text-ink-muted">
+            {formatGBP(current)} <span className="text-ink-faint">so far</span>
+          </span>
+        </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
         {/* y-axis gridlines + £ labels */}
@@ -192,7 +246,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
         ))}
 
         {/* last month's target — label sits at the left end to avoid overlapping the running line */}
-        {target > 0 && (
+        {targetVisible && (
           <>
             <line
               x1={PAD_LEFT}
@@ -203,47 +257,35 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
               strokeWidth={1}
               strokeDasharray="4 4"
             />
-            {(() => {
-              const label = `Last Month:  ${formatGBP(target)}`;
-              const labelW = Math.ceil(label.length * 5.35);
-              return (
-                <g transform={`translate(${PAD_LEFT + 3.5}, ${y(target) + 2.5})`}>
-                  <rect x={0} y={0} width={labelW} height={14} rx={6} fill="var(--color-raised)" />
-                  <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-                    {label}
-                  </text>
-                </g>
-              );
-            })()}
+            <g transform={`translate(${PAD_LEFT + 3.5}, ${y(target) + 2.5})`}>
+              <rect x={0} y={0} width={targetLabelW} height={14} rx={6} fill="var(--color-raised)" />
+              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+                {targetLabel}
+              </text>
+            </g>
           </>
         )}
 
-        {/* income pace line — green while spend-so-far is under it, red once over; its label
-           anchors right so it can never collide with the left-anchored Last Month label */}
-        {incomePence > 0 && (() => {
-          const cls = current <= incomePence ? 'stroke-under' : 'stroke-over';
-          const label = `Income:  ${formatGBP(incomePence)}`;
-          const labelW = Math.ceil(label.length * 5.35);
-          return (
-            <>
-              <line
-                x1={PAD_LEFT}
-                y1={y(incomePence)}
-                x2={W - PAD_RIGHT}
-                y2={y(incomePence)}
-                className={cls}
-                strokeWidth={1}
-                strokeDasharray="4 4"
-              />
-              <g transform={`translate(${W - PAD_RIGHT - labelW - 3.5}, ${y(incomePence) + 2.5})`}>
-                <rect x={0} y={0} width={labelW} height={14} rx={6} fill="var(--color-raised)" />
-                <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-                  {label}
-                </text>
-              </g>
-            </>
-          );
-        })()}
+        {/* income pace line — green while spend-so-far is under it, red once over */}
+        {incomeVisible && (
+          <>
+            <line
+              x1={PAD_LEFT}
+              y1={y(incomePence)}
+              x2={W - PAD_RIGHT}
+              y2={y(incomePence)}
+              className={current <= incomePence ? 'stroke-under' : 'stroke-over'}
+              strokeWidth={1}
+              strokeDasharray="4 4"
+            />
+            <g transform={`translate(${incomeLabelX}, ${y(incomePence) + 2.5})`}>
+              <rect x={0} y={0} width={incomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
+              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+                {incomeLabel}
+              </text>
+            </g>
+          </>
+        )}
 
         {/* today marker */}
         {todayDay !== null && (
@@ -286,13 +328,13 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                   <g key={r.id}>
                     <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
                     <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">{r.name}</text>
-                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="text-[9.5px] tabular-nums">
+                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="tabular-nums">
+                      <tspan className="fill-ink-muted text-[9.5px]">{formatGBP(r.value)}</tspan>
                       {r.delta !== 0 && (
-                        <tspan className={r.delta > 0 ? 'fill-accent' : 'fill-ink-faint'}>
-                          {r.delta > 0 ? '+' : ''}{formatGBP(r.delta)}{'  '}
+                        <tspan className={`text-[8.5px] ${r.delta > 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
+                          {'  '}{r.delta > 0 ? '+' : ''}{formatGBP(r.delta)}
                         </tspan>
                       )}
-                      <tspan className="fill-ink-muted">{formatGBP(r.value)}</tspan>
                     </text>
                   </g>
                 ))}
