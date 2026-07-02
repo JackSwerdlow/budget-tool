@@ -41,8 +41,11 @@ toward 100% of *its own* last-month total, green under / red over (`ComparisonBa
 
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
 Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row
-(the currently-active preset is highlighted), plus a "Categories ▾" checklist for ad hoc tweaks
-(both live in `App.tsx`, threaded down as a `hiddenCategoryIds` prop). A View is a named, saved
+(the currently-active preset is highlighted), plus a "Categories ▾" toggle that unfolds an inline
+filter section (it stays open until closed, not a dropdown): a master select/deselect-all tick +
+per-group ticks, with the categories as CategoryGrid-style connected buttons — pressed = shown
+(`components/CategoryVisibilityPanel.tsx`; both controls live in `App.tsx`, threaded down as a
+`hiddenCategoryIds` prop). A View is a named, saved
 preset of that filter — create/rename/edit/delete them from Manage → **Views** (its own tab,
 capped at 4), or save the live ad hoc filter directly from Overview: when the checklist selection
 matches no existing View (and the cap isn't hit), a "save as View" affordance appears next to

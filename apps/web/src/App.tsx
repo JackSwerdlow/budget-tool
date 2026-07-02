@@ -10,7 +10,7 @@ import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
 import { TrendsMatrix } from './charts/TrendsMatrix';
-import { CategoryVisibilityChecklist } from './components/CategoryVisibilityChecklist';
+import { CategoryVisibilityPanel } from './components/CategoryVisibilityPanel';
 
 type Tab = 'overview' | 'add' | 'manage' | 'salary';
 
@@ -170,20 +170,14 @@ export function App() {
                     ))}
                   </div>
                 )}
-                <div className="relative">
-                  <button
-                    type="button"
-                    className={`text-xs transition-colors hover:text-accent ${hiddenCategoryIds.size > 0 ? 'text-accent' : 'text-ink-muted'}`}
-                    onClick={() => setShowFilter((s) => !s)}
-                  >
-                    Categories {showFilter ? '▴' : '▾'}
-                  </button>
-                  {showFilter && (
-                    <div className="absolute left-0 top-full z-10 mt-1 w-64">
-                      <CategoryVisibilityChecklist data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  aria-expanded={showFilter}
+                  className={`text-xs transition-colors hover:text-accent ${hiddenCategoryIds.size > 0 ? 'text-accent' : 'text-ink-muted'}`}
+                  onClick={() => setShowFilter((s) => !s)}
+                >
+                  Categories {showFilter ? '▴' : '▾'}
+                </button>
                 {hiddenCategoryIds.size > 0 &&
                   data.views.length < MAX_VIEWS &&
                   !data.views.some((v) => isActiveFilter(v.hidden_category_ids)) &&
@@ -225,6 +219,11 @@ export function App() {
               </div>
               {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
             </div>
+            {showFilter && (
+              <div className="mb-6">
+                <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
+              </div>
+            )}
             {overviewView === 'month' ? (
               <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
             ) : (
