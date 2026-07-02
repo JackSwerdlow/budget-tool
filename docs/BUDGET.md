@@ -35,12 +35,16 @@ line on the same viewed-month bound (`averageNet`) — the money itself always i
 *everything*, regardless of the category filter below, only the averaging window moves with the
 month picker); a running-total chart through the month (`RunningChart`) — a stepped line (impulse
 on the spend day, flat between) over a **stacked** per-group fill (donut colours/proportions, via
-`core/ledger.runningCumulativeByGroup`), toward two toggleable reference lines (pill
+`core/ledger.runningCumulativeByGroup`), toward toggleable reference lines (pill
 toggles in the chart header; hiding one also releases the y-axis from its value): last month's
-total (**dotted**) and the month's **income** (**dashed**, so the two read apart when close) —
-each line and its toggle are green while spend-so-far is under that line's value, red once over
-(the income figure ignores the category filter, like Net Balance; both labels sit at the left
-end, the Income one sliding right past the Last Month label when the lines run close). The hover tooltip
+total (**dotted**, on by default) and two off-by-default income lines — the month's full
+**income** (**dashed**; ignores the category filter, like Net Balance) and, only while the
+filter hides spend, **Adj. Income** (**dash-dot**): income − hidden-category spend, clamped at
+£0, i.e. "what's left for the categories in view"; crossing it is exactly the moment *total*
+spend crosses total income. Each line and its toggle are green while spend-so-far is under that
+line's value, red once over (Adj. Income compares against its un-clamped value, so a £0-clamped
+line reads red); labels sit at the left end, later ones sliding right past earlier ones when the
+lines run close. The hover tooltip
 also breaks the day's cumulative down by group, each row with its own smaller day-delta; a
 grouping donut that explodes a group into its categories on click
 (`GroupingDonut`) — hovering a group slice or its legend row shows the same column-aligned

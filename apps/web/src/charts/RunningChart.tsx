@@ -69,9 +69,11 @@ function dayTicks(days: number): number[] {
 export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
   // The reference lines are toggleable: hiding one also releases the y-axis from its value
-  // (useful when a filtered-down total sits far below income).
+  // (useful when a filtered-down total sits far below income). Last Month starts on; the
+  // income lines start off.
   const [showTarget, setShowTarget] = useState(true);
-  const [showIncome, setShowIncome] = useState(true);
+  const [showIncome, setShowIncome] = useState(false);
+  const [showAdjIncome, setShowAdjIncome] = useState(false);
 
   const sumParts = (m: Map<number, number>) => {
     let s = 0;
@@ -92,10 +94,22 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   // never touched by the category filter, matching Net Balance.
   const incomePence = income(data, ym, currentYm);
 
+  // Adj. Income = income − spend in the hidden categories: "after everything I've filtered out,
+  // this is what's left for the categories I'm looking at". Crossing it is exactly the moment
+  // TOTAL spend crosses total income (visible > income − hidden ⟺ visible + hidden > income),
+  // so the green/red signal stays truthful under a filter. Clamped at £0 (hidden spend alone
+  // past income ⇒ nothing left ⇒ red via the un-clamped comparison). Only offered while it
+  // actually differs from Income.
+  const hiddenSpend = monthTotal(data, ym) - monthTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
+  const adjIncomeRaw = incomePence - hiddenSpend;
+  const adjIncome = Math.max(0, adjIncomeRaw);
+  const hasAdjIncome = incomePence > 0 && hiddenSpend > 0;
+
   const targetVisible = showTarget && target > 0;
   const incomeVisible = showIncome && incomePence > 0;
+  const adjIncomeVisible = showAdjIncome && hasAdjIncome;
 
-  const dataMax = Math.max(current, targetVisible ? target : 0, incomeVisible ? incomePence : 0);
+  const dataMax = Math.max(current, targetVisible ? target : 0, incomeVisible ? incomePence : 0, adjIncomeVisible ? adjIncome : 0);
   // Always scale to the next £500 ceiling so grid lines stay consistent across months.
   const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
   const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
@@ -105,15 +119,27 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   for (let v = 0; v <= yMax; v += 50000) yTicks.push(v);
   const xTicks = dayTicks(days);
 
-  // Both reference labels sit at the left end (away from the line, which is highest on the
-  // right); when the two lines run close together, the Income label slides right past the
-  // Last Month one instead of overlapping it.
+  // All reference labels sit at the left end (away from the line, which is highest on the
+  // right); when lines run close together, a later label slides right past the earlier ones
+  // instead of overlapping them (placed in Last Month → Income → Adj. Income order).
+  const placedLabels: { x: number; w: number; lineY: number }[] = [];
+  const placeLabel = (lineY: number, w: number) => {
+    let xPos = PAD_LEFT + 3.5;
+    for (const p of placedLabels) {
+      if (Math.abs(p.lineY - lineY) < 18) xPos = Math.max(xPos, p.x + p.w + 8);
+    }
+    placedLabels.push({ x: xPos, w, lineY });
+    return xPos;
+  };
   const targetLabel = `Last Month:  ${formatGBP(target)}`;
   const targetLabelW = Math.ceil(targetLabel.length * 5.35);
   const incomeLabel = `Income:  ${formatGBP(incomePence)}`;
   const incomeLabelW = Math.ceil(incomeLabel.length * 5.35);
-  const labelsCollide = targetVisible && Math.abs(y(target) - y(incomePence)) < 18;
-  const incomeLabelX = PAD_LEFT + 3.5 + (labelsCollide ? targetLabelW + 8 : 0);
+  const adjIncomeLabel = `Adj. Income:  ${formatGBP(adjIncome)}`;
+  const adjIncomeLabelW = Math.ceil(adjIncomeLabel.length * 5.35);
+  const targetLabelX = targetVisible ? placeLabel(y(target), targetLabelW) : 0;
+  const incomeLabelX = incomeVisible ? placeLabel(y(incomePence), incomeLabelW) : 0;
+  const adjIncomeLabelX = adjIncomeVisible ? placeLabel(y(adjIncome), adjIncomeLabelW) : 0;
 
   const pts: StackPt[] = [
     { day: 0, byGroup: new Map(), total: 0 },
@@ -225,6 +251,14 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                 onClick={() => setShowIncome((s) => !s)}
               />
             )}
+            {hasAdjIncome && (
+              <LineToggle
+                label="Adj. Income"
+                pressed={showAdjIncome}
+                color={current <= adjIncomeRaw ? 'var(--color-under)' : 'var(--color-over)'}
+                onClick={() => setShowAdjIncome((s) => !s)}
+              />
+            )}
           </div>
           <span className="text-sm text-ink-muted">
             {formatGBP(current)} <span className="text-ink-faint">so far</span>
@@ -264,7 +298,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
               strokeLinecap="round"
               strokeDasharray="0.5 4"
             />
-            <g transform={`translate(${PAD_LEFT + 3.5}, ${y(target) + 2.5})`}>
+            <g transform={`translate(${targetLabelX}, ${y(target) + 2.5})`}>
               <rect x={0} y={0} width={targetLabelW} height={14} rx={6} fill="var(--color-raised)" />
               <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
                 {targetLabel}
@@ -289,6 +323,29 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
               <rect x={0} y={0} width={incomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
               <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
                 {incomeLabel}
+              </text>
+            </g>
+          </>
+        )}
+
+        {/* adjusted income (income − hidden spend) — dash-dot so it reads apart from the
+           plain income dashes; colour compares against the UN-clamped value so a £0-clamped
+           line correctly shows red */}
+        {adjIncomeVisible && (
+          <>
+            <line
+              x1={PAD_LEFT}
+              y1={y(adjIncome)}
+              x2={W - PAD_RIGHT}
+              y2={y(adjIncome)}
+              className={current <= adjIncomeRaw ? 'stroke-under' : 'stroke-over'}
+              strokeWidth={1}
+              strokeDasharray="8 3 1.5 3"
+            />
+            <g transform={`translate(${adjIncomeLabelX}, ${y(adjIncome) + 2.5})`}>
+              <rect x={0} y={0} width={adjIncomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
+              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+                {adjIncomeLabel}
               </text>
             </g>
           </>
