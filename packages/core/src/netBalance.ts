@@ -1,5 +1,5 @@
 import type { LedgerData } from './types.ts';
-import { monthTotal } from './ledger.ts';
+import { monthTotal, type TotalOptions } from './ledger.ts';
 import { monthKey, ymOf } from './time.ts';
 
 // The explicit per-month figure, or null if no figure is recorded for that month.
@@ -40,5 +40,15 @@ export function averageNet(data: LedgerData, currentYm: string): number {
   if (months.length === 0) return 0;
   let sum = 0;
   for (const ym of months) sum += monthNet(data, ym, currentYm);
+  return Math.round(sum / months.length);
+}
+
+// All-time average monthly spend (mirrors averageNet's all-time scope) — respects the same
+// TotalOptions filter as monthTotal, so it stays consistent with whatever's currently hidden.
+export function averageSpend(data: LedgerData, options: TotalOptions = {}): number {
+  const months = activeMonths(data);
+  if (months.length === 0) return 0;
+  let sum = 0;
+  for (const ym of months) sum += monthTotal(data, ym, options);
   return Math.round(sum / months.length);
 }

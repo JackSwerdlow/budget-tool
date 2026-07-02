@@ -46,6 +46,17 @@ export function monthTotal(data: LedgerData, ym: string, options: TotalOptions =
   return total;
 }
 
+// Calendar-year-to-date: sums monthTotal from January through the viewed month's year/month.
+export function yearTotal(data: LedgerData, ym: string, options: TotalOptions = {}): number {
+  const year = ym.slice(0, 4);
+  const throughMonth = Number(ym.slice(5, 7));
+  let total = 0;
+  for (let m = 1; m <= throughMonth; m++) {
+    total += monthTotal(data, `${year}-${String(m).padStart(2, '0')}`, options);
+  }
+  return total;
+}
+
 export type CumulativePoint = { date: string; cumulativePence: number };
 
 export function runningCumulative(data: LedgerData, ym: string, options: TotalOptions = {}): CumulativePoint[] {

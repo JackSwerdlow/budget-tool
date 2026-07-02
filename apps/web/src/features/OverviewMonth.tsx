@@ -1,4 +1,4 @@
-import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
+import { averageNet, averageSpend, formatGBP, income, monthNet, monthTotal, yearTotal, type LedgerData } from '@budget/core';
 import { Kbd, Panel } from '../components/ui';
 import { monthLabel, todayISO } from '../lib/dates';
 import { RunningChart } from '../charts/RunningChart';
@@ -8,6 +8,8 @@ import { ComparisonBars } from '../charts/ComparisonBars';
 export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const currentYm = todayISO().slice(0, 7);
   const total = monthTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
+  const yearSpend = yearTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
+  const avgSpend = averageSpend(data, { excludedCategoryIds: hiddenCategoryIds });
   const net = monthNet(data, ym, currentYm);
   const inc = income(data, ym, currentYm);
   const avg = averageNet(data, currentYm);
@@ -36,6 +38,9 @@ export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerDat
           <div className="text-xs uppercase tracking-wide text-ink-faint">This month</div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="font-serif text-4xl text-ink">{formatGBP(total)}</span>
+          </div>
+          <div className="mt-1 text-sm text-ink-muted">
+            this year {formatGBP(yearSpend)} · avg {formatGBP(avgSpend)}/mo
           </div>
         </Panel>
 

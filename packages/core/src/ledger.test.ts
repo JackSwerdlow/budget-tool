@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LedgerData } from './types';
-import { categoryTotals, groupTotals, monthTotal, runningCumulative } from './ledger';
+import { categoryTotals, groupTotals, monthTotal, runningCumulative, yearTotal } from './ledger';
 
 function makeData(): LedgerData {
   return {
@@ -53,6 +53,20 @@ describe('monthTotal', () => {
 
   it('drops the given category ids when excludedCategoryIds is set', () => {
     expect(monthTotal(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) })).toBe(7500);
+  });
+});
+
+describe('yearTotal', () => {
+  it('sums monthTotal from January through the viewed month', () => {
+    expect(yearTotal(makeData(), '2026-06')).toBe(137499); // May 9999 + June 127500
+  });
+
+  it('respects excludedCategoryIds', () => {
+    expect(yearTotal(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) })).toBe(17499); // May 9999 + June 7500
+  });
+
+  it('is 0 for a year with no spend yet', () => {
+    expect(yearTotal(makeData(), '2026-01')).toBe(0);
   });
 });
 

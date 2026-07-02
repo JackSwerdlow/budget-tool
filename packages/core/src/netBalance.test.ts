@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LedgerData } from './types';
-import { averageNet, income, monthlyIncome, monthNet } from './netBalance';
+import { averageNet, averageSpend, income, monthlyIncome, monthNet } from './netBalance';
 
 // June: income 250000, spend incl Rent 125000 -> net 125000
 // May:  income 75000, no spend                 -> net 75000   (active via income only)
@@ -113,5 +113,23 @@ describe('averageNet (mean over months with ANY activity; gaps skipped)', () => 
       defaultIncomePence: null,
     };
     expect(averageNet(data, NOW)).toBe(101); // (100 + 101) / 2 = 100.5 -> 101
+  });
+});
+
+describe('averageSpend (all-time mean monthly spend; gaps skipped)', () => {
+  it('divides by active months only, never counting a gap month as £0', () => {
+    // April 8000, May 0 (income-only), June 125000 (incl Rent) -> (8000+0+125000)/3 = 44333.33 -> 44333
+    expect(averageSpend(makeData())).toBe(44333);
+  });
+
+  it('respects excludedCategoryIds', () => {
+    // April 8000, May 0, June 5000 (excl Rent) -> (8000+0+5000)/3 = 4333.33 -> 4333
+    expect(averageSpend(makeData(), { excludedCategoryIds: new Set([10]) })).toBe(4333);
+  });
+
+  it('returns 0 when there is no activity at all', () => {
+    expect(
+      averageSpend({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }),
+    ).toBe(0);
   });
 });
