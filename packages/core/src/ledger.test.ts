@@ -46,25 +46,34 @@ describe('groupTotals', () => {
 });
 
 describe('monthTotal', () => {
-  it('includes Rent by default', () => {
+  it('includes everything by default', () => {
     expect(monthTotal(makeData(), '2026-06')).toBe(127500);
   });
 
-  it('drops ex-discretionary categories (Rent) when excludeRent is set', () => {
-    expect(monthTotal(makeData(), '2026-06', { excludeRent: true })).toBe(7500);
+  it('drops the given category ids when excludedCategoryIds is set', () => {
+    expect(monthTotal(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) })).toBe(7500);
   });
 });
 
-describe('runningCumulative (always ex-Rent)', () => {
-  it('produces one cumulative point per spend date, sorted, excluding Rent', () => {
+describe('runningCumulative', () => {
+  it('produces one cumulative point per spend date, sorted, with no exclusions by default', () => {
     const points = runningCumulative(makeData(), '2026-06');
+    expect(points).toEqual([
+      { date: '2026-06-01', cumulativePence: 120000 },
+      { date: '2026-06-03', cumulativePence: 125500 },
+      { date: '2026-06-10', cumulativePence: 127500 },
+    ]);
+  });
+
+  it('excludes the given category ids (e.g. Rent)', () => {
+    const points = runningCumulative(makeData(), '2026-06', { excludedCategoryIds: new Set([10]) });
     expect(points).toEqual([
       { date: '2026-06-03', cumulativePence: 5500 },
       { date: '2026-06-10', cumulativePence: 7500 },
     ]);
   });
 
-  it('is empty for a month with no discretionary spend', () => {
+  it('is empty for a month with no spend', () => {
     expect(runningCumulative(makeData(), '2026-04')).toEqual([]);
   });
 });
@@ -96,8 +105,8 @@ describe('with itemised lists (fan-out into the ledger)', () => {
     expect(Object.fromEntries(categoryTotals(dataWithList(), '2026-06'))).toEqual({ 10: 120000, 11: 6600, 20: 1500 });
   });
 
-  it('includes list spend (ex-Rent) in the running cumulative on the list date', () => {
-    expect(runningCumulative(dataWithList(), '2026-06')).toEqual([
+  it('excludes the given category ids in the running cumulative on the list date', () => {
+    expect(runningCumulative(dataWithList(), '2026-06', { excludedCategoryIds: new Set([10]) })).toEqual([
       { date: '2026-06-03', cumulativePence: 5500 },
       { date: '2026-06-05', cumulativePence: 6100 },
       { date: '2026-06-10', cumulativePence: 8100 },

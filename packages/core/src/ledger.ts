@@ -32,10 +32,12 @@ export function groupTotals(data: LedgerData, ym: string): Map<number, number> {
   return totals;
 }
 
-export type TotalOptions = { excludeRent?: boolean };
+export type TotalOptions = { excludedCategoryIds?: ReadonlySet<number> };
+
+const EMPTY_SET: ReadonlySet<number> = new Set();
 
 export function monthTotal(data: LedgerData, ym: string, options: TotalOptions = {}): number {
-  const excluded = excludedCategoryIds(data, options.excludeRent ?? false);
+  const excluded = options.excludedCategoryIds ?? EMPTY_SET;
   let total = 0;
   for (const [categoryId, pence] of categoryTotals(data, ym)) {
     if (excluded.has(categoryId)) continue;
@@ -47,7 +49,7 @@ export function monthTotal(data: LedgerData, ym: string, options: TotalOptions =
 export type CumulativePoint = { date: string; cumulativePence: number };
 
 export function runningCumulative(data: LedgerData, ym: string, options: TotalOptions = {}): CumulativePoint[] {
-  const excluded = excludedCategoryIds(data, options.excludeRent ?? true);
+  const excluded = options.excludedCategoryIds ?? EMPTY_SET;
 
   const byDate = new Map<string, number>();
   for (const entry of data.entries) {
@@ -72,13 +74,4 @@ export function runningCumulative(data: LedgerData, ym: string, options: TotalOp
       running += byDate.get(date) ?? 0;
       return { date, cumulativePence: running };
     });
-}
-
-function excludedCategoryIds(data: LedgerData, excludeRent: boolean): Set<number> {
-  const excluded = new Set<number>();
-  if (!excludeRent) return excluded;
-  for (const category of data.categories) {
-    if (category.exclude_from_discretionary === 1) excluded.add(category.id);
-  }
-  return excluded;
 }
