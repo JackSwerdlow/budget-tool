@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { computeSalaryYTD, resolveEmploymentStart, type SalaryYTD, type YTDConfigRow } from '@budget/core';
+import { computeSalaryYTD, resolveEmploymentStart, type SalaryYTD, type View, type YTDConfigRow } from '@budget/core';
 
 // The API is a thin store: it returns raw rows and lets @budget/core derive every
 // view client-side. /api/bootstrap ships the whole ledger in one shot.
@@ -46,6 +46,7 @@ export function getBootstrap(db: DatabaseSync) {
     entries,
     lists: listsWithItems,
     income,
+    views: getViews(db),
     defaultIncomePence: getDefaultIncome(db),
   };
 }
@@ -309,6 +310,58 @@ export function deleteGroup(db: DatabaseSync, id: number): { deleted: boolean; n
   const { n } = db.prepare('SELECT COUNT(*) AS n FROM categories WHERE group_id = ?').get(id) as { n: number };
   if (n > 0) return { deleted: false, nonEmpty: true };
   const { changes } = db.prepare('DELETE FROM groups WHERE id = ?').run(id);
+  return { deleted: Number(changes) > 0 };
+}
+
+// ── Manage: views ─────────────────────────────────────────────────────────────
+type ViewRow = { id: number; name: string; sort_order: number; hidden_category_ids: string };
+const MAX_VIEWS = 4;
+
+function rowToView(row: ViewRow): View {
+  return { ...row, hidden_category_ids: JSON.parse(row.hidden_category_ids) as number[] };
+}
+
+export function getViews(db: DatabaseSync): View[] {
+  const rows = db
+    .prepare('SELECT id, name, sort_order, hidden_category_ids FROM views ORDER BY sort_order, id')
+    .all() as ViewRow[];
+  return rows.map(rowToView);
+}
+
+export function getView(db: DatabaseSync, id: number): View | undefined {
+  const row = db
+    .prepare('SELECT id, name, sort_order, hidden_category_ids FROM views WHERE id = ?')
+    .get(id) as ViewRow | undefined;
+  return row ? rowToView(row) : undefined;
+}
+
+export function createView(db: DatabaseSync, input: { name: string; hidden_category_ids: number[] }): View {
+  const { n } = db.prepare('SELECT COUNT(*) AS n FROM views').get() as { n: number };
+  if (n >= MAX_VIEWS) throw new Error(`cannot have more than ${MAX_VIEWS} views`);
+  const { m } = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM views').get() as { m: number };
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO views (name, sort_order, hidden_category_ids) VALUES (?, ?, ?)')
+    .run(input.name, m + 1, JSON.stringify(input.hidden_category_ids));
+  return getView(db, Number(lastInsertRowid))!;
+}
+
+export function updateView(
+  db: DatabaseSync,
+  id: number,
+  patch: { name?: string; hidden_category_ids?: number[] },
+): View | undefined {
+  const existing = getView(db, id);
+  if (!existing) return undefined;
+  db.prepare('UPDATE views SET name = ?, hidden_category_ids = ? WHERE id = ?').run(
+    patch.name ?? existing.name,
+    JSON.stringify(patch.hidden_category_ids ?? existing.hidden_category_ids),
+    id,
+  );
+  return getView(db, id);
+}
+
+export function deleteView(db: DatabaseSync, id: number): { deleted: boolean } {
+  const { changes } = db.prepare('DELETE FROM views WHERE id = ?').run(id);
   return { deleted: Number(changes) > 0 };
 }
 

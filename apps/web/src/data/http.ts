@@ -1,4 +1,4 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD } from '@budget/core';
+import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD, View } from '@budget/core';
 import type { DataPort, EntryPatchInput, NewEntryInput, NewListInput } from './port';
 
 // Resolve the API root relative to where the app is actually served, so it works at
@@ -93,6 +93,15 @@ export const reorderGroups = (ids: number[]) =>
 export const reorderCategories = (items: { id: number; group_id: number }[]) =>
   send<{ ok: boolean }>('categories/reorder', 'PATCH', { items });
 
+export const createView = (input: { name: string; hidden_category_ids: number[] }) =>
+  send<View>('views', 'POST', input);
+
+export const updateView = (id: number, patch: { name?: string; hidden_category_ids?: number[] }) =>
+  send<View>(`views/${id}`, 'PATCH', patch);
+
+export const deleteView = (id: number) =>
+  send<{ deleted: boolean }>(`views/${id}`, 'DELETE');
+
 export const setIncome = (year: number, month: number, amountPence: number) =>
   send<MonthlyIncome>(`income/${year}/${month}`, 'PUT', { amount_pence: amountPence });
 
@@ -142,5 +151,5 @@ export const httpPort: DataPort = {
   createCategory, updateCategory, deleteCategory, createGroup, updateGroup, deleteGroup,
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
-  getAllSalaryConfigs,
+  getAllSalaryConfigs, createView, updateView, deleteView,
 };

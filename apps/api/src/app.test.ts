@@ -248,6 +248,55 @@ describe('groups management', () => {
   });
 });
 
+describe('views management', () => {
+  it('creates a view with hidden_category_ids', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/views', json({ name: 'Excl. Rent', hidden_category_ids: [1] }));
+    expect(res.status).toBe(201);
+    const created = await body<{ id: number; name: string; hidden_category_ids: number[] }>(res);
+    expect(created.name).toBe('Excl. Rent');
+    expect(created.hidden_category_ids).toEqual([1]);
+  });
+
+  it('bootstrap reflects created views', async () => {
+    const app = freshApp();
+    await app.request('/api/views', json({ name: 'Excl. Rent', hidden_category_ids: [1] }));
+    const boot = await body<{ views: Array<{ name: string }> }>(await app.request('/api/bootstrap'));
+    expect(boot.views).toHaveLength(1);
+    expect(boot.views[0].name).toBe('Excl. Rent');
+  });
+
+  it("updates a view's name and hidden_category_ids", async () => {
+    const app = freshApp();
+    const created = await body<{ id: number }>(await app.request('/api/views', json({ name: 'V1', hidden_category_ids: [] })));
+    const res = await app.request(`/api/views/${created.id}`, patch({ name: 'V1 renamed', hidden_category_ids: [2, 3] }));
+    expect(res.status).toBe(200);
+    const updated = await body<{ name: string; hidden_category_ids: number[] }>(res);
+    expect(updated.name).toBe('V1 renamed');
+    expect(updated.hidden_category_ids).toEqual([2, 3]);
+  });
+
+  it('deletes a view', async () => {
+    const app = freshApp();
+    const created = await body<{ id: number }>(await app.request('/api/views', json({ name: 'V1', hidden_category_ids: [] })));
+    const del = await app.request(`/api/views/${created.id}`, { method: 'DELETE' });
+    expect(del.status).toBe(200);
+    expect(await body<{ deleted: boolean }>(del)).toEqual({ deleted: true });
+    const boot = await body<{ views: unknown[] }>(await app.request('/api/bootstrap'));
+    expect(boot.views).toEqual([]);
+  });
+
+  it('refuses a 5th view (cap of 4)', async () => {
+    const app = freshApp();
+    for (let i = 0; i < 4; i++) {
+      const res = await app.request('/api/views', json({ name: `V${i}`, hidden_category_ids: [] }));
+      expect(res.status).toBe(201);
+    }
+    const res = await app.request('/api/views', json({ name: 'V5', hidden_category_ids: [] }));
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('income', () => {
   it('PUT upserts a month income; bootstrap reflects it', async () => {
     const app = freshApp();

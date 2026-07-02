@@ -1,6 +1,6 @@
 import type {
   BudgetList, Category, Entry, Group, LedgerData,
-  MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD,
+  MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD, View,
 } from '@budget/core';
 
 export type NewEntryInput = {
@@ -48,6 +48,9 @@ export interface DataPort {
   deleteGroup(id: number): Promise<{ deleted: boolean; nonEmpty?: boolean }>;
   reorderGroups(ids: number[]): Promise<{ ok: boolean }>;
   reorderCategories(items: { id: number; group_id: number }[]): Promise<{ ok: boolean }>;
+  createView(input: { name: string; hidden_category_ids: number[] }): Promise<View>;
+  updateView(id: number, patch: { name?: string; hidden_category_ids?: number[] }): Promise<View>;
+  deleteView(id: number): Promise<{ deleted: boolean }>;
   setIncome(year: number, month: number, amountPence: number): Promise<MonthlyIncome>;
   deleteIncome(year: number, month: number): Promise<void>;
   setDefaultIncome(amountPence: number): Promise<{ defaultIncomePence: number }>;

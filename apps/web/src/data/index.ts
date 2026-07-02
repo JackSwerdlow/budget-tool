@@ -38,5 +38,5 @@ export const {
   createCategory, updateCategory, deleteCategory, createGroup, updateGroup, deleteGroup,
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
-  getAllSalaryConfigs,
+  getAllSalaryConfigs, createView, updateView, deleteView,
 } = dataPort;

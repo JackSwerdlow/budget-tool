@@ -6,12 +6,14 @@ import {
   createEntry,
   createGroup,
   createList,
+  createView,
   clearDefaultIncome,
   deleteCategory,
   deleteEntry,
   deleteGroup,
   deleteIncome,
   deleteList,
+  deleteView,
   getBootstrap,
   getGroup,
   getList,
@@ -25,6 +27,7 @@ import {
   updateEntry,
   updateGroup,
   updateList,
+  updateView,
   upsertSalaryConfig,
   reorderCategories,
   reorderGroups,
@@ -277,6 +280,52 @@ export function createApp(db: DatabaseSync): Hono {
     // 200 with { deleted:false, nonEmpty:true } when it still has categories (the UI
     // surfaces the message) — a normal response, not a console-noisy 4xx.
     return c.json(deleteGroup(db, id));
+  });
+
+  api.post('/views', async (c) => {
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const name = String(body.name ?? '').trim();
+    if (name === '') return c.json({ error: 'invalid view' }, 400);
+    const hiddenCategoryIds = Array.isArray(body.hidden_category_ids)
+      ? (body.hidden_category_ids as unknown[]).map(Number)
+      : [];
+    if (hiddenCategoryIds.some((id) => !Number.isInteger(id))) {
+      return c.json({ error: 'invalid hidden_category_ids' }, 400);
+    }
+    try {
+      return c.json(createView(db, { name, hidden_category_ids: hiddenCategoryIds }), 201);
+    } catch (err) {
+      return c.json({ error: String(err) }, 400);
+    }
+  });
+
+  api.patch('/views/:id', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const p: { name?: string; hidden_category_ids?: number[] } = {};
+    if ('name' in body) {
+      const n = String(body.name ?? '').trim();
+      if (n === '') return c.json({ error: 'invalid name' }, 400);
+      p.name = n;
+    }
+    if ('hidden_category_ids' in body) {
+      if (!Array.isArray(body.hidden_category_ids)) return c.json({ error: 'invalid hidden_category_ids' }, 400);
+      const ids = (body.hidden_category_ids as unknown[]).map(Number);
+      if (ids.some((n) => !Number.isInteger(n))) return c.json({ error: 'invalid hidden_category_ids' }, 400);
+      p.hidden_category_ids = ids;
+    }
+    const updated = updateView(db, id, p);
+    if (!updated) return c.json({ error: 'not found' }, 404);
+    return c.json(updated);
+  });
+
+  api.delete('/views/:id', (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+    return c.json(deleteView(db, id));
   });
 
   // ── Income ─────────────────────────────────────────────────────────────────

@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- Saved show/hide presets for Overview's category filter. A lightweight UI convenience, not
+-- a relational entity — hidden_category_ids is a JSON-encoded array of category ids, so no
+-- junction table. Capped at 4 rows (enforced in the application layer).
+CREATE TABLE IF NOT EXISTS views (
+  id                  INTEGER PRIMARY KEY,
+  name                TEXT NOT NULL,
+  sort_order          INTEGER NOT NULL,
+  hidden_category_ids TEXT NOT NULL DEFAULT '[]'
+);
+
 CREATE INDEX IF NOT EXISTS idx_entries_date       ON entries(date);
 CREATE INDEX IF NOT EXISTS idx_entries_category   ON entries(category_id);
 CREATE INDEX IF NOT EXISTS idx_lists_date         ON lists(date);
