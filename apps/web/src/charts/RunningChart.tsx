@@ -210,7 +210,12 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             {target > 0 && (
-              <LineToggle label="Last Month" pressed={showTarget} color="var(--color-ink-faint)" onClick={() => setShowTarget((s) => !s)} />
+              <LineToggle
+                label="Last Month"
+                pressed={showTarget}
+                color={current <= target ? 'var(--color-under)' : 'var(--color-over)'}
+                onClick={() => setShowTarget((s) => !s)}
+              />
             )}
             {incomePence > 0 && (
               <LineToggle
@@ -245,7 +250,8 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           </g>
         ))}
 
-        {/* last month's target — label sits at the left end to avoid overlapping the running line */}
+        {/* last month's target — dotted (vs the income line's dashes) so the two stay
+           distinguishable when they run close; label sits at the left end */}
         {targetVisible && (
           <>
             <line
@@ -253,9 +259,10 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
               y1={y(target)}
               x2={W - PAD_RIGHT}
               y2={y(target)}
-              className="stroke-ink-faint"
+              className={current <= target ? 'stroke-under' : 'stroke-over'}
               strokeWidth={1}
-              strokeDasharray="4 4"
+              strokeLinecap="round"
+              strokeDasharray="0.5 4"
             />
             <g transform={`translate(${PAD_LEFT + 3.5}, ${y(target) + 2.5})`}>
               <rect x={0} y={0} width={targetLabelW} height={14} rx={6} fill="var(--color-raised)" />
