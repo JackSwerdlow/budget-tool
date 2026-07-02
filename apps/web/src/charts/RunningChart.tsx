@@ -328,13 +328,18 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
                   <g key={r.id}>
                     <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
                     <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">{r.name}</text>
-                    <text x={BOX_W - 10} y={66 + i * 13} textAnchor="end" className="tabular-nums">
-                      <tspan className="fill-ink-muted text-[9.5px]">{formatGBP(r.value)}</tspan>
-                      {r.delta !== 0 && (
-                        <tspan className={`text-[8.5px] ${r.delta > 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
-                          {'  '}{r.delta > 0 ? '+' : ''}{formatGBP(r.delta)}
-                        </tspan>
-                      )}
+                    {/* two fixed columns so every total ends at the same x; a flat group gets
+                       a faint dash in the delta column rather than an empty gap */}
+                    <text x={BOX_W - 62} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
+                      {formatGBP(r.value)}
+                    </text>
+                    <text
+                      x={BOX_W - 10}
+                      y={66 + i * 13}
+                      textAnchor="end"
+                      className={`text-[8.5px] tabular-nums ${r.delta > 0 ? 'fill-accent' : 'fill-ink-faint'}`}
+                    >
+                      {r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—'}
                     </text>
                   </g>
                 ))}
