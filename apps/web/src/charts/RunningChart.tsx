@@ -284,71 +284,69 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           </g>
         ))}
 
-        {/* last month's target — dotted (vs the income line's dashes) so the two stay
-           distinguishable when they run close; label sits at the left end */}
+        {/* reference lines — all three lines first, then all three labels, so a line can
+           never paint over another line's label.
+           Last Month is dotted, Income dashed, Adj. Income dash-dot, so they stay
+           distinguishable when they run close. Each is green while spend-so-far is under its
+           value, red once over (Adj. Income compares against the UN-clamped value so a
+           £0-clamped line correctly shows red). */}
         {targetVisible && (
-          <>
-            <line
-              x1={PAD_LEFT}
-              y1={y(target)}
-              x2={W - PAD_RIGHT}
-              y2={y(target)}
-              className={current <= target ? 'stroke-under' : 'stroke-over'}
-              strokeWidth={1}
-              strokeLinecap="round"
-              strokeDasharray="0.5 4"
-            />
-            <g transform={`translate(${targetLabelX}, ${y(target) + 2.5})`}>
-              <rect x={0} y={0} width={targetLabelW} height={14} rx={6} fill="var(--color-raised)" />
-              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-                {targetLabel}
-              </text>
-            </g>
-          </>
+          <line
+            x1={PAD_LEFT}
+            y1={y(target)}
+            x2={W - PAD_RIGHT}
+            y2={y(target)}
+            className={current <= target ? 'stroke-under' : 'stroke-over'}
+            strokeWidth={1}
+            strokeLinecap="round"
+            strokeDasharray="0.5 4"
+          />
         )}
-
-        {/* income pace line — green while spend-so-far is under it, red once over */}
         {incomeVisible && (
-          <>
-            <line
-              x1={PAD_LEFT}
-              y1={y(incomePence)}
-              x2={W - PAD_RIGHT}
-              y2={y(incomePence)}
-              className={current <= incomePence ? 'stroke-under' : 'stroke-over'}
-              strokeWidth={1}
-              strokeDasharray="4 4"
-            />
-            <g transform={`translate(${incomeLabelX}, ${y(incomePence) + 2.5})`}>
-              <rect x={0} y={0} width={incomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
-              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-                {incomeLabel}
-              </text>
-            </g>
-          </>
+          <line
+            x1={PAD_LEFT}
+            y1={y(incomePence)}
+            x2={W - PAD_RIGHT}
+            y2={y(incomePence)}
+            className={current <= incomePence ? 'stroke-under' : 'stroke-over'}
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
         )}
-
-        {/* adjusted income (income − hidden spend) — dash-dot so it reads apart from the
-           plain income dashes; colour compares against the UN-clamped value so a £0-clamped
-           line correctly shows red */}
         {adjIncomeVisible && (
-          <>
-            <line
-              x1={PAD_LEFT}
-              y1={y(adjIncome)}
-              x2={W - PAD_RIGHT}
-              y2={y(adjIncome)}
-              className={current <= adjIncomeRaw ? 'stroke-under' : 'stroke-over'}
-              strokeWidth={1}
-              strokeDasharray="8 3 1.5 3"
-            />
-            <g transform={`translate(${adjIncomeLabelX}, ${y(adjIncome) + 2.5})`}>
-              <rect x={0} y={0} width={adjIncomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
-              <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
-                {adjIncomeLabel}
-              </text>
-            </g>
-          </>
+          <line
+            x1={PAD_LEFT}
+            y1={y(adjIncome)}
+            x2={W - PAD_RIGHT}
+            y2={y(adjIncome)}
+            className={current <= adjIncomeRaw ? 'stroke-under' : 'stroke-over'}
+            strokeWidth={1}
+            strokeDasharray="8 3 1.5 3"
+          />
+        )}
+        {targetVisible && (
+          <g transform={`translate(${targetLabelX}, ${y(target) + 2.5})`}>
+            <rect x={0} y={0} width={targetLabelW} height={14} rx={6} fill="var(--color-raised)" />
+            <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+              {targetLabel}
+            </text>
+          </g>
+        )}
+        {incomeVisible && (
+          <g transform={`translate(${incomeLabelX}, ${y(incomePence) + 2.5})`}>
+            <rect x={0} y={0} width={incomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
+            <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+              {incomeLabel}
+            </text>
+          </g>
+        )}
+        {adjIncomeVisible && (
+          <g transform={`translate(${adjIncomeLabelX}, ${y(adjIncome) + 2.5})`}>
+            <rect x={0} y={0} width={adjIncomeLabelW} height={14} rx={6} fill="var(--color-raised)" />
+            <text x={4.5} y={10} textAnchor="start" className="fill-ink-muted text-[11px]">
+              {adjIncomeLabel}
+            </text>
+          </g>
         )}
 
         {/* today marker */}
