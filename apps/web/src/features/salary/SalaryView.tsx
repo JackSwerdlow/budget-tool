@@ -1,5 +1,5 @@
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
-import { area, curveMonotoneX, line } from 'd3-shape';
+import { area, curveStepAfter, line } from 'd3-shape';
 import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView, type StudentLoanResult } from '@budget/core';
 import { lifetimeLines, type LifetimeLine } from './lifetimeLines';
 import { monthLabel } from '../../lib/dates';
@@ -310,8 +310,9 @@ function BalanceSparkline({ series }: { series: StudentLoanResult['series'] }) {
 
   type Pt = { i: number; v: number };
   const data: Pt[] = pts.map((p, i) => ({ i, v: p.balancePence }));
-  const linePath = line<Pt>().x((d) => x(d.i)).y((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
-  const areaPath = area<Pt>().x((d) => x(d.i)).y0(H - PAD).y1((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
+  // Step, not smoothed — same impulse-then-flat rendering as the Overview running chart.
+  const linePath = line<Pt>().x((d) => x(d.i)).y((d) => y(d.v)).curve(curveStepAfter)(data) ?? '';
+  const areaPath = area<Pt>().x((d) => x(d.i)).y0(H - PAD).y1((d) => y(d.v)).curve(curveStepAfter)(data) ?? '';
 
   const onMove = (e: ReactMouseEvent<SVGRectElement>) => {
     const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
