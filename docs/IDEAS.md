@@ -29,7 +29,6 @@
 
 - Employment-gap marker — a way to mark a period as "not employed" so the brought-forward salary stops filling it. Since inheritance now fills every month from the first config forward (Summary forecast, Lifetime, and the student-loan tracker all carry the last salary forward), there's no way to represent an actual break in employment — a gap between two saved salaries is filled with the earlier one. Would need an explicit "no salary this period" config state that the core walk (`resolveEmploymentStart` / `computeSalaryYTD` / `walkMonths`) treats as a hard stop, not an inherit.
 - Unpaid-days-off effective rate — display-only effective daily/hourly rate for days actually worked; must never affect tax/NI/SL. Data model supports it.
-- Student-loan mini-table / sparkline — per-month balance series on the tracker box (the series is already computed).
 
 ## Data
 

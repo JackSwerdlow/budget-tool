@@ -122,7 +122,9 @@ A running balance threaded through the same month-walk as Lifetime. It starts fr
 user-declared **anchor** ("Set balance" on a Config row), grows by **interest** (daily-apportioned
 from the annual rate), and shrinks by the **payroll repayment** plus any **extra payments**
 (extra applies only in months with an explicit config). The balance is floored at zero, and a
-**payoff projection** forward-walks from the latest rate + payroll until it clears.
+**payoff projection** forward-walks from the latest rate + payroll until it clears. The tracker
+box ends with a per-month balance **sparkline** (`BalanceSparkline` in `SalaryView.tsx`, drawn
+from the already-computed `series`; the pre-anchor £0 lead-in is trimmed).
 
 ## Config
 

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { area, curveMonotoneX, line } from 'd3-shape';
 import { formatGBP, type BreakdownLine, type LifetimeTotals, type SalaryView, type StudentLoanResult } from '@budget/core';
 import { lifetimeLines, type LifetimeLine } from './lifetimeLines';
 import { monthLabel } from '../../lib/dates';
@@ -283,7 +284,45 @@ export function StudentLoanTracker({ result, ymLabel }: {
         {row('Total paid toward balance', formatGBP(result.totalPaidTowardBalancePence))}
         {row('Projected payoff', payoff)}
       </dl>
+      <BalanceSparkline series={result.series} />
     </section>
+  );
+}
+
+// Per-month balance sparkline for the tracker. The walk's series starts at the first-ever
+// config, so months before the "Set balance" anchor are a flat £0 lead-in — trimmed here.
+function BalanceSparkline({ series }: { series: StudentLoanResult['series'] }) {
+  const startIdx = series.findIndex((p) => p.balancePence > 0);
+  const pts = startIdx === -1 ? [] : series.slice(startIdx);
+  if (pts.length < 2) return null;
+
+  const W = 640, H = 64, PAD = 5;
+  const max = Math.max(...pts.map((p) => p.balancePence));
+  const x = (i: number) => PAD + (i / (pts.length - 1)) * (W - 2 * PAD);
+  const y = (v: number) => PAD + (1 - v / max) * (H - 2 * PAD);
+
+  type Pt = { i: number; v: number };
+  const data: Pt[] = pts.map((p, i) => ({ i, v: p.balancePence }));
+  const linePath = line<Pt>().x((d) => x(d.i)).y((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
+  const areaPath = area<Pt>().x((d) => x(d.i)).y0(y(0)).y1((d) => y(d.v)).curve(curveMonotoneX)(data) ?? '';
+
+  const ymLabelOf = (p: StudentLoanResult['series'][number]) =>
+    monthLabel(`${p.year}-${String(p.month).padStart(2, '0')}`);
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+
+  return (
+    <div className="mt-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Student-loan balance by month">
+        <path d={areaPath} className="fill-accent/10" />
+        <path d={linePath} className="stroke-accent" strokeWidth={1.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={x(data.length - 1)} cy={y(last.balancePence)} r={3} className="fill-accent" />
+      </svg>
+      <div className="mt-1 flex justify-between text-[10px] text-ink-faint">
+        <span>{ymLabelOf(first)} · {formatGBP(first.balancePence)}</span>
+        <span>{ymLabelOf(last)} · {formatGBP(last.balancePence)}</span>
+      </div>
+    </div>
   );
 }
 
