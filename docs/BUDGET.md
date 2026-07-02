@@ -77,9 +77,8 @@ shared category filter as Month.
   buttons keep a per-category colour dot and morph to a rounder shape when selected; a row
   wraps onto a new line rather than scrolling if a group has too many categories to fit.
 - **List** (`features/AddList.tsx` + the shared `features/ListForm.tsx`) — itemised rows with
-  an inline average unit price (price ÷ qty), and three totals in one column-aligned stack:
-  **Full list**, **Your share** (the emphasised line — it's what counts), and **Flatmate**
-  (reference only). Flatmate shares are treated as **settled** —
+  an inline average unit price (price ÷ qty), and three totals: **Full list**, **Your share**
+  (what counts), and **Flatmate** (reference only). Flatmate shares are treated as **settled** —
   there is no running balance of what's owed. The delivery/bag fee is collapsed and £0 by
   default. On save the list fans out into one per-category your-share subtotal. Typing an item
   name suggests past items (case-insensitive substring match, most-recently-used first, drawn

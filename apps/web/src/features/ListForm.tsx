@@ -397,20 +397,19 @@ export function ListForm({
         )}
       </div>
 
-      {/* Three totals — one tight column-aligned stack (same tabular treatment as the chart
-         tooltips), with Your share as the emphasised line since it's what counts */}
-      <div className="rounded-md border border-hairline bg-panel px-4 py-2.5 sm:max-w-xs">
-        <div className="flex items-baseline justify-between gap-6 py-1">
-          <span className="text-[10px] uppercase tracking-wide text-ink-faint">Full list</span>
-          <span className="font-serif text-lg tabular-nums text-ink">{formatGBP(totals.full)}</span>
+      {/* Three totals */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-md border border-hairline bg-panel p-3">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Full list</div>
+          <div className="font-serif text-2xl text-ink">{formatGBP(totals.full)}</div>
         </div>
-        <div className="flex items-baseline justify-between gap-6 border-y border-hairline py-1">
-          <span className="text-[10px] uppercase tracking-wide text-ink-faint">Your share · counts</span>
-          <span className="font-serif text-2xl tabular-nums text-accent">{formatGBP(totals.mine)}</span>
+        <div className="rounded-md border border-accent/30 bg-panel p-3">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Your share · counts</div>
+          <div className="font-serif text-2xl text-accent">{formatGBP(totals.mine)}</div>
         </div>
-        <div className="flex items-baseline justify-between gap-6 py-1">
-          <span className="text-[10px] uppercase tracking-wide text-ink-faint">Flatmate · reference</span>
-          <span className="font-serif text-lg tabular-nums text-ink-muted">{formatGBP(totals.flatmate)}</span>
+        <div className="rounded-md border border-hairline bg-panel p-3">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Flatmate · reference</div>
+          <div className="font-serif text-2xl text-ink-muted">{formatGBP(totals.flatmate)}</div>
         </div>
       </div>
 
