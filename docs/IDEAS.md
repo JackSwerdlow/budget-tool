@@ -25,7 +25,6 @@
 ## Manage / entries
 
 - Multi-select + bulk edit of entries — select several rows and recategorise/delete in one go.
-- Month-scoped entry search — searching currently always looks across all months ("15 results across all months"); keep the search term active while moving months (arrow keys / month picker) so a term can be browsed month by month, with all-months still available.
 
 ## Salary
 

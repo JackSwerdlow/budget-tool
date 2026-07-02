@@ -76,9 +76,10 @@ shared category filter as Month.
 `features/manage/` — quieter "back of house", with four areas:
 
 - **Entries** (`ManageEntries.tsx`) — a date-grouped stream; edit or delete past **entries and
-  lists** (list editing reuses `ListForm`); a category filter + note/item search that looks
-  **across all months** so an entry can be found without knowing its month. Deletes use a
-  two-click arm/confirm.
+  lists** (list editing reuses `ListForm`); a category filter + note/item search. A search stays
+  scoped to the picked month by default — the term persists while browsing months (arrows /
+  picker) — with a "This month / All months" toggle for finding an entry whose month is unknown
+  (all-months hides the month picker). Deletes use a two-click arm/confirm.
 - **Taxonomy** (`ManageTaxonomy.tsx`) — add / rename / move / delete categories and groups.
   Deleting a category in use reassigns its rows first (Invariant 3). Changes apply retroactively
   across all history, since entries reference categories by id.

@@ -2,11 +2,11 @@ import { type FormEvent, useState } from 'react';
 import { evalSum, formatGBP, listTotals, ymOf, type BudgetList, type Entry, type LedgerData } from '@budget/core';
 import { deleteEntry, deleteList, updateEntry, updateList } from '../../api';
 import { useData } from '../../data';
-import { MonthPicker } from '../../components/ui';
+import { MonthPicker, Segmented } from '../../components/ui';
 import { CategorySelect } from '../../components/CategorySelect';
 import { ConfirmButton } from '../../components/ConfirmButton';
 import { ListForm } from '../ListForm';
-import { dayHeading } from '../../lib/dates';
+import { dayHeading, monthLabel } from '../../lib/dates';
 
 type EntryRow = { kind: 'entry'; date: string; created_at: string; entry: Entry };
 type ListRow = { kind: 'list'; date: string; created_at: string; list: BudgetList };
@@ -18,13 +18,15 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const [editingList, setEditingList] = useState<number | null>(null);
   const [catFilter, setCatFilter] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<'month' | 'all'>('month');
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
 
-  // A filter or search is active → look across the whole ledger (not just the picked month),
-  // so an entry can be found even when you don't know which month it lives in.
+  // A filter or search stays scoped to the picked month by default (so the term persists while
+  // browsing months), with an "All months" scope for finding an entry whose month is unknown.
   const term = search.trim().toLowerCase();
   const searching = catFilter !== null || term !== '';
+  const allMonths = searching && scope === 'all';
 
   const entryMatches = (e: Entry): boolean => {
     if (catFilter !== null && e.category_id !== catFilter) return false;
@@ -44,10 +46,10 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   // Entries and lists share one date-ordered stream, newest day first; within a day,
   // most recently added first.
   const rows: DayRow[] = [
-    ...(searching ? data.entries : data.entries.filter((e) => ymOf(e.date) === ym))
+    ...(allMonths ? data.entries : data.entries.filter((e) => ymOf(e.date) === ym))
       .filter(entryMatches)
       .map((e): EntryRow => ({ kind: 'entry', date: e.date, created_at: e.created_at, entry: e })),
-    ...(searching ? data.lists : data.lists.filter((l) => ymOf(l.date) === ym))
+    ...(allMonths ? data.lists : data.lists.filter((l) => ymOf(l.date) === ym))
       .filter(listMatches)
       .map((l): ListRow => ({ kind: 'list', date: l.date, created_at: l.created_at, list: l })),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
@@ -71,13 +73,14 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const clearFilters = () => {
     setCatFilter(null);
     setSearch('');
+    setScope('month');
   };
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-serif text-base text-ink">Past entries</h3>
-        {!searching && <MonthPicker ym={ym} onChange={onYmChange} />}
+        {!allMonths && <MonthPicker ym={ym} onChange={onYmChange} />}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -107,11 +110,20 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
         />
         {searching && (
           <>
+            <Segmented
+              size="sm"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { id: 'month', label: 'This month' },
+                { id: 'all', label: 'All months' },
+              ]}
+            />
             <button type="button" onClick={clearFilters} className="text-xs text-ink-muted transition-colors hover:text-accent">
               Clear
             </button>
             <span className="text-xs text-ink-faint">
-              {rows.length} {rows.length === 1 ? 'result' : 'results'} across all months
+              {rows.length} {rows.length === 1 ? 'result' : 'results'} {allMonths ? 'across all months' : `in ${monthLabel(ym)}`}
             </span>
           </>
         )}
@@ -119,7 +131,9 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
 
       {rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">
-          {searching ? 'No entries match this filter.' : 'Nothing recorded this month.'}
+          {searching
+            ? `No entries match this filter${allMonths ? '' : ` in ${monthLabel(ym)}`}.`
+            : 'Nothing recorded this month.'}
         </p>
       ) : (
         <div className="space-y-3">
