@@ -27,19 +27,25 @@ Core model + math: `packages/core` (`ledger`, `list`, `shares`, `comparison`, `t
 The calm, read-mostly home, with a **Month** and a **Trends** view (`features/OverviewMonth.tsx`,
 charts in `apps/web/src/charts/`).
 
-**Month** shows: a headline "This month" total; a Net Balance card (income − total spend — Net
-Balance always includes *everything*, regardless of the category filter below); a running-total
-chart through the month toward a dashed target at last month's total (`RunningChart`); a grouping
-donut that explodes a group into its categories on click (`GroupingDonut`); and "vs last month"
-bars — each row (group, expandable to its categories) fills toward 100% of *its own* last-month
-total, green under / red over (`ComparisonBars`, `comparison.comparePct`).
+**Month** shows: a headline "This month" total, with year-to-date and average-per-month spend
+underneath (`yearTotal`, `averageSpend` in `core/ledger.ts` / `core/netBalance.ts`) — both bounded
+to the viewed month, so browsing to an earlier month excludes anything after it, never silently
+averaging in the future; a Net Balance card (income − total spend, plus its own income/avg-net
+line on the same viewed-month bound (`averageNet`) — the money itself always includes
+*everything*, regardless of the category filter below, only the averaging window moves with the
+month picker); a running-total chart through the month toward a dashed target at last month's
+total (`RunningChart`); a grouping donut that explodes a group into its categories on click
+(`GroupingDonut`); and "vs last month" bars — each row (group, expandable to its categories) fills
+toward 100% of *its own* last-month total, green under / red over (`ComparisonBars`,
+`comparison.comparePct`).
 
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
-Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row,
-plus a "Categories ▾" checklist for ad hoc tweaks (both live in `App.tsx`, threaded down as a
-`hiddenCategoryIds` prop). A View is a named, saved preset of that filter — create/rename/edit/
-delete them from Manage → Taxonomy → Views (capped at 4). The filter always starts at "All" (no
-default exclusion) each session — Net Balance is the one surface it never touches.
+Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row
+(the currently-active preset is highlighted), plus a "Categories ▾" checklist for ad hoc tweaks
+(both live in `App.tsx`, threaded down as a `hiddenCategoryIds` prop). A View is a named, saved
+preset of that filter — create/rename/edit/delete them from Manage → **Views** (its own tab,
+capped at 4). The filter always starts at "All" (no default exclusion) each session — Net
+Balance's money is the one thing it never touches.
 
 **Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell
 colour is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
@@ -67,7 +73,7 @@ shared category filter as Month.
 
 ## Manage
 
-`features/manage/` — quieter "back of house", with three areas:
+`features/manage/` — quieter "back of house", with four areas:
 
 - **Entries** (`ManageEntries.tsx`) — a date-grouped stream; edit or delete past **entries and
   lists** (list editing reuses `ListForm`); a category filter + note/item search that looks
@@ -75,9 +81,10 @@ shared category filter as Month.
   two-click arm/confirm.
 - **Taxonomy** (`ManageTaxonomy.tsx`) — add / rename / move / delete categories and groups.
   Deleting a category in use reassigns its rows first (Invariant 3). Changes apply retroactively
-  across all history, since entries reference categories by id. Also manages **Views** — named,
-  saved show/hide presets (max 4) used by Overview's category filter; a View just stores which
-  category ids are hidden, so deleting one is a plain row delete (no reassignment needed).
+  across all history, since entries reference categories by id.
+- **Views** (`ManageViews.tsx`) — named, saved show/hide presets (max 4) used by Overview's
+  category filter; a View just stores which category ids are hidden, so deleting one is a plain
+  row delete (no reassignment needed).
 - **Database** (`DatabaseTools.tsx`, **desktop only**) — Export (save a copy of `budget.db`) and
   Import (replace all data with a chosen `budget.db`). Hidden in the browser build.
 

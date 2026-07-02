@@ -15,4 +15,6 @@ change history, use `git log`.
 - `SALARY_SPEC.md` / `SALARY_PLAN.md` — the original salary-tab design + 8-task build log. Superseded by `SALARY.md`.
 - `DESKTOP_SPEC.md` / `DESKTOP_PLAN.md` — the desktop (Tauri) design + build log. Superseded by `DESKTOP.md`.
 - `IMPROVEMENTS.md` — a 2026-06-14 review punch-list (many items since built or overtaken); survivors moved to `IDEAS.md`.
-- `superpowers/` — the 2026-06 salary-redesign design specs + implementation plans (sub-tabs, lifetime, student-loan). Superseded by `SALARY.md`.
+- `superpowers/` — design specs + implementation plans from brainstorming/planning sessions: the
+  2026-06 salary-redesign work (sub-tabs, lifetime, student-loan; superseded by `SALARY.md`) and
+  the 2026-07 Overview category filter + Views work (superseded by `BUDGET.md`).
