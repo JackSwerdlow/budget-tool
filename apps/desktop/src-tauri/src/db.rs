@@ -374,6 +374,16 @@ mod tests {
         assert_eq!(rent[0]["e"].as_i64().unwrap(), 1);
     }
 
+    #[test]
+    fn migrate_creates_the_views_table() {
+        let c = Connection::open_in_memory().unwrap();
+        migrate(&c).unwrap();
+        let (n, _) = execute(&c, "INSERT INTO views (name, sort_order, hidden_category_ids) VALUES ($1, $2, $3)", &[json!("Excl. Rent"), json!(1), json!("[1]")]).unwrap();
+        assert_eq!(n, 1);
+        let rows = select(&c, "SELECT hidden_category_ids AS h FROM views", &[]).unwrap();
+        assert_eq!(rows[0]["h"].as_str().unwrap(), "[1]");
+    }
+
     fn cat_id(c: &Connection, name: &str) -> i64 {
         select(c, "SELECT id FROM categories WHERE name = $1", &[json!(name)]).unwrap()[0]["id"].as_i64().unwrap()
     }
