@@ -43,7 +43,9 @@ each line and its toggle are green while spend-so-far is under that line's value
 end, the Income one sliding right past the Last Month label when the lines run close). The hover tooltip
 also breaks the day's cumulative down by group, each row with its own smaller day-delta; a
 grouping donut that explodes a group into its categories on click
-(`GroupingDonut`); and "vs last month" bars — each row (group, expandable to its categories) fills
+(`GroupingDonut`) — hovering a group slice or its legend row shows the same column-aligned
+breakdown box as the bars below: the group's categories, each with its total and its % of the
+group; and "vs last month" bars — each row (group, expandable to its categories) fills
 toward 100% of *its own* last-month total, green under / red over (`ComparisonBars`,
 `comparison.comparePct`); hovering a group row (or the Total row) shows a column-aligned
 breakdown box — its categories (or the groups), each with this month's total and its own

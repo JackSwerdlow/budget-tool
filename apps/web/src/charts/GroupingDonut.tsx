@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { arc, pie } from 'd3-shape';
 import { categoryTotals, formatGBP, type LedgerData } from '@budget/core';
 
@@ -18,8 +18,20 @@ export function GroupingDonut({
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  // Cursor position (relative to the wrapper) for the hover breakdown box.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => setExpanded(null), [ym, hiddenCategoryIds]);
   useEffect(() => setHoveredId(null), [expanded]);
+
+  const onHoverMove = (e: ReactMouseEvent) => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (r) setPos({ x: e.clientX - r.left, y: e.clientY - r.top });
+  };
+  const clearHover = () => {
+    setHoveredId(null);
+    setPos(null);
+  };
 
   const catTotals = categoryTotals(data, ym);
   const groupValue = (groupId: number) =>
@@ -54,7 +66,7 @@ export function GroupingDonut({
   const hoveredSlice = hoveredId !== null ? slices.find((s) => s.id === hoveredId) ?? null : null;
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
+    <div ref={wrapRef} className="relative flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
       <svg viewBox="-104 -104 208 208" className="w-44 shrink-0" role="img" aria-label="Spend by group">
         {arcs.map((a) => (
           <path
@@ -67,7 +79,8 @@ export function GroupingDonut({
             style={{ opacity: hoveredId !== null && hoveredId !== a.data.id ? 0.35 : 1 }}
             onClick={() => (drilled ? collapse() : setExpanded(a.data.id))}
             onMouseEnter={() => setHoveredId(a.data.id)}
-            onMouseLeave={() => setHoveredId(null)}
+            onMouseMove={onHoverMove}
+            onMouseLeave={clearHover}
           >
             <title>{a.data.name}</title>
           </path>
@@ -101,7 +114,8 @@ export function GroupingDonut({
                   className="flex w-full items-center gap-3 py-1 text-left text-sm transition-opacity bg-raised/40"
                   style={{ opacity: hoveredId !== null && !active ? 0.45 : 1 }}
                   onMouseEnter={() => setHoveredId(s.id)}
-                  onMouseLeave={() => setHoveredId(null)}
+                  onMouseMove={onHoverMove}
+                  onMouseLeave={clearHover}
                 >
                   <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">
                     <span className="w-3 shrink-0" />
@@ -121,6 +135,42 @@ export function GroupingDonut({
           })}
         </ul>
       </div>
+
+      {/* Hovering a group (slice or legend row) shows its category make-up — the same
+         column-aligned box as the vs-last-month bars. Drilled mode already IS the
+         category level, so no box there. */}
+      {!drilled && hoveredId !== null && pos !== null && (() => {
+        const group = data.groups.find((g) => g.id === hoveredId);
+        if (!group) return null;
+        const cats = data.categories
+          .filter((c) => c.group_id === group.id && !hiddenCategoryIds.has(c.id))
+          .map((c) => ({ id: c.id, name: c.name, color: c.color, value: catTotals.get(c.id) ?? 0 }))
+          .filter((c) => c.value > 0)
+          .sort((a, b) => b.value - a.value);
+        if (cats.length === 0) return null;
+        const groupTotal = cats.reduce((s, c) => s + c.value, 0);
+        const boxW = 230;
+        const width = wrapRef.current?.clientWidth ?? boxW;
+        const left = Math.min(Math.max(pos.x + 14, 0), width - boxW);
+        return (
+          <div
+            className="pointer-events-none absolute z-10 rounded border border-hairline bg-raised px-3 py-2 shadow-sm"
+            style={{ left, top: pos.y + 14, width: boxW }}
+          >
+            <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-faint">{group.name}</div>
+            {cats.map((c) => (
+              <div key={c.id} className="flex items-center gap-1.5 py-0.5">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ backgroundColor: c.color }} />
+                <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">{c.name}</span>
+                <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">{formatGBP(c.value)}</span>
+                <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-ink-faint">
+                  {Math.round((c.value / groupTotal) * 100)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
