@@ -97,8 +97,12 @@ desktop app (needs the Rust toolchain).
 > True today, but only because of fixable setup — not laws. A deliberate refactor should remove
 > them. Logged in [IDEAS.md](IDEAS.md).
 
-- _None at present._ (`apps/api` now imports `@budget/core` directly — core's internal imports
-  carry explicit **`.ts`** extensions (with `allowImportingTsExtensions`), which both `tsc`'s
-  `nodenext` check and Node's runtime type-stripping resolve, so the salary-YTD math lives in one
-  place. `.js` extensions satisfy `tsc` but **not** Node's loader, which runs `apps/api` off the
-  `.ts` source directly.)
+- `categories.exclude_from_discretionary` is **vestigial** — no feature reads it since saved
+  Views replaced the discretionary concept; it survives in the schema, seed, both adapters and
+  tests until deliberately dropped (logged in [IDEAS.md](IDEAS.md)).
+
+(A former entry here is resolved: `apps/api` now imports `@budget/core` directly — core's
+internal imports carry explicit **`.ts`** extensions (with `allowImportingTsExtensions`), which
+both `tsc`'s `nodenext` check and Node's runtime type-stripping resolve, so the salary-YTD math
+lives in one place. `.js` extensions satisfy `tsc` but **not** Node's loader, which runs
+`apps/api` off the `.ts` source directly.)

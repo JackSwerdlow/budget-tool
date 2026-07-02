@@ -20,17 +20,17 @@
 - Sankey / flow view — net pay flowing into the month's categories. Pure re-visualisation of existing numbers (no new logic); bridges the Salary take-home and the ledger.
 - Optional per-category target — a user-set number shown next to actual spend (display only; no enforcement/rollover). Note: partly overlaps the existing "vs last month" baseline — weigh whether it adds signal or competes with it.
 - Configurable widget dashboard — let the user pick which charts/summaries appear on Overview instead of the fixed layout. Heaviest of these for the least obvious payoff on a single-user tool.
+- "Save as View" from Overview's live filter — an ad hoc Categories-checklist selection can only become a View by re-picking it in Manage → Views; add a save-as-View affordance where the filter is actually built (createView exists on both data paths; respect the 4-View cap).
 
 ## Manage / entries
 
 - Multi-select + bulk edit of entries — select several rows and recategorise/delete in one go.
-- Saved / reusable filters — persist a category/note/amount filter (the across-months search exists, but filters aren't saved).
+- Month-scoped entry search — searching currently always looks across all months ("15 results across all months"); keep the search term active while moving months (arrow keys / month picker) so a term can be browsed month by month, with all-months still available.
 
 ## Salary
 
 - Employment-gap marker — a way to mark a period as "not employed" so the brought-forward salary stops filling it. Since inheritance now fills every month from the first config forward (Summary forecast, Lifetime, and the student-loan tracker all carry the last salary forward), there's no way to represent an actual break in employment — a gap between two saved salaries is filled with the earlier one. Would need an explicit "no salary this period" config state that the core walk (`resolveEmploymentStart` / `computeSalaryYTD` / `walkMonths`) treats as a hard stop, not an inherit.
 - Unpaid-days-off effective rate — display-only effective daily/hourly rate for days actually worked; must never affect tax/NI/SL. Data model supports it.
-- Student-loan plan-type presets — Plan 1/2/4/5 threshold & rate presets (fields are free-form today).
 - Student-loan mini-table / sparkline — per-month balance series on the tracker box (the series is already computed).
 
 ## Data
@@ -45,6 +45,7 @@
 ## Tech debt / tooling
 
 - Turn "add a data operation" into a skill — the both-adapters + parity recipe as an on-demand skill, to keep CLAUDE.md lean.
+- Drop the vestigial `exclude_from_discretionary` column — dead since Views replaced the discretionary concept (no feature reads it); removal touches the schema (+ a migration for existing DBs), seed, `Category` type, both adapters, `db.rs`, and tests.
 
 ## Desktop
 
