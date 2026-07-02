@@ -1,5 +1,5 @@
 import { useState, type MouseEvent } from 'react';
-import { area, curveMonotoneX, line } from 'd3-shape';
+import { area, curveStepAfter, line } from 'd3-shape';
 import {
   formatGBP,
   monthTotal,
@@ -69,8 +69,10 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const lastSeriesDay = series[series.length - 1].day;
   if (lastSeriesDay < lineEndDay) series.push({ day: lineEndDay, value: series[series.length - 1].value });
 
-  const lineGen = line<Pt>().x((d) => x(d.day)).y((d) => y(d.value)).curve(curveMonotoneX);
-  const areaGen = area<Pt>().x((d) => x(d.day)).y0(y(0)).y1((d) => y(d.value)).curve(curveMonotoneX);
+  // Step, not smoothed: a cumulative total is factually flat between spends — the line jumps
+  // ("impulse") on the day of a spend and holds level until the next one.
+  const lineGen = line<Pt>().x((d) => x(d.day)).y((d) => y(d.value)).curve(curveStepAfter);
+  const areaGen = area<Pt>().x((d) => x(d.day)).y0(y(0)).y1((d) => y(d.value)).curve(curveStepAfter);
   const linePath = lineGen(series) ?? '';
   const areaPath = areaGen(series) ?? '';
 
