@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { area, curveMonotoneX, line } from 'd3-shape';
 import {
   formatGBP,
@@ -8,7 +8,6 @@ import {
   type LedgerData,
 } from '@budget/core';
 import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
-import { Segmented } from '../components/ui';
 
 type Pt = { day: number; value: number };
 
@@ -42,14 +41,11 @@ function dayTicks(days: number): number[] {
   return ticks;
 }
 
-export function RunningChart({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
-  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
-  useEffect(() => setRent(defaultRent), [defaultRent]);
+export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
-  const excludeRent = rent === 'excl';
 
-  const points = runningCumulative(data, ym, { excludeRent });
-  const target = monthTotal(data, previousMonth(ym), { excludeRent });
+  const points = runningCumulative(data, ym, { excludedCategoryIds: hiddenCategoryIds });
+  const target = monthTotal(data, previousMonth(ym), { excludedCategoryIds: hiddenCategoryIds });
   const days = daysInMonth(ym);
   const current = points.length > 0 ? points[points.length - 1].cumulativePence : 0;
 
@@ -107,22 +103,11 @@ export function RunningChart({ data, ym, defaultRent = 'excl' }: { data: LedgerD
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h3 className="font-serif text-base text-ink">Running total</h3>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-ink-muted">
-            {formatGBP(current)} <span className="text-ink-faint">so far</span>
-          </span>
-          <Segmented
-            size="sm"
-            value={rent}
-            onChange={setRent}
-            options={[
-              { id: 'incl', label: 'incl. Rent' },
-              { id: 'excl', label: 'excl. Rent' },
-            ]}
-          />
-        </div>
+        <span className="text-sm text-ink-muted">
+          {formatGBP(current)} <span className="text-ink-faint">so far</span>
+        </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Running total this month, ${excludeRent ? 'excluding' : 'including'} Rent`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
         {/* y-axis gridlines + £ labels */}
         {yTicks.map((t) => (
           <g key={`y${t}`}>

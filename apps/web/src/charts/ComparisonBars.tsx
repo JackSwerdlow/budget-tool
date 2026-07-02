@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   categoryTotals,
   comparePct,
@@ -7,19 +7,15 @@ import {
   type Category,
   type LedgerData,
 } from '@budget/core';
-import { Segmented } from '../components/ui';
 
 type Row = { id: number; name: string; color: string; thisPence: number; lastFullPence: number };
 
-export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
-  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
+export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  useEffect(() => setRent(defaultRent), [defaultRent]);
-  const excludeRent = rent === 'excl';
 
   const thisCat = categoryTotals(data, ym);
   const lastCat = categoryTotals(data, previousMonth(ym));
-  const visible = (c: Category) => !excludeRent || c.exclude_from_discretionary !== 1;
+  const visible = (c: Category) => !hiddenCategoryIds.has(c.id);
 
   const groupRows: Row[] = data.groups
     .map((g) => {
@@ -81,15 +77,6 @@ export function ComparisonBars({ data, ym, defaultRent = 'excl' }: { data: Ledge
             </button>
           )}
         </div>
-        <Segmented
-          size="sm"
-          value={rent}
-          onChange={setRent}
-          options={[
-            { id: 'incl', label: 'incl. Rent' },
-            { id: 'excl', label: 'excl. Rent' },
-          ]}
-        />
       </div>
 
       {groupRows.length === 0 ? (

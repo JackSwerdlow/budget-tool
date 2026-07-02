@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   buildMatrix,
   categoryTotals,
@@ -7,7 +7,6 @@ import {
   type LedgerData,
   type MatrixCell,
 } from '@budget/core';
-import { Segmented } from '../components/ui';
 import { monthLabel, monthShort, monthsRange, todayISO } from '../lib/dates';
 
 // §6.0 heat ramp (less -> more spend, per row).
@@ -64,11 +63,8 @@ type RenderRow = {
   prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
-export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData; defaultRent?: 'incl' | 'excl' }) {
-  const [rent, setRent] = useState<'incl' | 'excl'>(defaultRent);
+export function TrendsMatrix({ data, hiddenCategoryIds }: { data: LedgerData; hiddenCategoryIds: Set<number> }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  useEffect(() => setRent(defaultRent), [defaultRent]);
-  const excludeRent = rent === 'excl';
 
   const [showRange, setShowRange] = useState(false);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
@@ -91,11 +87,10 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
   const resetRange = () => { setRangeStart(null); setRangeEnd(null); };
 
   const totalsByMonth = new Map(months.map((m) => [m, categoryTotals(data, m)]));
-  const visible = (excludeFromDiscretionary: number) => !excludeRent || excludeFromDiscretionary !== 1;
 
   const visibleGroups = data.groups
     .map((g) => {
-      const cats = data.categories.filter((c) => c.group_id === g.id && visible(c.exclude_from_discretionary));
+      const cats = data.categories.filter((c) => c.group_id === g.id && !hiddenCategoryIds.has(c.id));
       const amounts = months.map((m) => cats.reduce((s, c) => s + (totalsByMonth.get(m)?.get(c.id) ?? 0), 0));
       return { g, cats, amounts };
     })
@@ -142,35 +137,24 @@ export function TrendsMatrix({ data, defaultRent = 'excl' }: { data: LedgerData;
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h3 className="font-serif text-base text-ink">Category × month</h3>
-          {hasExpandable && (
-            <button
-              type="button"
-              className="text-xs text-ink-muted transition-colors hover:text-accent"
-              onClick={allExpanded ? collapseAll : expandAll}
-            >
-              {allExpanded ? 'Collapse all' : 'Expand all'}
-            </button>
-          )}
+      <div className="mb-4 flex items-center gap-3">
+        <h3 className="font-serif text-base text-ink">Category × month</h3>
+        {hasExpandable && (
           <button
             type="button"
-            className={`text-xs transition-colors hover:text-accent ${isCustomRange ? 'text-accent' : 'text-ink-muted'}`}
-            onClick={() => setShowRange((s) => !s)}
+            className="text-xs text-ink-muted transition-colors hover:text-accent"
+            onClick={allExpanded ? collapseAll : expandAll}
           >
-            {isCustomRange ? 'Custom range' : '6 months'} {showRange ? '▴' : '▾'}
+            {allExpanded ? 'Collapse all' : 'Expand all'}
           </button>
-        </div>
-        <Segmented
-          size="sm"
-          value={rent}
-          onChange={setRent}
-          options={[
-            { id: 'incl', label: 'incl. Rent' },
-            { id: 'excl', label: 'excl. Rent' },
-          ]}
-        />
+        )}
+        <button
+          type="button"
+          className={`text-xs transition-colors hover:text-accent ${isCustomRange ? 'text-accent' : 'text-ink-muted'}`}
+          onClick={() => setShowRange((s) => !s)}
+        >
+          {isCustomRange ? 'Custom range' : '6 months'} {showRange ? '▴' : '▾'}
+        </button>
       </div>
 
       {showRange && (

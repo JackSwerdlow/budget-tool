@@ -10,21 +10,21 @@ const R_INNER = 60;
 export function GroupingDonut({
   data,
   ym,
-  excludeRent,
+  hiddenCategoryIds,
 }: {
   data: LedgerData;
   ym: string;
-  excludeRent: boolean;
+  hiddenCategoryIds: Set<number>;
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
-  useEffect(() => setExpanded(null), [ym, excludeRent]);
+  useEffect(() => setExpanded(null), [ym, hiddenCategoryIds]);
   useEffect(() => setHoveredId(null), [expanded]);
 
   const catTotals = categoryTotals(data, ym);
   const groupValue = (groupId: number) =>
     data.categories
-      .filter((c) => c.group_id === groupId && (!excludeRent || c.exclude_from_discretionary !== 1))
+      .filter((c) => c.group_id === groupId && !hiddenCategoryIds.has(c.id))
       .reduce((sum, c) => sum + (catTotals.get(c.id) ?? 0), 0);
 
   const groupSlices: Slice[] = data.groups
@@ -34,12 +34,7 @@ export function GroupingDonut({
   const expandedGroup = expanded !== null ? data.groups.find((g) => g.id === expanded) ?? null : null;
   const categorySlices: Slice[] = expandedGroup
     ? data.categories
-        .filter(
-          (c) =>
-            c.group_id === expandedGroup.id &&
-            (!excludeRent || c.exclude_from_discretionary !== 1) &&
-            (catTotals.get(c.id) ?? 0) > 0,
-        )
+        .filter((c) => c.group_id === expandedGroup.id && !hiddenCategoryIds.has(c.id) && (catTotals.get(c.id) ?? 0) > 0)
         .map((c) => ({ id: c.id, name: c.name, color: c.color, value: catTotals.get(c.id) ?? 0 }))
     : [];
 
@@ -83,7 +78,7 @@ export function GroupingDonut({
         <text textAnchor="middle" y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">
           {hoveredSlice
             ? `${hoveredSlice.name} · ${Math.round((hoveredSlice.value / total) * 100)}%`
-            : drilled ? `${expandedGroup.name} · ${Math.round((total / allGroupsTotal) * 100)}%` : excludeRent ? 'ex-Rent' : 'total'}
+            : drilled ? `${expandedGroup.name} · ${Math.round((total / allGroupsTotal) * 100)}%` : hiddenCategoryIds.size > 0 ? 'filtered' : 'total'}
         </text>
       </svg>
 

@@ -9,6 +9,7 @@ import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
 import { TrendsMatrix } from './charts/TrendsMatrix';
+import { CategoryVisibilityChecklist } from './components/CategoryVisibilityChecklist';
 
 type Tab = 'overview' | 'add' | 'manage' | 'salary';
 
@@ -25,7 +26,8 @@ export function App() {
   const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
-  const [globalRent, setGlobalRent] = useState<'incl' | 'excl'>('excl');
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
+  const [showFilter, setShowFilter] = useState(false);
 
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
@@ -123,22 +125,50 @@ export function App() {
                     { id: 'trends', label: 'Trends' },
                   ]}
                 />
-                <Segmented
-                  size="sm"
-                  value={globalRent}
-                  onChange={setGlobalRent}
-                  options={[
-                    { id: 'incl', label: 'incl. Rent' },
-                    { id: 'excl', label: 'excl. Rent' },
-                  ]}
-                />
+                {data.views.length > 0 && (
+                  <div className="inline-flex items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setHiddenCategoryIds(new Set())}
+                      className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                        hiddenCategoryIds.size === 0 ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {data.views.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setHiddenCategoryIds(new Set(v.hidden_category_ids))}
+                        className="rounded-md px-3 py-1 text-xs text-ink-muted transition-colors hover:text-ink"
+                      >
+                        {v.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="relative">
+                  <button
+                    type="button"
+                    className={`text-xs transition-colors hover:text-accent ${hiddenCategoryIds.size > 0 ? 'text-accent' : 'text-ink-muted'}`}
+                    onClick={() => setShowFilter((s) => !s)}
+                  >
+                    Categories {showFilter ? '▴' : '▾'}
+                  </button>
+                  {showFilter && (
+                    <div className="absolute left-0 top-full z-10 mt-1 w-64">
+                      <CategoryVisibilityChecklist data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
+                    </div>
+                  )}
+                </div>
               </div>
               {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
             </div>
             {overviewView === 'month' ? (
-              <OverviewMonth data={data} ym={ym} defaultRent={globalRent} />
+              <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
             ) : (
-              <TrendsMatrix data={data} defaultRent={globalRent} />
+              <TrendsMatrix data={data} hiddenCategoryIds={hiddenCategoryIds} />
             )}
           </div>
         ) : tab === 'salary' ? (

@@ -1,18 +1,13 @@
-import { useEffect, useState } from 'react';
 import { averageNet, formatGBP, income, monthNet, monthTotal, type LedgerData } from '@budget/core';
-import { Kbd, Panel, Segmented } from '../components/ui';
+import { Kbd, Panel } from '../components/ui';
 import { monthLabel, todayISO } from '../lib/dates';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
 
-export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: LedgerData; ym: string; defaultRent?: 'incl' | 'excl' }) {
-  const [donutRent, setDonutRent] = useState<'incl' | 'excl'>(defaultRent);
-  useEffect(() => setDonutRent(defaultRent), [defaultRent]);
-
+export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const currentYm = todayISO().slice(0, 7);
-  const inclTotal = monthTotal(data, ym);
-  const exclTotal = monthTotal(data, ym, { excludeRent: true });
+  const total = monthTotal(data, ym, { excludedCategoryIds: hiddenCategoryIds });
   const net = monthNet(data, ym, currentYm);
   const inc = income(data, ym, currentYm);
   const avg = averageNet(data, currentYm);
@@ -30,7 +25,7 @@ export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: Ledger
         </div>
       )}
 
-      {!noData && inclTotal === 0 && (
+      {!noData && total === 0 && (
         <div className="rounded-lg border border-dashed border-hairline-strong bg-panel p-4 text-center text-sm text-ink-muted">
           No spend recorded for {monthLabel(ym)} yet — the totals and charts below fill in as you add entries.
         </div>
@@ -40,17 +35,12 @@ export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: Ledger
         <Panel>
           <div className="text-xs uppercase tracking-wide text-ink-faint">This month</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-serif text-4xl text-ink">{formatGBP(inclTotal)}</span>
-            <span className="text-sm text-ink-muted">incl. Rent</span>
-          </div>
-          <div className="mt-1">
-            <span className="font-serif text-xl text-ink">{formatGBP(exclTotal)}</span>
-            <span className="ml-1 text-sm text-ink-muted">excl. Rent</span>
+            <span className="font-serif text-4xl text-ink">{formatGBP(total)}</span>
           </div>
         </Panel>
 
         <Panel>
-          <div className="text-xs uppercase tracking-wide text-ink-faint">Net balance · incl. Rent</div>
+          <div className="text-xs uppercase tracking-wide text-ink-faint">Net balance</div>
           <div className="mt-1 font-serif text-4xl">
             <span className={net >= 0 ? 'text-under' : 'text-over'}>{formatGBP(net)}</span>
           </div>
@@ -62,27 +52,18 @@ export function OverviewMonth({ data, ym, defaultRent = 'excl' }: { data: Ledger
       </div>
 
       <Panel>
-        <RunningChart data={data} ym={ym} defaultRent={defaultRent} />
+        <RunningChart data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
       </Panel>
 
       <Panel>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-serif text-base text-ink">By group</h3>
-          <Segmented
-            size="sm"
-            value={donutRent}
-            onChange={setDonutRent}
-            options={[
-              { id: 'incl', label: 'incl. Rent' },
-              { id: 'excl', label: 'excl. Rent' },
-            ]}
-          />
         </div>
-        <GroupingDonut data={data} ym={ym} excludeRent={donutRent === 'excl'} />
+        <GroupingDonut data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
       </Panel>
 
       <Panel>
-        <ComparisonBars data={data} ym={ym} defaultRent={defaultRent} />
+        <ComparisonBars data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
       </Panel>
     </div>
   );
