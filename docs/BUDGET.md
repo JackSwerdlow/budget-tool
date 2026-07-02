@@ -27,18 +27,24 @@ Core model + math: `packages/core` (`ledger`, `list`, `shares`, `comparison`, `t
 The calm, read-mostly home, with a **Month** and a **Trends** view (`features/OverviewMonth.tsx`,
 charts in `apps/web/src/charts/`).
 
-**Month** shows: headline totals (incl. and excl. Rent side by side); a Net Balance card
-(income − total spend *including* Rent, plus the all-time average net/month); a running-total
-chart through the month toward a dashed target at last month's total (`RunningChart`); a
-grouping donut that explodes a group into its categories on click (`GroupingDonut`); and "vs
-last month" bars — each row (group, expandable to its categories) fills toward 100% of *its
-own* last-month total, green under / red over (`ComparisonBars`, `comparison.comparePct`).
-Rent has an incl/excl control on the running chart, donut, and bars.
+**Month** shows: a headline "This month" total; a Net Balance card (income − total spend — Net
+Balance always includes *everything*, regardless of the category filter below); a running-total
+chart through the month toward a dashed target at last month's total (`RunningChart`); a grouping
+donut that explodes a group into its categories on click (`GroupingDonut`); and "vs last month"
+bars — each row (group, expandable to its categories) fills toward 100% of *its own* last-month
+total, green under / red over (`ComparisonBars`, `comparison.comparePct`).
 
-**Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`):
-cell colour is a **per-row** heatmap (which months were heaviest for that row), with an inline
-signed `±%` vs the previous month; near-flat rows are muted; groups expand to categories; Rent
-has an incl/excl toggle.
+Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
+Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row,
+plus a "Categories ▾" checklist for ad hoc tweaks (both live in `App.tsx`, threaded down as a
+`hiddenCategoryIds` prop). A View is a named, saved preset of that filter — create/rename/edit/
+delete them from Manage → Taxonomy → Views (capped at 4). The filter always starts at "All" (no
+default exclusion) each session — Net Balance is the one surface it never touches.
+
+**Trends** is a category×month heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell
+colour is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
+`±%` vs the previous month; near-flat rows are muted; groups expand to categories. Uses the same
+shared category filter as Month.
 
 ## Add
 
@@ -69,7 +75,9 @@ has an incl/excl toggle.
   two-click arm/confirm.
 - **Taxonomy** (`ManageTaxonomy.tsx`) — add / rename / move / delete categories and groups.
   Deleting a category in use reassigns its rows first (Invariant 3). Changes apply retroactively
-  across all history, since entries reference categories by id.
+  across all history, since entries reference categories by id. Also manages **Views** — named,
+  saved show/hide presets (max 4) used by Overview's category filter; a View just stores which
+  category ids are hidden, so deleting one is a plain row delete (no reassignment needed).
 - **Database** (`DatabaseTools.tsx`, **desktop only**) — Export (save a copy of `budget.db`) and
   Import (replace all data with a chosen `budget.db`). Hidden in the browser build.
 

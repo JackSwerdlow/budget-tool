@@ -18,7 +18,6 @@
 - Seasonal / yearly view — year-over-year, summer-vs-winter trends. Parked: not enough data yet.
 - L2 pacing view — spend-to-date vs the *same day* last month (a fairer like-for-like than vs last month's full total).
 - Sankey / flow view — net pay flowing into the month's categories. Pure re-visualisation of existing numbers (no new logic); bridges the Salary take-home and the ledger.
-- Per-category show/hide toggle on the trends matrix — generalise the existing incl/excl-Rent toggle into show/hide for any row.
 - Optional per-category target — a user-set number shown next to actual spend (display only; no enforcement/rollover). Note: partly overlaps the existing "vs last month" baseline — weigh whether it adds signal or competes with it.
 - Configurable widget dashboard — let the user pick which charts/summaries appear on Overview instead of the fixed layout. Heaviest of these for the least obvious payoff on a single-user tool.
 
