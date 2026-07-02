@@ -89,9 +89,6 @@ function SortableCategoryRow({
         aria-label="Category colour"
       />
       <EditableText value={cat.name} onCommit={(v) => onUpdate(cat.id, { name: v })} className="flex-1" />
-      {cat.exclude_from_discretionary === 1 && (
-        <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">ex-disc.</span>
-      )}
       <select
         value={cat.group_id}
         onChange={(e) => onUpdate(cat.id, { group_id: Number(e.target.value) })}
