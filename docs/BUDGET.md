@@ -91,7 +91,9 @@ shared category filter as Month.
 `features/manage/` — quieter "back of house", with four areas:
 
 - **Entries** (`ManageEntries.tsx`) — a date-grouped stream; edit or delete past **entries and
-  lists** (list editing reuses `ListForm`); a category filter + note/item search. A search stays
+  lists** (list editing reuses `ListForm`); a category filter (a button that unfolds an inline
+  `CategoryGrid` picker — same idiom as Overview's filter section; re-clicking the active
+  category clears back to All) + note/item search. A search stays
   scoped to the picked month by default — the term persists while browsing months (arrows /
   picker) — with a "This month / All months" toggle for finding an entry whose month is unknown
   (all-months hides the month picker). Deletes use a two-click arm/confirm.

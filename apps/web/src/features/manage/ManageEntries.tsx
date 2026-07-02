@@ -3,6 +3,7 @@ import { evalSum, formatGBP, listTotals, ymOf, type BudgetList, type Entry, type
 import { deleteEntry, deleteList, updateEntry, updateList } from '../../api';
 import { useData } from '../../data';
 import { MonthPicker, Segmented } from '../../components/ui';
+import { CategoryGrid } from '../../components/CategoryGrid';
 import { CategorySelect } from '../../components/CategorySelect';
 import { ConfirmButton } from '../../components/ConfirmButton';
 import { ListForm } from '../ListForm';
@@ -19,8 +20,10 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const [catFilter, setCatFilter] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<'month' | 'all'>('month');
+  const [showCatPicker, setShowCatPicker] = useState(false);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
+  const filterCat = catFilter !== null ? cat(catFilter) : undefined;
 
   // A filter or search stays scoped to the picked month by default (so the term persists while
   // browsing months), with an "All months" scope for finding an entry whose month is unknown.
@@ -84,23 +87,18 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <select
-          value={catFilter ?? ''}
-          onChange={(e) => setCatFilter(e.target.value === '' ? null : Number(e.target.value))}
+        <button
+          type="button"
+          onClick={() => setShowCatPicker((s) => !s)}
+          aria-expanded={showCatPicker}
           aria-label="Filter by category"
-          className="rounded-md border border-hairline bg-paper px-2 py-1.5 text-sm text-ink outline-none focus:border-ink/40"
+          className={`flex items-center gap-1.5 rounded-md border border-hairline bg-paper px-2.5 py-1.5 text-sm outline-none transition-colors ${
+            filterCat ? 'text-ink' : 'text-ink-muted hover:text-ink'
+          }`}
         >
-          <option value="">All categories</option>
-          {data.groups.map((g) => (
-            <optgroup key={g.id} label={g.name}>
-              {data.categories
-                .filter((c) => c.group_id === g.id)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-            </optgroup>
-          ))}
-        </select>
+          {filterCat && <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: filterCat.color }} />}
+          {filterCat ? filterCat.name : 'All categories'} {showCatPicker ? '▴' : '▾'}
+        </button>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -128,6 +126,33 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
           </>
         )}
       </div>
+
+      {/* Unfolding category picker (same idiom as Overview's filter section): single-select,
+         clicking the active category again clears back to All. */}
+      {showCatPicker && (
+        <div className="mb-4 rounded-lg border border-hairline bg-panel p-3">
+          <button
+            type="button"
+            onClick={() => setCatFilter(null)}
+            aria-pressed={catFilter === null}
+            className={`mb-3 px-2.5 py-1 text-xs transition-all duration-100 ${
+              catFilter === null ? 'rounded-full text-ink' : 'rounded-md text-ink-faint hover:text-ink-muted'
+            }`}
+            style={{
+              backgroundColor: `color-mix(in srgb, var(--color-ink) ${catFilter === null ? 16 : 6}%, var(--color-panel))`,
+              boxShadow: catFilter === null ? 'inset 0 0 0 1px var(--color-ink-faint)' : undefined,
+            }}
+          >
+            All categories
+          </button>
+          <CategoryGrid
+            groups={data.groups}
+            categories={data.categories}
+            selectedId={catFilter}
+            onSelect={(id) => setCatFilter(id === catFilter ? null : id)}
+          />
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">
