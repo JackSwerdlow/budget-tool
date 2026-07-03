@@ -24,9 +24,10 @@ Core model + math: `packages/core` (`ledger`, `list`, `shares`, `comparison`, `t
 
 ## Overview
 
-The calm, read-mostly home, with a **Month** and a **Trends** view (`features/OverviewMonth.tsx`,
-charts in `apps/web/src/charts/`; the shared frame/£-axis/breakdown-box primitives they draw
-with live in `charts/kit.ts` + `charts/kitComponents.tsx`).
+The calm, read-mostly home, with a **Month**, a **Trends**, and an **Items** view
+(`features/OverviewMonth.tsx`, charts in `apps/web/src/charts/`; the shared
+frame/£-axis/breakdown-box primitives they draw with live in `charts/kit.ts` +
+`charts/kitComponents.tsx`).
 
 **Month** shows: a headline "This month" total, with year-to-date and average-per-month spend
 underneath (`yearTotal`, `averageSpend` in `core/ledger.ts` / `core/netBalance.ts`) — both bounded
@@ -87,6 +88,15 @@ as Month. Clicking a bar (or a matrix month-header) opens that month in the Mont
   `±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group
   with only one visible category (e.g. after filtering) can't expand, so its row shows that
   category's name and colour instead of the group's.
+
+**Items** (`features/OverviewItems.tsx`, `core/items.ts`) is cross-time item analytics over the
+persisted list-item rows ("how much on milk?"): a searchable table of every item ever bought
+(grouped case-insensitively; latest casing wins), sorted by total spend — times bought, last
+unit price, unit-price **drift** (latest vs first, red up / green down), full total and
+your-share total. Top 15 by default ("Show all" expands; searching always searches everything).
+Clicking a row opens the item's unit-price history: a stepped kit-frame chart, one dot per
+purchase, hover for the date/qty/price. Uses the same shared category filter as Month/Trends;
+analysis only — the ledger itself is untouched.
 
 ## Add
 

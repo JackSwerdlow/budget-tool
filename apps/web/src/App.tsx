@@ -10,6 +10,7 @@ import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
 import { OverviewTrends } from './features/OverviewTrends';
+import { OverviewItems } from './features/OverviewItems';
 import { CategoryVisibilityPanel } from './components/CategoryVisibilityPanel';
 
 type Tab = 'overview' | 'add' | 'manage' | 'salary';
@@ -27,7 +28,7 @@ const MAX_VIEWS = 4;
 export function App() {
   const { data, error, loading, refresh } = useData();
   const [tab, setTab] = useState<Tab>('overview');
-  const [overviewView, setOverviewView] = useState<'month' | 'trends'>('month');
+  const [overviewView, setOverviewView] = useState<'month' | 'trends' | 'items'>('month');
   const [addView, setAddView] = useState<'single' | 'list'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
@@ -143,6 +144,7 @@ export function App() {
                   options={[
                     { id: 'month', label: 'Month' },
                     { id: 'trends', label: 'Trends' },
+                    { id: 'items', label: 'Items' },
                   ]}
                 />
                 {data.views.length > 0 && (
@@ -226,7 +228,7 @@ export function App() {
             )}
             {overviewView === 'month' ? (
               <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
-            ) : (
+            ) : overviewView === 'trends' ? (
               <OverviewTrends
                 data={data}
                 hiddenCategoryIds={hiddenCategoryIds}
@@ -235,6 +237,8 @@ export function App() {
                   setOverviewView('month');
                 }}
               />
+            ) : (
+              <OverviewItems data={data} hiddenCategoryIds={hiddenCategoryIds} />
             )}
           </div>
         ) : tab === 'salary' ? (

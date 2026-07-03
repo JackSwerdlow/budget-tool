@@ -14,7 +14,6 @@
 
 ## Overview / analysis
 
-- Cross-time item-level analytics — "how much on milk this year?", item price drift over time. Item rows are persisted for exactly this.
 - Seasonal / yearly view — year-over-year, summer-vs-winter trends. Parked: not enough data yet.
 - Sankey / flow view — net pay flowing into the month's categories. Pure re-visualisation of existing numbers (no new logic); bridges the Salary take-home and the ledger.
 - Optional per-category target — a user-set number shown next to actual spend (display only; no enforcement/rollover). Note: partly overlaps the existing "vs last month" baseline — weigh whether it adds signal or competes with it.

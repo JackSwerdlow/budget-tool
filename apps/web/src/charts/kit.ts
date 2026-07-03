@@ -21,12 +21,12 @@ export function axisGBP(pence: number): string {
 
 export type MoneyScale = { yMax: number; y: (value: number) => number; ticks: number[] };
 
-// Always scale to the next £500 ceiling so grid lines stay consistent across months.
-export function moneyScale(dataMax: number): MoneyScale {
-  const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
+// Always scale to the next dataCeiling ceiling so grid lines stay consistent across months.
+export function moneyScale(dataMax: number, dataCeiling: number): MoneyScale {
+  const yMax = Math.ceil(Math.max(dataMax, 1) / dataCeiling) * dataCeiling;
   const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
   const ticks: number[] = [];
-  for (let v = 0; v <= yMax; v += 50000) ticks.push(v);
+  for (let v = 0; v <= yMax; v += dataCeiling) ticks.push(v);
   return { yMax, y, ticks };
 }
 
