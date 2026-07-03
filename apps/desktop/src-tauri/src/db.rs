@@ -23,21 +23,21 @@ INSERT INTO groups (name, sort_order, color) SELECT 'Health', 3, '#4a6b6f' WHERE
 INSERT INTO groups (name, sort_order, color) SELECT 'Subscriptions', 4, '#9c8a73' WHERE NOT EXISTS (SELECT 1 FROM groups WHERE name = 'Subscriptions');
 INSERT INTO groups (name, sort_order, color) SELECT 'Personal', 5, '#8c3b2e' WHERE NOT EXISTS (SELECT 1 FROM groups WHERE name = 'Personal');
 
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Rent', (SELECT id FROM groups WHERE name='Essentials'), 1, '#3f4d36', 1 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Rent');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Bills', (SELECT id FROM groups WHERE name='Essentials'), 2, '#4f5e44', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Bills');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Groceries', (SELECT id FROM groups WHERE name='Essentials'), 3, '#6b7d5e', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Groceries');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Household', (SELECT id FROM groups WHERE name='Essentials'), 4, '#8a9a72', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Household');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Travel', (SELECT id FROM groups WHERE name='Essentials'), 5, '#a6b48f', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Travel');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Food Out', (SELECT id FROM groups WHERE name='Social'), 6, '#8a6526', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Food Out');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Alcohol', (SELECT id FROM groups WHERE name='Social'), 7, '#b08537', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Alcohol');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Events', (SELECT id FROM groups WHERE name='Social'), 8, '#caa460', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Events');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Self-care', (SELECT id FROM groups WHERE name='Health'), 9, '#38565a', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Self-care');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Supplements', (SELECT id FROM groups WHERE name='Health'), 10, '#4a6b6f', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Supplements');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Health Appointments', (SELECT id FROM groups WHERE name='Health'), 11, '#6f9094', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Health Appointments');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Subscriptions', (SELECT id FROM groups WHERE name='Subscriptions'), 12, '#9c8a73', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Subscriptions');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Food In', (SELECT id FROM groups WHERE name='Personal'), 13, '#6f2c22', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Food In');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Nicotine', (SELECT id FROM groups WHERE name='Personal'), 14, '#8c3b2e', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Nicotine');
-INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) SELECT 'Purchases', (SELECT id FROM groups WHERE name='Personal'), 15, '#b15a48', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Purchases');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Rent', (SELECT id FROM groups WHERE name='Essentials'), 1, '#3f4d36' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Rent');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Bills', (SELECT id FROM groups WHERE name='Essentials'), 2, '#4f5e44' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Bills');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Groceries', (SELECT id FROM groups WHERE name='Essentials'), 3, '#6b7d5e' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Groceries');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Household', (SELECT id FROM groups WHERE name='Essentials'), 4, '#8a9a72' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Household');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Travel', (SELECT id FROM groups WHERE name='Essentials'), 5, '#a6b48f' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Travel');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Food Out', (SELECT id FROM groups WHERE name='Social'), 6, '#8a6526' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Food Out');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Alcohol', (SELECT id FROM groups WHERE name='Social'), 7, '#b08537' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Alcohol');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Events', (SELECT id FROM groups WHERE name='Social'), 8, '#caa460' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Events');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Self-care', (SELECT id FROM groups WHERE name='Health'), 9, '#38565a' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Self-care');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Supplements', (SELECT id FROM groups WHERE name='Health'), 10, '#4a6b6f' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Supplements');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Health Appointments', (SELECT id FROM groups WHERE name='Health'), 11, '#6f9094' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Health Appointments');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Subscriptions', (SELECT id FROM groups WHERE name='Subscriptions'), 12, '#9c8a73' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Subscriptions');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Food In', (SELECT id FROM groups WHERE name='Personal'), 13, '#6f2c22' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Food In');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Nicotine', (SELECT id FROM groups WHERE name='Personal'), 14, '#8c3b2e' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Nicotine');
+INSERT INTO categories (name, group_id, sort_order, color) SELECT 'Purchases', (SELECT id FROM groups WHERE name='Personal'), 15, '#b15a48' WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name='Purchases');
 "#;
 
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -52,6 +52,11 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     );
     let _ = conn.execute(
         "ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    // Column removals (vestigial exclude_from_discretionary, dead since Views shipped).
+    let _ = conn.execute(
+        "ALTER TABLE categories DROP COLUMN exclude_from_discretionary",
         [],
     );
     conn.execute_batch(SEED)?;
@@ -370,8 +375,29 @@ mod tests {
         let cats = select(&c, "SELECT COUNT(*) AS n FROM categories", &[]).unwrap();
         assert_eq!(groups[0]["n"].as_i64().unwrap(), 5);
         assert_eq!(cats[0]["n"].as_i64().unwrap(), 15);
-        let rent = select(&c, "SELECT exclude_from_discretionary AS e FROM categories WHERE name = $1", &[json!("Rent")]).unwrap();
-        assert_eq!(rent[0]["e"].as_i64().unwrap(), 1);
+        let rent = select(&c, "SELECT color AS c FROM categories WHERE name = $1", &[json!("Rent")]).unwrap();
+        assert_eq!(rent[0]["c"].as_str().unwrap(), "#3f4d36");
+    }
+
+    #[test]
+    fn migrate_drops_the_vestigial_discretionary_column() {
+        let c = Connection::open_in_memory().unwrap();
+        // A pre-existing DB whose categories table still carries the dead column.
+        c.execute_batch(
+            "CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, group_id INTEGER NOT NULL, sort_order INTEGER NOT NULL, color TEXT NOT NULL, exclude_from_discretionary INTEGER NOT NULL DEFAULT 0);",
+        )
+        .unwrap();
+        migrate(&c).unwrap();
+        let cols = select(
+            &c,
+            "SELECT name FROM pragma_table_info('categories') WHERE name = $1",
+            &[json!("exclude_from_discretionary")],
+        )
+        .unwrap();
+        assert!(cols.is_empty());
+        // Seeding into the migrated table still works.
+        let cats = select(&c, "SELECT COUNT(*) AS n FROM categories", &[]).unwrap();
+        assert_eq!(cats[0]["n"].as_i64().unwrap(), 15);
     }
 
     #[test]

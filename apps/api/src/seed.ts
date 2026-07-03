@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-type SeedCategory = { name: string; color: string; excludeFromDiscretionary?: boolean };
+type SeedCategory = { name: string; color: string };
 type SeedGroup = { name: string; color: string; categories: SeedCategory[] };
 
 // Locked taxonomy (idea spec §7 / PLAN §3). Each category colour is a hand-picked
@@ -11,7 +11,7 @@ const TAXONOMY: SeedGroup[] = [
     name: 'Essentials',
     color: '#6b7d5e',
     categories: [
-      { name: 'Rent', color: '#3f4d36', excludeFromDiscretionary: true },
+      { name: 'Rent', color: '#3f4d36' },
       { name: 'Bills', color: '#4f5e44' },
       { name: 'Groceries', color: '#6b7d5e' },
       { name: 'Household', color: '#8a9a72' },
@@ -60,8 +60,8 @@ export function seedIfEmpty(db: DatabaseSync): void {
     'INSERT INTO groups (name, sort_order, color) VALUES (?, ?, ?)',
   );
   const insertCategory = db.prepare(
-    `INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO categories (name, group_id, sort_order, color)
+     VALUES (?, ?, ?, ?)`,
   );
 
   db.exec('BEGIN');
@@ -78,7 +78,6 @@ export function seedIfEmpty(db: DatabaseSync): void {
           groupId,
           categoryOrder,
           category.color,
-          category.excludeFromDiscretionary ? 1 : 0,
         );
         categoryOrder += 1;
       }

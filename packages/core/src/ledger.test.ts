@@ -9,9 +9,9 @@ function makeData(): LedgerData {
       { id: 2, name: 'Personal', sort_order: 2, color: '#000' },
     ],
     categories: [
-      { id: 10, name: 'Rent', group_id: 1, sort_order: 1, color: '#000', exclude_from_discretionary: 1 },
-      { id: 11, name: 'Groceries', group_id: 1, sort_order: 2, color: '#000', exclude_from_discretionary: 0 },
-      { id: 20, name: 'Nicotine', group_id: 2, sort_order: 3, color: '#000', exclude_from_discretionary: 0 },
+      { id: 10, name: 'Rent', group_id: 1, sort_order: 1, color: '#000' },
+      { id: 11, name: 'Groceries', group_id: 1, sort_order: 2, color: '#000' },
+      { id: 20, name: 'Nicotine', group_id: 2, sort_order: 3, color: '#000' },
     ],
     entries: [
       { id: 1, amount_pence: 120000, category_id: 10, date: '2026-06-01', note: null, created_at: '2026-06-01T09:00:00Z' },

@@ -38,10 +38,6 @@
 
 - Sidebar nav + persistent summary figures — replace the top tabs with a left sidebar that also surfaces key balances/figures at all times.
 
-## Tech debt / tooling
-
-- Drop the vestigial `exclude_from_discretionary` column — dead since Views replaced the discretionary concept (no feature reads it); removal touches the schema (+ a migration for existing DBs), seed, `Category` type, both adapters, `db.rs`, and tests.
-
 ## Desktop
 
 - Replace default Tauri icons — installers currently ship the placeholder icons.

@@ -21,9 +21,9 @@ export function nodeSqliteExecutor(db: DatabaseSync): SqlExecutor {
 }
 
 // The locked taxonomy (mirrors apps/api/src/seed.ts) used to seed test databases.
-const TAXONOMY: { name: string; color: string; categories: { name: string; color: string; exclude?: boolean }[] }[] = [
+const TAXONOMY: { name: string; color: string; categories: { name: string; color: string }[] }[] = [
   { name: 'Essentials', color: '#6b7d5e', categories: [
-    { name: 'Rent', color: '#3f4d36', exclude: true }, { name: 'Bills', color: '#4f5e44' },
+    { name: 'Rent', color: '#3f4d36' }, { name: 'Bills', color: '#4f5e44' },
     { name: 'Groceries', color: '#6b7d5e' }, { name: 'Household', color: '#8a9a72' }, { name: 'Travel', color: '#a6b48f' },
   ] },
   { name: 'Social', color: '#b08537', categories: [
@@ -44,13 +44,13 @@ export function freshTestDb(): DatabaseSync {
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(readFileSync('apps/api/src/db/schema.sql', 'utf8'));
   const insGroup = db.prepare('INSERT INTO groups (name, sort_order, color) VALUES (?, ?, ?)');
-  const insCat = db.prepare('INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) VALUES (?, ?, ?, ?, ?)');
+  const insCat = db.prepare('INSERT INTO categories (name, group_id, sort_order, color) VALUES (?, ?, ?, ?)');
   let groupOrder = 1;
   let categoryOrder = 1;
   for (const group of TAXONOMY) {
     const { lastInsertRowid } = insGroup.run(group.name, groupOrder++, group.color);
     for (const cat of group.categories) {
-      insCat.run(cat.name, Number(lastInsertRowid), categoryOrder++, cat.color, cat.exclude ? 1 : 0);
+      insCat.run(cat.name, Number(lastInsertRowid), categoryOrder++, cat.color);
     }
   }
   return db;

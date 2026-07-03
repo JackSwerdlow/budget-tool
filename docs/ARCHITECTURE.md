@@ -97,9 +97,9 @@ desktop app (needs the Rust toolchain).
 > True today, but only because of fixable setup — not laws. A deliberate refactor should remove
 > them. Logged in [IDEAS.md](IDEAS.md).
 
-- `categories.exclude_from_discretionary` is **vestigial** — no feature reads it since saved
-  Views replaced the discretionary concept; it survives in the schema, seed, both adapters and
-  tests until deliberately dropped (logged in [IDEAS.md](IDEAS.md)).
+(A former entry here is resolved: `categories.exclude_from_discretionary` — vestigial since
+saved Views replaced the discretionary concept — has been dropped from the schema, seed, both
+adapters and tests; both `migrate` paths DROP COLUMN it from pre-existing databases.)
 
 (A former entry here is resolved: `apps/api` now imports `@budget/core` directly — core's
 internal imports carry explicit **`.ts`** extensions (with `allowImportingTsExtensions`), which

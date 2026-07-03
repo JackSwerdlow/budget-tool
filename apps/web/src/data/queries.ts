@@ -16,7 +16,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     (await exec.select<Entry>('SELECT id, amount_pence, category_id, date, note, created_at FROM entries WHERE id = $1', [id]))[0];
 
   const getCategory = async (id: number) =>
-    (await exec.select<Category>('SELECT id, name, group_id, sort_order, color, exclude_from_discretionary FROM categories WHERE id = $1', [id]))[0];
+    (await exec.select<Category>('SELECT id, name, group_id, sort_order, color FROM categories WHERE id = $1', [id]))[0];
 
   const getGroup = async (id: number) =>
     (await exec.select<Group>('SELECT id, name, sort_order, color FROM groups WHERE id = $1', [id]))[0];
@@ -52,7 +52,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     async fetchBootstrap() {
       const groups = await exec.select<Group>('SELECT id, name, sort_order, color FROM groups ORDER BY sort_order, id');
       const categories = await exec.select<Category>(
-        'SELECT id, name, group_id, sort_order, color, exclude_from_discretionary FROM categories ORDER BY sort_order, id',
+        'SELECT id, name, group_id, sort_order, color FROM categories ORDER BY sort_order, id',
       );
       const entries = await exec.select<Entry>(
         'SELECT id, amount_pence, category_id, date, note, created_at FROM entries ORDER BY date, created_at, id',
@@ -126,7 +126,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     async createCategory(input) {
       const m = (await exec.select<{ m: number }>('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories'))[0].m;
       const r = await exec.execute(
-        'INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) VALUES ($1, $2, $3, $4, 0)',
+        'INSERT INTO categories (name, group_id, sort_order, color) VALUES ($1, $2, $3, $4)',
         [input.name, input.group_id, m + 1, input.color],
       );
       return (await getCategory(r.lastInsertId))!;
