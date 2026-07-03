@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { arc, pie } from 'd3-shape';
 import { categoryTotals, formatGBP, type LedgerData } from '@budget/core';
+import { useCursorPos } from './kit';
+import { CursorBreakdownBox } from './kitComponents';
 
 type Slice = { id: number; name: string; color: string; value: number };
 
@@ -19,18 +21,13 @@ export function GroupingDonut({
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   // Cursor position (relative to the wrapper) for the hover breakdown box.
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const { wrapRef, pos, moveTo: onHoverMove, clear } = useCursorPos();
   useEffect(() => setExpanded(null), [ym, hiddenCategoryIds]);
   useEffect(() => setHoveredId(null), [expanded]);
 
-  const onHoverMove = (e: ReactMouseEvent) => {
-    const r = wrapRef.current?.getBoundingClientRect();
-    if (r) setPos({ x: e.clientX - r.left, y: e.clientY - r.top });
-  };
   const clearHover = () => {
     setHoveredId(null);
-    setPos(null);
+    clear();
   };
 
   const catTotals = categoryTotals(data, ym);
@@ -149,26 +146,20 @@ export function GroupingDonut({
           .sort((a, b) => b.value - a.value);
         if (cats.length === 0) return null;
         const groupTotal = cats.reduce((s, c) => s + c.value, 0);
-        const boxW = 230;
-        const width = wrapRef.current?.clientWidth ?? boxW;
-        const left = Math.min(Math.max(pos.x + 14, 0), width - boxW);
         return (
-          <div
-            className="pointer-events-none absolute z-10 rounded border border-hairline bg-raised px-3 py-2 shadow-sm"
-            style={{ left, top: pos.y + 14, width: boxW }}
-          >
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-faint">{group.name}</div>
-            {cats.map((c) => (
-              <div key={c.id} className="flex items-center gap-1.5 py-0.5">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ backgroundColor: c.color }} />
-                <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">{c.name}</span>
-                <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">{formatGBP(c.value)}</span>
-                <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-ink-faint">
-                  {Math.round((c.value / groupTotal) * 100)}%
-                </span>
-              </div>
-            ))}
-          </div>
+          <CursorBreakdownBox
+            wrapRef={wrapRef}
+            pos={pos}
+            title={group.name}
+            rows={cats.map((c) => ({
+              key: c.id,
+              color: c.color,
+              name: c.name,
+              value: formatGBP(c.value),
+              right: `${Math.round((c.value / groupTotal) * 100)}%`,
+              rightClass: 'w-9 text-[10px] text-ink-faint',
+            }))}
+          />
         );
       })()}
     </div>
