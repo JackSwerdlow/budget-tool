@@ -44,5 +44,4 @@
 
 ## Desktop
 
-- Replace default Tauri icons — installers currently ship the placeholder icons.
 - Code signing / notarization — unsigned installers warn on first run (SmartScreen / Gatekeeper).
