@@ -331,6 +331,13 @@ pub fn export_database(app: AppHandle, state: State<Db>, dest_path: String) -> R
     Ok(())
 }
 
+// Save UI-generated text (the CSV/JSON exports) to a user-chosen path. Plain std::fs —
+// an invoke command needs no fs-plugin capability.
+#[tauri::command]
+pub fn save_text_file(dest_path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&dest_path, contents).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -372,6 +379,15 @@ mod tests {
         assert_eq!(cats[0]["n"].as_i64().unwrap(), 15);
         let rent = select(&c, "SELECT exclude_from_discretionary AS e FROM categories WHERE name = $1", &[json!("Rent")]).unwrap();
         assert_eq!(rent[0]["e"].as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn save_text_file_writes_the_contents() {
+        let dest = std::env::temp_dir().join("budget-export-save-test.csv");
+        let _ = std::fs::remove_file(&dest);
+        save_text_file(dest.to_string_lossy().into_owned(), "a,b\n1,2\n".into()).unwrap();
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "a,b\n1,2\n");
+        let _ = std::fs::remove_file(&dest);
     }
 
     #[test]

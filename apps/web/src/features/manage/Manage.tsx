@@ -5,6 +5,7 @@ import { ManageEntries } from './ManageEntries';
 import { ManageTaxonomy } from './ManageTaxonomy';
 import { ManageViews } from './ManageViews';
 import { DatabaseTools } from './DatabaseTools';
+import { ExportData } from './ExportData';
 
 // Named ManageTab (not View) — this app's core `View` type (a saved category-hide preset,
 // see ManageViews.tsx) is a distinct concept from this tab selector.
@@ -28,6 +29,7 @@ export function Manage({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       {tab === 'entries' && <ManageEntries data={data} ym={ym} onYmChange={onYmChange} />}
       {tab === 'taxonomy' && <ManageTaxonomy data={data} />}
       {tab === 'views' && <ManageViews data={data} />}
+      <ExportData data={data} />
       <DatabaseTools />
     </div>
   );

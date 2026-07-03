@@ -31,7 +31,8 @@ pub fn run() {
       db::reorder_groups,
       db::reorder_categories,
       db::import_database,
-      db::export_database
+      db::export_database,
+      db::save_text_file
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
