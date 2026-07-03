@@ -19,10 +19,6 @@
 - Optional per-category target — a user-set number shown next to actual spend (display only; no enforcement/rollover). Note: partly overlaps the existing "vs last month" baseline — weigh whether it adds signal or competes with it.
 - Configurable widget dashboard — let the user pick which charts/summaries appear on Overview instead of the fixed layout. Heaviest of these for the least obvious payoff on a single-user tool.
 
-## Manage / entries
-
-- Multi-select + bulk edit of entries — select several rows and recategorise/delete in one go.
-
 ## Salary
 
 - Employment-gap marker — a way to mark a period as "not employed" so the brought-forward salary stops filling it. Since inheritance now fills every month from the first config forward (Summary forecast, Lifetime, and the student-loan tracker all carry the last salary forward), there's no way to represent an actual break in employment — a gap between two saved salaries is filled with the earlier one. Would need an explicit "no salary this period" config state that the core walk (`resolveEmploymentStart` / `computeSalaryYTD` / `walkMonths`) treats as a hard stop, not an inherit.

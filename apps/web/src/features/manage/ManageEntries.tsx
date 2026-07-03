@@ -21,6 +21,12 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<'month' | 'all'>('month');
   const [showCatPicker, setShowCatPicker] = useState(false);
+  // Multi-select bulk edit: checkboxes on entry rows (lists stay per-row — they hold many
+  // categories), then recategorise or delete the whole selection in one go.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkCat, setBulkCat] = useState<number | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
 
@@ -79,6 +85,48 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
     setScope('month');
   };
 
+  const visibleEntryIds = rows.filter((r) => r.kind === 'entry').map((r) => r.entry.id);
+  const allVisibleSelected = visibleEntryIds.length > 0 && visibleEntryIds.every((id) => selected.has(id));
+  const toggleSelected = (id: number) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const endSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+
+  // Bulk ops loop the existing per-entry operations, then refresh once — no new data
+  // operation, so web and desktop stay in sync for free.
+  const bulkRecategorise = async () => {
+    if (bulkCat === null || selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      for (const e of data.entries) {
+        if (!selected.has(e.id)) continue;
+        await updateEntry(e.id, { amount_pence: e.amount_pence, category_id: bulkCat, date: e.date, note: e.note });
+      }
+      await refresh();
+      setSelected(new Set());
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      for (const id of selected) await deleteEntry(id);
+      await refresh();
+      setSelected(new Set());
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -95,6 +143,19 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
           className={`text-xs transition-colors hover:text-accent ${filtering ? 'text-accent' : 'text-ink-muted'}`}
         >
           Categories {showCatPicker ? '▴' : '▾'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (selecting) endSelecting();
+            else {
+              setSelecting(true);
+              setBulkCat((c) => c ?? data.categories[0]?.id ?? null);
+            }
+          }}
+          className={`text-xs transition-colors hover:text-accent ${selecting ? 'text-accent' : 'text-ink-muted'}`}
+        >
+          {selecting ? 'Done selecting' : 'Select'}
         </button>
         <input
           value={search}
@@ -131,6 +192,45 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
         </div>
       )}
 
+      {/* Bulk action bar — recategorise or delete every ticked entry in one go */}
+      {selecting && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-hairline bg-raised/40 px-3 py-2">
+          <span className="text-xs tabular-nums text-ink-muted">
+            {selected.size} {selected.size === 1 ? 'entry' : 'entries'} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelected(allVisibleSelected ? new Set() : new Set(visibleEntryIds))}
+            className="text-xs text-ink-muted transition-colors hover:text-accent"
+          >
+            {allVisibleSelected ? 'Clear' : 'Select all shown'}
+          </button>
+          {selected.size > 0 && bulkCat !== null && (
+            <>
+              <div className="ml-2 w-44">
+                <CategorySelect groups={data.groups} categories={data.categories} value={bulkCat} onChange={setBulkCat} />
+              </div>
+              <button
+                type="button"
+                onClick={() => void bulkRecategorise()}
+                disabled={bulkBusy}
+                className="rounded-md border border-hairline px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+              >
+                {bulkBusy ? 'Working…' : 'Set category'}
+              </button>
+              <ConfirmButton
+                onConfirm={() => void bulkDelete()}
+                idleLabel="Delete"
+                confirmLabel={`Delete ${selected.size}?`}
+                ariaLabel="Delete selected entries"
+                idleClassName="rounded-md border border-hairline px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-over"
+                confirmClassName="rounded-md border border-hairline px-2.5 py-1 text-xs font-medium text-over"
+              />
+            </>
+          )}
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">
           {searching
@@ -156,20 +256,38 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
                     editing === r.entry.id ? (
                       <EntryEditor key={r.entry.id} entry={r.entry} data={data} onDone={() => setEditing(null)} />
                     ) : (
-                      <div key={r.entry.id} className="flex items-center gap-3 py-2 text-sm">
+                      <div
+                        key={r.entry.id}
+                        onClick={selecting ? () => toggleSelected(r.entry.id) : undefined}
+                        className={`flex items-center gap-3 py-2 text-sm ${selecting ? 'cursor-pointer' : ''}`}
+                      >
+                        {/* whole row toggles while selecting; the checkbox is just the indicator */}
+                        {selecting && (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.entry.id)}
+                            readOnly
+                            className="pointer-events-none shrink-0 accent-[var(--color-accent)]"
+                            aria-label={`Select ${cat(r.entry.category_id)?.name ?? 'entry'} ${formatGBP(r.entry.amount_pence)}`}
+                          />
+                        )}
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: cat(r.entry.category_id)?.color }} />
                         <span className="text-ink">{cat(r.entry.category_id)?.name}</span>
                         {r.entry.note && <span className="truncate text-ink-muted">· {r.entry.note}</span>}
                         <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(r.entry.amount_pence)}</span>
-                        <button type="button" onClick={() => setEditing(r.entry.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
-                        <ConfirmButton
-                          onConfirm={() => onDeleteEntry(r.entry.id)}
-                          idleLabel="✕"
-                          confirmLabel="Delete?"
-                          ariaLabel="Delete"
-                          idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
-                          confirmClassName="shrink-0 text-xs font-medium text-over"
-                        />
+                        {!selecting && (
+                          <>
+                            <button type="button" onClick={() => setEditing(r.entry.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
+                            <ConfirmButton
+                              onConfirm={() => onDeleteEntry(r.entry.id)}
+                              idleLabel="✕"
+                              confirmLabel="Delete?"
+                              ariaLabel="Delete"
+                              idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
+                              confirmClassName="shrink-0 text-xs font-medium text-over"
+                            />
+                          </>
+                        )}
                       </div>
                     )
                   ) : editingList === r.list.id ? (
