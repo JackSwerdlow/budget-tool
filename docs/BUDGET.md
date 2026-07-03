@@ -104,7 +104,9 @@ as Month:
   name suggests past items (case-insensitive substring match, most-recently-used first, drawn
   from all saved lists — same-day saves tie-broken by save time); picking a suggestion fills in
   that item's last price and category. Keyboard: **↑/↓** moves the highlight, **Enter** fills the
-  highlighted suggestion, **Tab** fills it and then advances to Qty as normal.
+  highlighted suggestion, **Tab** fills it and then advances to Qty as normal. A "Start from"
+  picker (recent 8 lists) seeds the form with a past list's items **dated today** — the weekly
+  shop rarely changes much, so most rows just need a price check; Clear returns to a blank form.
 
 ## Manage
 
