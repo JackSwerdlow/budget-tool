@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { categoryTotals, formatGBP, income, previousMonth, type LedgerData } from '@budget/core';
+import { formatGBP, income, previousMonth, type LedgerData } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
 import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, boxHeight, moneyScale } from './kit';
@@ -8,9 +8,12 @@ import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 // Per-month stacked bars over the same range as the category×month matrix — the running
 // chart's visual language (group colours/stack order, pill toggles, hover breakdown box)
 // applied month-by-month instead of day-by-day.
-export function TrendsBars({ data, months, hiddenCategoryIds }: {
+export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds }: {
   data: LedgerData;
   months: string[];
+  // Shared with TrendsMatrix (computed once in OverviewTrends); includes the month
+  // before the range as the first bar's vs-last-month baseline.
+  totalsByMonth: ReadonlyMap<string, Map<number, number>>;
   hiddenCategoryIds: Set<number>;
 }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -27,7 +30,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
     cats: data.categories.filter((c) => c.group_id === g.id && !hiddenCategoryIds.has(c.id)),
   }));
   const monthGroupValues = months.map((m) => {
-    const totals = categoryTotals(data, m);
+    const totals = totalsByMonth.get(m) ?? new Map<number, number>();
     const values = new Map<number, number>();
     for (const { g, cats } of groupCats) {
       const v = cats.reduce((s, c) => s + (totals.get(c.id) ?? 0), 0);
@@ -45,7 +48,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
 
   // Baseline for the first month's hover delta: the month before the displayed range
   // (same as the matrix's first-column %).
-  const prevTotals = categoryTotals(data, previousMonth(months[0]));
+  const prevTotals = totalsByMonth.get(previousMonth(months[0])) ?? new Map<number, number>();
   const prevGroupValues = new Map<number, number>();
   for (const { g, cats } of groupCats) {
     const v = cats.reduce((s, c) => s + (prevTotals.get(c.id) ?? 0), 0);

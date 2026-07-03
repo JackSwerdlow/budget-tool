@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   buildMatrix,
-  categoryTotals,
   formatGBP,
   previousMonth,
   type LedgerData,
@@ -63,12 +62,14 @@ type RenderRow = {
   prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
-export function TrendsMatrix({ data, hiddenCategoryIds, months, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange }: {
+export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange }: {
   data: LedgerData;
   hiddenCategoryIds: Set<number>;
   // The month range is owned by OverviewTrends so the bar chart above shares it.
   // displayStart/End are the resolved picks (may not match months[] when the range is empty).
   months: string[];
+  // Shared with TrendsBars (computed once in OverviewTrends); includes previousMonth(months[0]).
+  totalsByMonth: ReadonlyMap<string, Map<number, number>>;
   displayStart: string;
   displayEnd: string;
   isCustomRange: boolean;
@@ -85,7 +86,6 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, displayStart, di
   for (let i = 0; i < 47; i++) optStart = previousMonth(optStart);
   const monthOptions = monthsRange(optStart, currentYm, 48);
 
-  const totalsByMonth = new Map(months.map((m) => [m, categoryTotals(data, m)]));
 
   const visibleGroups = data.groups
     .map((g) => {
@@ -96,7 +96,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, displayStart, di
     .filter((x) => x.amounts.some((a) => a > 0));
 
   const groupMatrix = buildMatrix(visibleGroups.map((x) => ({ id: x.g.id, amounts: x.amounts })));
-  const prevCatTotals = categoryTotals(data, previousMonth(displayStart));
+  const prevCatTotals = totalsByMonth.get(previousMonth(displayStart)) ?? new Map<number, number>();
   const monthTotals = months.map((_, mi) => visibleGroups.reduce((s, x) => s + x.amounts[mi], 0));
   const monthHasSpend = monthTotals.map((t) => t > 0);
   const prevMonthTotal = visibleGroups.reduce((s, x) => s + x.cats.reduce((cs, c) => cs + (prevCatTotals.get(c.id) ?? 0), 0), 0);

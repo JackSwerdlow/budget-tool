@@ -19,6 +19,25 @@ export function categoryTotals(data: LedgerData, ym: string): Map<number, number
   return totals;
 }
 
+// One pass over entries + lists for a whole set of months (vs calling categoryTotals per
+// month, which re-scans the ledger each time — the Trends range is up to 60 months).
+// Every requested month gets a map (empty when nothing was spent).
+export function categoryTotalsByMonth(data: LedgerData, months: readonly string[]): Map<string, Map<number, number>> {
+  const out = new Map<string, Map<number, number>>();
+  for (const m of months) out.set(m, new Map());
+  const add = (ym: string, categoryId: number, pence: number) => {
+    const totals = out.get(ym);
+    if (!totals) return;
+    totals.set(categoryId, (totals.get(categoryId) ?? 0) + pence);
+  };
+  for (const entry of data.entries) add(ymOf(entry.date), entry.category_id, entry.amount_pence);
+  for (const list of data.lists) {
+    if (!out.has(ymOf(list.date))) continue;
+    for (const [categoryId, pence] of listCategorySubtotals(list)) add(ymOf(list.date), categoryId, pence);
+  }
+  return out;
+}
+
 export function groupTotals(data: LedgerData, ym: string): Map<number, number> {
   const groupOfCategory = new Map<number, number>();
   for (const category of data.categories) groupOfCategory.set(category.id, category.group_id);

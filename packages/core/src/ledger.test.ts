@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LedgerData } from './types';
-import { categoryTotals, groupTotals, monthTotal, runningCumulative, runningCumulativeByGroup, yearTotal } from './ledger';
+import { categoryTotals, categoryTotalsByMonth, groupTotals, monthTotal, runningCumulative, runningCumulativeByGroup, yearTotal } from './ledger';
 
 function makeData(): LedgerData {
   return {
@@ -43,6 +43,26 @@ describe('groupTotals', () => {
   it('rolls category totals up to their group', () => {
     const totals = groupTotals(makeData(), '2026-06');
     expect(Object.fromEntries(totals)).toEqual({ 1: 126000, 2: 1500 });
+  });
+});
+
+describe('categoryTotalsByMonth', () => {
+  it('matches per-month categoryTotals for every requested month', () => {
+    const months = ['2026-04', '2026-05', '2026-06'];
+    const byMonth = categoryTotalsByMonth(makeData(), months);
+    for (const m of months) {
+      expect(Object.fromEntries(byMonth.get(m)!)).toEqual(Object.fromEntries(categoryTotals(makeData(), m)));
+    }
+  });
+
+  it('gives every requested month a map — empty when nothing was spent', () => {
+    const byMonth = categoryTotalsByMonth(makeData(), ['2026-01']);
+    expect(byMonth.get('2026-01')!.size).toBe(0);
+  });
+
+  it('ignores months outside the requested set', () => {
+    const byMonth = categoryTotalsByMonth(makeData(), ['2026-06']);
+    expect([...byMonth.keys()]).toEqual(['2026-06']);
   });
 });
 
@@ -146,6 +166,12 @@ describe('with itemised lists (fan-out into the ledger)', () => {
   it('adds each list per-category my-share into categoryTotals', () => {
     // entries cat11 = 4000 + 2000 = 6000; list cat11 = 500 + (200 - round(100)) = 600 -> 6600
     expect(Object.fromEntries(categoryTotals(dataWithList(), '2026-06'))).toEqual({ 10: 120000, 11: 6600, 20: 1500 });
+  });
+
+  it('folds list my-shares into categoryTotalsByMonth the same way', () => {
+    const byMonth = categoryTotalsByMonth(dataWithList(), ['2026-05', '2026-06']);
+    expect(Object.fromEntries(byMonth.get('2026-06')!)).toEqual({ 10: 120000, 11: 6600, 20: 1500 });
+    expect(Object.fromEntries(byMonth.get('2026-05')!)).toEqual({ 11: 9999 });
   });
 
   it('excludes the given category ids in the running cumulative on the list date', () => {
