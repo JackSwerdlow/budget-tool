@@ -227,7 +227,14 @@ export function App() {
             {overviewView === 'month' ? (
               <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
             ) : (
-              <OverviewTrends data={data} hiddenCategoryIds={hiddenCategoryIds} />
+              <OverviewTrends
+                data={data}
+                hiddenCategoryIds={hiddenCategoryIds}
+                onOpenMonth={(m) => {
+                  setYm(m);
+                  setOverviewView('month');
+                }}
+              />
             )}
           </div>
         ) : tab === 'salary' ? (

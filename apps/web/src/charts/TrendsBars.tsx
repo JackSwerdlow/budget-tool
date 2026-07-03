@@ -8,13 +8,14 @@ import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 // Per-month stacked bars over the same range as the category×month matrix — the running
 // chart's visual language (group colours/stack order, pill toggles, hover breakdown box)
 // applied month-by-month instead of day-by-day.
-export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds }: {
+export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onOpenMonth }: {
   data: LedgerData;
   months: string[];
   // Shared with TrendsMatrix (computed once in OverviewTrends); includes the month
   // before the range as the first bar's vs-last-month baseline.
   totalsByMonth: ReadonlyMap<string, Map<number, number>>;
   hiddenCategoryIds: Set<number>;
+  onOpenMonth: (ym: string) => void;
 }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [showAvg, setShowAvg] = useState(true);
@@ -247,7 +248,8 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds }: {
           );
         })()}
 
-        {/* invisible per-month hover columns — last so they sit on top */}
+        {/* invisible per-month hover/click columns — last so they sit on top; clicking a
+           month opens it in the Month view */}
         {months.map((m, i) => (
           <rect
             key={`h${m}`}
@@ -256,8 +258,12 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds }: {
             width={band}
             height={INNER_H}
             fill="transparent"
+            className="cursor-pointer"
+            role="button"
+            aria-label={`Open ${monthLabel(m)} in the Month view`}
             onMouseEnter={() => setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}
+            onClick={() => onOpenMonth(m)}
           />
         ))}
       </svg>
