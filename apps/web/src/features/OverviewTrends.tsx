@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { previousMonth, type LedgerData } from '@budget/core';
+import { categoryTotalsByMonth, previousMonth, type LedgerData } from '@budget/core';
 import { TrendsBars } from '../charts/TrendsBars';
 import { TrendsMatrix } from '../charts/TrendsMatrix';
 import { monthsRange, todayISO } from '../lib/dates';
@@ -20,13 +20,21 @@ export function OverviewTrends({ data, hiddenCategoryIds }: { data: LedgerData; 
   const months = monthsRange(displayStart, displayEnd, 60);
   const isCustomRange = rangeStart !== null || rangeEnd !== null;
 
+  // One ledger pass covers both sections; the month before the range is included as the
+  // baseline for the first column's / first bar's vs-last-month figures.
+  const totalsByMonth = categoryTotalsByMonth(
+    data,
+    months.length > 0 ? [previousMonth(months[0]), ...months] : months,
+  );
+
   return (
     <div className="space-y-8">
-      <TrendsBars data={data} months={months} hiddenCategoryIds={hiddenCategoryIds} />
+      <TrendsBars data={data} months={months} totalsByMonth={totalsByMonth} hiddenCategoryIds={hiddenCategoryIds} />
       <TrendsMatrix
         data={data}
         hiddenCategoryIds={hiddenCategoryIds}
         months={months}
+        totalsByMonth={totalsByMonth}
         displayStart={displayStart}
         displayEnd={displayEnd}
         isCustomRange={isCustomRange}

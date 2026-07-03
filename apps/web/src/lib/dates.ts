@@ -11,6 +11,11 @@ export function monthShort(ym: string): string {
   return `${MONTH_ABBR[Number(ym.slice(5, 7)) - 1]} ${ym.slice(2, 4)}`;
 }
 
+// Bare month abbreviation ("Jun"), no year — for labels already scoped to one month.
+export function monthAbbr(ym: string): string {
+  return MONTH_ABBR[Number(ym.slice(5, 7)) - 1];
+}
+
 // Inclusive YYYY-MM range (lexical compare is safe), capped to the last maxCount.
 export function monthsRange(startYm: string, endYm: string, maxCount = 12): string[] {
   const out: string[] = [];
