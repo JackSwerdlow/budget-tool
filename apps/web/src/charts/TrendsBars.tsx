@@ -79,7 +79,7 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds }: {
     avgVisible ? avgSpend : 0,
     incomeVisible ? Math.max(...incomes) : 0,
   );
-  const scale = moneyScale(dataMax);
+  const scale = moneyScale(dataMax, 50000);
   const { y } = scale;
 
   const band = INNER_W / months.length;
