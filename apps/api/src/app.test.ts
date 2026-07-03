@@ -480,3 +480,21 @@ describe('salary config', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('migrate', () => {
+  it('drops the vestigial exclude_from_discretionary column from pre-existing databases', () => {
+    const db = openDatabase(':memory:');
+    // A pre-existing DB whose categories table still carries the dead column.
+    db.exec(
+      'CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, group_id INTEGER NOT NULL, sort_order INTEGER NOT NULL, color TEXT NOT NULL, exclude_from_discretionary INTEGER NOT NULL DEFAULT 0)',
+    );
+    migrate(db);
+    const col = db
+      .prepare("SELECT name FROM pragma_table_info('categories') WHERE name = 'exclude_from_discretionary'")
+      .get();
+    expect(col).toBeUndefined();
+    seedIfEmpty(db);
+    const cats = db.prepare('SELECT COUNT(*) AS n FROM categories').get() as { n: number };
+    expect(cats.n).toBe(15);
+  });
+});

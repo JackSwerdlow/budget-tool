@@ -10,7 +10,7 @@ export function getBootstrap(db: DatabaseSync) {
 
   const categories = db
     .prepare(
-      `SELECT id, name, group_id, sort_order, color, exclude_from_discretionary
+      `SELECT id, name, group_id, sort_order, color
        FROM categories ORDER BY sort_order, id`,
     )
     .all();
@@ -219,7 +219,7 @@ type GroupRow = { id: number; name: string; color: string };
 
 export function getCategory(db: DatabaseSync, id: number) {
   return db
-    .prepare('SELECT id, name, group_id, sort_order, color, exclude_from_discretionary FROM categories WHERE id = ?')
+    .prepare('SELECT id, name, group_id, sort_order, color FROM categories WHERE id = ?')
     .get(id);
 }
 
@@ -227,7 +227,7 @@ export function createCategory(db: DatabaseSync, input: { name: string; group_id
   const { m } = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories').get() as { m: number };
   const { lastInsertRowid } = db
     .prepare(
-      'INSERT INTO categories (name, group_id, sort_order, color, exclude_from_discretionary) VALUES (?, ?, ?, ?, 0)',
+      'INSERT INTO categories (name, group_id, sort_order, color) VALUES (?, ?, ?, ?)',
     )
     .run(input.name, input.group_id, m + 1, input.color);
   return getCategory(db, Number(lastInsertRowid));

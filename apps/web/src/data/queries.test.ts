@@ -21,7 +21,6 @@ test('bootstrap: seeded taxonomy, empty ledger', async () => {
   expect(boot.lists).toEqual([]);
   expect(boot.income).toEqual([]);
   expect(boot.defaultIncomePence).toBeNull();
-  expect(boot.categories.find((c) => c.name === 'Rent')!.exclude_from_discretionary).toBe(1);
 });
 
 test('createEntry then bootstrap reflects it', async () => {

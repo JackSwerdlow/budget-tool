@@ -11,12 +11,11 @@ CREATE TABLE IF NOT EXISTS groups (
 
 -- 15 categories (seeded). Editable: add / rename / move group / delete (with reassign).
 CREATE TABLE IF NOT EXISTS categories (
-  id                         INTEGER PRIMARY KEY,
-  name                       TEXT NOT NULL,
-  group_id                   INTEGER NOT NULL REFERENCES groups(id) ON DELETE RESTRICT,
-  sort_order                 INTEGER NOT NULL,
-  color                      TEXT NOT NULL,
-  exclude_from_discretionary INTEGER NOT NULL DEFAULT 0
+  id         INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL,
+  group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE RESTRICT,
+  sort_order INTEGER NOT NULL,
+  color      TEXT NOT NULL
 );
 
 -- Normal single entries (NOT list-derived; lists are never written here).

@@ -14,7 +14,6 @@ export type Category = {
   group_id: number;
   sort_order: number;
   color: string;
-  exclude_from_discretionary: number;
 };
 
 export type Entry = {
