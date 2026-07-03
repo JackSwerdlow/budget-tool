@@ -97,9 +97,14 @@ persisted list-item rows ("how much on milk?"): a searchable table of every item
 header is sortable (click cycles desc ▼ → asc ▲ → none; "none" falls back to total-spend
 order); the view starts with **Total** sorted desc. Top 15 by default ("Show all" expands;
 searching always searches everything). Clicking a row opens the item's unit-price history: a
-stepped kit-frame chart on a **£5 grid** (`moneyScale`'s step parameter — the money charts keep
-their £500 grid), one dot per purchase, hover for the date/qty/price. Uses the same shared
-category filter as Month/Trends; analysis only — the ledger itself is untouched.
+stepped kit-frame chart, one dot per purchase, hover for the date/qty/price. Uses the same
+shared category filter as Month/Trends; analysis only — the ledger itself is untouched.
+
+All the kit-frame charts share a **dynamic money y-axis** (`kit.moneyScale`, tested): the
+gridline step is the smallest "nice" value (1/2/5 × a power of ten) keeping the chart to ≤6
+intervals — a full month lands on the familiar £500 grid, a filtered-down month on £100, a
+cheap item's history on pennies (sub-£1 grids label ticks at 2dp). An empty chart keeps the
+£0–£500 frame.
 
 ## Add
 

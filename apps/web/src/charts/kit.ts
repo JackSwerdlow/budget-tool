@@ -19,17 +19,38 @@ export function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
 }
 
-export type MoneyScale = { yMax: number; y: (value: number) => number; ticks: number[] };
+export type MoneyScale = {
+  yMax: number;
+  y: (value: number) => number;
+  ticks: number[];
+  format: (pence: number) => string; // tick labels: whole £ normally, 2dp on sub-£1 grids
+};
 
-// The y-axis ceiling is the next multiple of `step`, with a gridline every step — so the
-// grid stays consistent as the data grows. Default £500 suits the whole-month money charts;
-// pass a finer step for small-value charts (the Items unit-price history uses £5).
-export function moneyScale(dataMax: number, step = 50000): MoneyScale {
-  const yMax = Math.ceil(Math.max(dataMax, 1) / step) * step;
+const MAX_INTERVALS = 6;
+
+// The smallest "nice" gridline step — 1, 2, or 5 × a power of ten (pence) — that keeps the
+// chart to at most MAX_INTERVALS intervals.
+function niceStep(max: number): number {
+  for (let magnitude = 1; ; magnitude *= 10) {
+    for (const m of [1, 2, 5]) {
+      const step = m * magnitude;
+      if (max / step <= MAX_INTERVALS) return step;
+    }
+  }
+}
+
+// Dynamic money y-axis: the ceiling is the next multiple of a nice step chosen from the
+// data, so a 4p item history gets a 1p grid while a £2,000 month keeps a £500 one — a fixed
+// step either drowns small charts (one line) or big ones (dozens). An empty chart keeps the
+// old £0–£500 frame rather than a silly 1p axis.
+export function moneyScale(dataMax: number): MoneyScale {
+  const step = dataMax > 0 ? niceStep(dataMax) : 50000;
+  const yMax = Math.max(Math.ceil(dataMax / step) * step, step);
   const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
   const ticks: number[] = [];
   for (let v = 0; v <= yMax; v += step) ticks.push(v);
-  return { yMax, y, ticks };
+  const format = step < 100 ? (pence: number) => `£${(pence / 100).toFixed(2)}` : axisGBP;
+  return { yMax, y, ticks, format };
 }
 
 // ---- SVG hover-breakdown box (see SvgBreakdownBox) ----

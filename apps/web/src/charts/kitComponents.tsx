@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { BOX_W, CHART_W, PAD_LEFT, PAD_RIGHT, axisGBP, boxHeight, ellipsize, type MoneyScale } from './kit';
+import { BOX_W, CHART_W, PAD_LEFT, PAD_RIGHT, boxHeight, ellipsize, type MoneyScale } from './kit';
 
 // Shared chart components — see kit.ts for the values/hooks half.
 
@@ -11,7 +11,7 @@ export function MoneyGrid({ scale }: { scale: MoneyScale }) {
         <g key={`y${t}`}>
           <line x1={PAD_LEFT} y1={scale.y(t)} x2={CHART_W - PAD_RIGHT} y2={scale.y(t)} className="stroke-hairline/60" strokeWidth={1} />
           <text x={PAD_LEFT - 8} y={scale.y(t) + 3} textAnchor="end" className="fill-ink-faint text-[10px] tabular-nums">
-            {axisGBP(t)}
+            {scale.format(t)}
           </text>
         </g>
       ))}

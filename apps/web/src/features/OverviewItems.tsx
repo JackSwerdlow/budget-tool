@@ -155,7 +155,7 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
     );
   }
 
-  const scale = moneyScale(Math.max(...pts.map((p) => p.unitPricePence)), 500);
+  const scale = moneyScale(Math.max(...pts.map((p) => p.unitPricePence)));
   const { y } = scale;
   const x = (i: number) => PAD_LEFT + (pts.length === 1 ? INNER_W / 2 : (i / (pts.length - 1)) * INNER_W);
   // Step path: unit price holds until the next purchase changes it.
