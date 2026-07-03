@@ -71,7 +71,7 @@ Balance's money is the one thing it never touches.
 
 **Trends** (`features/OverviewTrends.tsx`) has two sections sharing one month range (default
 last 6 months; custom From/To picker in the matrix header) and the same shared category filter
-as Month:
+as Month. Clicking a bar (or a matrix month-header) opens that month in the Month view:
 
 - **Spend by month** (`charts/TrendsBars.tsx`) — a stacked per-month bar chart in the running
   chart's visual language: group colours/stack order matching the donut, and two pill toggles —

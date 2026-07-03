@@ -5,8 +5,13 @@ import { TrendsMatrix } from '../charts/TrendsMatrix';
 import { monthsRange, todayISO } from '../lib/dates';
 
 // The Trends view: the stacked per-month bars and the category×month matrix share one
-// month range (the picker lives in the matrix header; the state lives here).
-export function OverviewTrends({ data, hiddenCategoryIds }: { data: LedgerData; hiddenCategoryIds: Set<number> }) {
+// month range (the picker lives in the matrix header; the state lives here). Clicking a
+// bar (or a matrix month header) opens that month in the Month view via onOpenMonth.
+export function OverviewTrends({ data, hiddenCategoryIds, onOpenMonth }: {
+  data: LedgerData;
+  hiddenCategoryIds: Set<number>;
+  onOpenMonth: (ym: string) => void;
+}) {
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
 
@@ -29,12 +34,13 @@ export function OverviewTrends({ data, hiddenCategoryIds }: { data: LedgerData; 
 
   return (
     <div className="space-y-8">
-      <TrendsBars data={data} months={months} totalsByMonth={totalsByMonth} hiddenCategoryIds={hiddenCategoryIds} />
+      <TrendsBars data={data} months={months} totalsByMonth={totalsByMonth} hiddenCategoryIds={hiddenCategoryIds} onOpenMonth={onOpenMonth} />
       <TrendsMatrix
         data={data}
         hiddenCategoryIds={hiddenCategoryIds}
         months={months}
         totalsByMonth={totalsByMonth}
+        onOpenMonth={onOpenMonth}
         displayStart={displayStart}
         displayEnd={displayEnd}
         isCustomRange={isCustomRange}

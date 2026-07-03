@@ -62,7 +62,7 @@ type RenderRow = {
   prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
-export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange }: {
+export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange, onOpenMonth }: {
   data: LedgerData;
   hiddenCategoryIds: Set<number>;
   // The month range is owned by OverviewTrends so the bar chart above shares it.
@@ -76,6 +76,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
   onRangeStart: (ym: string) => void;
   onRangeEnd: (ym: string) => void;
   onResetRange: () => void;
+  onOpenMonth: (ym: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [showRange, setShowRange] = useState(false);
@@ -203,11 +204,18 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
               <div className="col-span-2 flex h-9 items-center justify-center bg-panel px-2 text-[11px] uppercase tracking-wide text-ink-faint border-r-[1.75px] border-hairline">
                 Group
               </div>
+              {/* month headers open that month in the Month view */}
               {months.map((m) => (
-                <div key={m} className={`flex h-9 items-center justify-center bg-panel text-xs text-ink-faint ${m !== months[months.length - 1] ? 'border-r-[1.75px] border-hairline' : ''}`}>
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => onOpenMonth(m)}
+                  aria-label={`Open ${monthLabel(m)} in the Month view`}
+                  className={`flex h-9 cursor-pointer items-center justify-center bg-panel text-xs text-ink-faint transition-colors hover:text-accent ${m !== months[months.length - 1] ? 'border-r-[1.75px] border-hairline' : ''}`}
+                >
                   {monthShort(m)}
                   {m === currentYm && <span className="ml-0.5 text-accent">*</span>}
-                </div>
+                </button>
               ))}
 
               {renderRows.map((row, i) => {
