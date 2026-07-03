@@ -9,15 +9,13 @@ import {
   type LedgerData,
 } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
-import { dayOfMonth, daysInMonth, todayISO } from '../lib/dates';
+import { dayOfMonth, daysInMonth, monthAbbr, todayISO } from '../lib/dates';
 import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, boxHeight, moneyScale } from './kit';
 import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 type Pt = { day: number; value: number };
 type StackPt = { day: number; byGroup: Map<number, number>; total: number };
 type BandPt = { day: number; lower: number; upper: number };
-
-const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // Weekly x ticks starting at 0 (0, 7, 14, …), always ending with the last day of the month.
 // Replaces the final weekly tick with the last day if they're only 1 apart (e.g. Feb non-leap).
@@ -188,7 +186,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     : [];
   const boxH = boxHeight(hoverByGroup.length);
 
-  const monthName = MONTH_NAMES[parseInt(ym.split('-')[1]) - 1];
+  const monthName = monthAbbr(ym);
 
   return (
     <div className="flex flex-col gap-2">
