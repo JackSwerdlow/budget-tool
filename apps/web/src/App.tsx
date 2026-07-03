@@ -3,6 +3,7 @@ import { nextMonth, previousMonth } from '@budget/core';
 import { createView } from './api';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
+import { useEscape } from './lib/useEscape';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
@@ -53,6 +54,13 @@ export function App() {
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
     : null;
+
+  // Escape dismisses the transient Overview panels (filter checklist, save-as-View form).
+  useEscape(() => {
+    setShowFilter(false);
+    setSaveViewOpen(false);
+    setViewName('');
+  }, showFilter || saveViewOpen);
 
   // Global hotkeys — adding is never more than a keystroke (ignored while typing).
   useEffect(() => {

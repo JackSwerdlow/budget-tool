@@ -8,6 +8,7 @@ import { CategoryVisibilityPanel } from '../../components/CategoryVisibilityPane
 import { ConfirmButton } from '../../components/ConfirmButton';
 import { ListForm } from '../ListForm';
 import { dayHeading, monthLabel } from '../../lib/dates';
+import { useEscape } from '../../lib/useEscape';
 
 type EntryRow = { kind: 'entry'; date: string; created_at: string; entry: Entry };
 type ListRow = { kind: 'list'; date: string; created_at: string; list: BudgetList };
@@ -29,6 +30,9 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
+
+  // Escape dismisses the unfolding category filter panel, matching Overview.
+  useEscape(() => setShowCatPicker(false), showCatPicker);
 
   // A filter or search stays scoped to the picked month by default (so the term persists while
   // browsing months), with an "All months" scope for finding an entry whose month is unknown.

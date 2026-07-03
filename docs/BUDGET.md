@@ -60,7 +60,8 @@ vs-last %, matching the running chart's tooltip.
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
 Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row
 (the currently-active preset is highlighted), plus a "Categories ▾" toggle that unfolds an inline
-filter section (it stays open until closed, not a dropdown): a master select/deselect-all tick +
+filter section (it stays open until closed — **Esc** also dismisses it, here and in Manage,
+along with the save-as-View form — not a dropdown): a master select/deselect-all tick +
 per-group ticks, with the categories as CategoryGrid-style connected buttons — pressed = shown
 (`components/CategoryVisibilityPanel.tsx`; both controls live in `App.tsx`, threaded down as a
 `hiddenCategoryIds` prop). A View is a named, saved
