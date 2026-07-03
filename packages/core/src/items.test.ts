@@ -27,7 +27,7 @@ function list(id: number, date: string, createdAt: string, items: Array<[string,
 function makeData(lists: BudgetList[]): LedgerData {
   return {
     groups: [{ id: 1, name: 'Essentials', sort_order: 1, color: '#111' }],
-    categories: [{ id: 10, name: 'Groceries', group_id: 1, sort_order: 1, color: '#aaa', exclude_from_discretionary: 0 }],
+    categories: [{ id: 10, name: 'Groceries', group_id: 1, sort_order: 1, color: '#aaa' }],
     entries: [],
     lists,
     income: [],
