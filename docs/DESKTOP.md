@@ -60,5 +60,8 @@ breaks:
   matrix on real runners → a **draft GitHub Release** with Windows `.exe`, macOS `.dmg`, Linux
   `.AppImage`/`.deb`.
 
-Installers currently ship the **default Tauri icons** and are **unsigned** (first-run
-SmartScreen/Gatekeeper warnings) — see [IDEAS.md](IDEAS.md) for the icon/signing polish.
+The app icon is a Ledger-style **Fraunces "£" over a double account-book rule** in the app's
+paper/ink/accent palette. The 1024px source is `apps/desktop/app-icon.png`; regenerate the
+platform set with `npm run tauri -- icon ./app-icon.png` from `apps/desktop` (the unused
+android/ios outputs aren't kept — mobile isn't built). Installers are still **unsigned**
+(first-run SmartScreen/Gatekeeper warnings) — see [IDEAS.md](IDEAS.md) for the signing polish.
