@@ -7,6 +7,7 @@ export * from './time.ts';
 export * from './ledger.ts';
 export * from './comparison.ts';
 export * from './trends.ts';
+export * from './items.ts';
 export * from './netBalance.ts';
 export * from './salary.ts';
 export * from './salaryYtd.ts';
