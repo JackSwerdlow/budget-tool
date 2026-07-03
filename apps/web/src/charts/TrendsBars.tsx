@@ -2,22 +2,8 @@ import { useState } from 'react';
 import { categoryTotals, formatGBP, income, previousMonth, type LedgerData } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
-
-const W = 720;
-const H = 230;
-const PAD_LEFT = 46;
-const PAD_RIGHT = 16;
-const PAD_TOP = 22;
-const PAD_BOTTOM = 28;
-const INNER_W = W - PAD_LEFT - PAD_RIGHT;
-const INNER_H = H - PAD_TOP - PAD_BOTTOM;
-
-const BOX_W = 178;
-const BOX_H = 58; // grows by 13 per group line in the hover breakdown
-
-function axisGBP(pence: number): string {
-  return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
-}
+import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, boxHeight, moneyScale } from './kit';
+import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 // Per-month stacked bars over the same range as the category×month matrix — the running
 // chart's visual language (group colours/stack order, pill toggles, hover breakdown box)
@@ -90,12 +76,8 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
     avgVisible ? avgSpend : 0,
     incomeVisible ? Math.max(...incomes) : 0,
   );
-  // Same £500-ceiling scaling as the running chart.
-  const yMax = Math.ceil(Math.max(dataMax, 1) / 50000) * 50000;
-  const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
-
-  const yTicks: number[] = [];
-  for (let v = 0; v <= yMax; v += 50000) yTicks.push(v);
+  const scale = moneyScale(dataMax);
+  const { y } = scale;
 
   const band = INNER_W / months.length;
   const barW = Math.min(band * 0.62, 72);
@@ -126,7 +108,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
         };
       })()
     : null;
-  const boxH = hovered && hovered.rows.length > 0 ? 62 + hovered.rows.length * 13 : BOX_H;
+  const boxH = boxHeight(hovered?.rows.length ?? 0);
 
   return (
     <div className="flex flex-col gap-2">
@@ -156,21 +138,13 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
           </span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
-        {/* y-axis gridlines + £ labels */}
-        {yTicks.map((t) => (
-          <g key={`y${t}`}>
-            <line x1={PAD_LEFT} y1={y(t)} x2={W - PAD_RIGHT} y2={y(t)} className="stroke-hairline/60" strokeWidth={1} />
-            <text x={PAD_LEFT - 8} y={y(t) + 3} textAnchor="end" className="fill-ink-faint text-[10px] tabular-nums">
-              {axisGBP(t)}
-            </text>
-          </g>
-        ))}
+      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
+        <MoneyGrid scale={scale} />
 
         {/* x labels (thinned on long ranges; the current month keeps the matrix's accent *) */}
         {months.map((m, i) => (
           (i % labelStep === 0 || i === months.length - 1) && (
-            <text key={`x${m}`} x={barX(i) + barW / 2} y={H - 9} textAnchor="middle" className="fill-ink-faint text-[10px] tabular-nums">
+            <text key={`x${m}`} x={barX(i) + barW / 2} y={CHART_H - 9} textAnchor="middle" className="fill-ink-faint text-[10px] tabular-nums">
               {monthShort(m)}
               {m === currentYm && <tspan className="fill-accent">*</tspan>}
             </text>
@@ -210,7 +184,7 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
           <line
             x1={PAD_LEFT}
             y1={y(avgSpend)}
-            x2={W - PAD_RIGHT}
+            x2={CHART_W - PAD_RIGHT}
             y2={y(avgSpend)}
             className="stroke-accent"
             strokeWidth={1}
@@ -242,40 +216,31 @@ export function TrendsBars({ data, months, hiddenCategoryIds }: {
           );
         })}
 
-        {/* hover tooltip — same column-aligned box as the running chart, month-granular */}
+        {/* hover tooltip — same column-aligned box as the running chart, month-granular;
+           deltas here can go either way, so + is green and − red (matching the matrix) */}
         {hovered && (() => {
           const bx = barX(hovered.i);
-          const boxX = bx + barW / 2 > W / 2 ? bx - BOX_W - 10 : bx + barW + 10;
+          const boxX = bx + barW / 2 > CHART_W / 2 ? bx - BOX_W - 10 : bx + barW + 10;
           const topY = y(hovered.total);
-          const boxY = Math.max(PAD_TOP + 4, Math.min(topY - boxH / 2, H - PAD_BOTTOM - boxH));
+          const boxY = Math.max(PAD_TOP + 4, Math.min(topY - boxH / 2, CHART_H - PAD_BOTTOM - boxH));
+          const deltaClass = (d: number) => (d > 0 ? 'fill-under' : d < 0 ? 'fill-accent' : 'fill-ink-faint');
           return (
-            <g transform={`translate(${boxX},${boxY})`} className="pointer-events-none">
-              <rect width={BOX_W} height={boxH} rx={4} fill="var(--color-raised)" className="stroke-hairline" strokeWidth={1} />
-              <text x={10} y={16} className="fill-ink-faint text-[10px] uppercase tracking-wide">{monthLabel(hovered.ym)}</text>
-              <text x={10} y={35} className="fill-ink text-[14px] tabular-nums" fontWeight={600}>{formatGBP(hovered.total)}</text>
-              <text x={10} y={51} className={`text-[10px] tabular-nums ${hovered.delta > 0 ? 'fill-under' : hovered.delta < 0 ? 'fill-accent' : 'fill-ink-faint'}`}>
-                {hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)} vs last month` : '— vs last month'}
-              </text>
-              {hovered.rows.map((r, i) => (
-                <g key={r.id}>
-                  <rect x={10} y={66 + i * 13 - 7} width={6} height={6} rx={1} fill={r.color} />
-                  <text x={20} y={66 + i * 13} className="fill-ink-faint text-[9.5px]">
-                    {r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name}
-                  </text>
-                  <text x={BOX_W - 58} y={66 + i * 13} textAnchor="end" className="fill-ink-muted text-[9.5px] tabular-nums">
-                    {formatGBP(r.value)}
-                  </text>
-                  <text
-                    x={BOX_W - 10}
-                    y={66 + i * 13}
-                    textAnchor="end"
-                    className={`text-[8.5px] tabular-nums ${r.delta > 0 ? 'fill-under' : r.delta < 0 ? 'fill-accent' : 'fill-ink-faint'}`}
-                  >
-                    {r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—'}
-                  </text>
-                </g>
-              ))}
-            </g>
+            <SvgBreakdownBox
+              x={boxX}
+              y={boxY}
+              title={monthLabel(hovered.ym)}
+              big={formatGBP(hovered.total)}
+              sub={hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)} vs last month` : '— vs last month'}
+              subClass={deltaClass(hovered.delta)}
+              rows={hovered.rows.map((r) => ({
+                key: r.id,
+                color: r.color,
+                name: r.name,
+                value: formatGBP(r.value),
+                extra: r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—',
+                extraClass: deltaClass(r.delta),
+              }))}
+            />
           );
         })()}
 
