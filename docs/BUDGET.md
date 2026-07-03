@@ -25,7 +25,8 @@ Core model + math: `packages/core` (`ledger`, `list`, `shares`, `comparison`, `t
 ## Overview
 
 The calm, read-mostly home, with a **Month** and a **Trends** view (`features/OverviewMonth.tsx`,
-charts in `apps/web/src/charts/`).
+charts in `apps/web/src/charts/`; the shared frame/£-axis/breakdown-box primitives they draw
+with live in `charts/kit.ts` + `charts/kitComponents.tsx`).
 
 **Month** shows: a headline "This month" total, with year-to-date and average-per-month spend
 underneath (`yearTotal`, `averageSpend` in `core/ledger.ts` / `core/netBalance.ts`) — both bounded
