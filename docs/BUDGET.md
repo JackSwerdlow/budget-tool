@@ -140,6 +140,12 @@ analysis only — the ledger itself is untouched.
 - **Views** (`ManageViews.tsx`) — named, saved show/hide presets (max 4) used by Overview's
   category filter; a View just stores which category ids are hidden, so deleting one is a plain
   row delete (no reassignment needed).
+- **Export** (`ExportData.tsx`, below the tabs on every Manage screen) — portable data exports
+  built client-side from the loaded ledger (`lib/export.ts`, tested): **CSV** (one
+  spreadsheet-ready row per entry, list item, and delivery fee, using the same per-item share
+  maths as the ledger so the my-share column sums exactly) and **JSON** (a full structured
+  dump with a format marker). The browser downloads a file; the desktop app saves via dialog +
+  a `save_text_file` Rust command.
 - **Database** (`DatabaseTools.tsx`, **desktop only**) — Export (save a copy of `budget.db`) and
   Import (replace all data with a chosen `budget.db`). Hidden in the browser build.
 

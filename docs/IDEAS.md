@@ -26,7 +26,6 @@
 
 ## Data
 
-- CSV / JSON export — a portable, per-table export (and a browser path). A full-`.db` backup/restore already exists, but desktop-only.
 - Savings / net-worth / balance carry-forward — a heavier money layer beyond the light Net Balance.
 
 ## Style / IA
