@@ -116,7 +116,11 @@ as Month:
   row matches while any of its categories is shown) + note/item search. A search stays
   scoped to the picked month by default — the term persists while browsing months (arrows /
   picker) — with a "This month / All months" toggle for finding an entry whose month is unknown
-  (all-months hides the month picker). Deletes use a two-click arm/confirm.
+  (all-months hides the month picker). Deletes use a two-click arm/confirm. A **Select** toggle
+  enters multi-select mode: tick entry rows (whole row is the click target; "Select all shown"
+  respects the current filter/search), then recategorise or delete the selection in one go —
+  bulk ops loop the existing per-entry operations, so no new data operation. Lists stay
+  per-row (they hold many categories).
 - **Taxonomy** (`ManageTaxonomy.tsx`) — add / rename / move / delete categories and groups.
   Deleting a category in use reassigns its rows first (Invariant 3). Changes apply retroactively
   across all history, since entries reference categories by id.
