@@ -73,7 +73,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const adjIncomeVisible = showAdjIncome && hasAdjIncome;
 
   const dataMax = Math.max(current, targetVisible ? target : 0, incomeVisible ? incomePence : 0, adjIncomeVisible ? adjIncome : 0);
-  const scale = moneyScale(dataMax, 50000);
+  const scale = moneyScale(dataMax);
   const { y } = scale;
   const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
   const xTicks = dayTicks(days);

@@ -92,12 +92,14 @@ as Month. Clicking a bar (or a matrix month-header) opens that month in the Mont
 
 **Items** (`features/OverviewItems.tsx`, `core/items.ts`) is cross-time item analytics over the
 persisted list-item rows ("how much on milk?"): a searchable table of every item ever bought
-(grouped case-insensitively; latest casing wins), sorted by total spend — times bought, last
-unit price, unit-price **drift** (latest vs first, red up / green down), full total and
-your-share total. Top 15 by default ("Show all" expands; searching always searches everything).
-Clicking a row opens the item's unit-price history: a stepped kit-frame chart, one dot per
-purchase, hover for the date/qty/price. Uses the same shared category filter as Month/Trends;
-analysis only — the ledger itself is untouched.
+(grouped case-insensitively; latest casing wins) — times bought, last unit price, unit-price
+**drift** (latest vs first, red up / green down), full total and your-share total. Every column
+header is sortable (click cycles desc ▼ → asc ▲ → none; "none" falls back to total-spend
+order); the view starts with **Total** sorted desc. Top 15 by default ("Show all" expands;
+searching always searches everything). Clicking a row opens the item's unit-price history: a
+stepped kit-frame chart on a **£5 grid** (`moneyScale`'s step parameter — the money charts keep
+their £500 grid), one dot per purchase, hover for the date/qty/price. Uses the same shared
+category filter as Month/Trends; analysis only — the ledger itself is untouched.
 
 ## Add
 
@@ -130,9 +132,9 @@ analysis only — the ledger itself is untouched.
   row matches while any of its categories is shown) + note/item search. A search stays
   scoped to the picked month by default — the term persists while browsing months (arrows /
   picker) — with a "This month / All months" toggle for finding an entry whose month is unknown
-  (all-months hides the month picker). Deletes use a two-click arm/confirm. A **Select** toggle
-  enters multi-select mode: tick entry rows (whole row is the click target; "Select all shown"
-  respects the current filter/search), then recategorise or delete the selection in one go —
+  (all-months hides the month picker). Deletes use a two-click arm/confirm. An **Edit Multiple**
+  toggle enters multi-select mode: tick entry rows (whole row is the click target; "Select all
+  shown" respects the current filter/search), then recategorise or delete the selection in one go —
   bulk ops loop the existing per-entry operations, so no new data operation. Lists stay
   per-row (they hold many categories).
 - **Taxonomy** (`ManageTaxonomy.tsx`) — add / rename / move / delete categories and groups.

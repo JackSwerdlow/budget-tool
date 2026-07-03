@@ -26,6 +26,7 @@
 
 ## Data
 
+- Improve the data export — the shipped CSV/JSON export (Manage → Export) is a first pass kept as-is for now; revisit its format, columns, and scope after real use.
 - Savings / net-worth / balance carry-forward — a heavier money layer beyond the light Net Balance.
 
 ## Style / IA

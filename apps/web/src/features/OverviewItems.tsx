@@ -6,6 +6,22 @@ import { monthShort } from '../lib/dates';
 
 const TOP_N = 15;
 
+// Raw (un-rounded) drift for sorting; rows display the rounded % of the same figure.
+const driftOf = (s: ItemSummary) =>
+  s.firstUnitPricePence > 0 ? (s.lastUnitPricePence - s.firstUnitPricePence) / s.firstUnitPricePence : 0;
+
+type SortKey = 'name' | 'bought' | 'lastUnit' | 'drift' | 'total' | 'myShare';
+type Sort = { key: SortKey; dir: 'desc' | 'asc' } | null;
+
+const SORT_VALUE: Record<SortKey, (s: ItemSummary) => number | string> = {
+  name: (s) => s.name.toLowerCase(),
+  bought: (s) => s.timesBought,
+  lastUnit: (s) => s.lastUnitPricePence,
+  drift: driftOf,
+  total: (s) => s.totalPence,
+  myShare: (s) => s.totalMyPence,
+};
+
 // Cross-time item analytics: every purchase of an item across all saved lists ("how much
 // on milk?"), with unit-price drift over time. Analysis-only — reads the persisted item
 // rows; the ledger never changes.
@@ -13,6 +29,12 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [selectedName, setSelectedName] = useState<string | null>(null);
+  // Column sort cycles desc → asc → none per header; "none" falls back to the core order
+  // (total spend desc). Starts with the Total column explicitly marked.
+  const [sort, setSort] = useState<Sort>({ key: 'total', dir: 'desc' });
+
+  const cycleSort = (key: SortKey) =>
+    setSort((s) => (s?.key === key ? (s.dir === 'desc' ? { key, dir: 'asc' } : null) : { key, dir: 'desc' }));
 
   const summaries = useMemo(
     () => itemSummaries(data, { excludedCategoryIds: hiddenCategoryIds }),
@@ -21,7 +43,15 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
 
   const term = search.trim().toLowerCase();
   const matching = term === '' ? summaries : summaries.filter((s) => s.name.toLowerCase().includes(term));
-  const shown = showAll || term !== '' ? matching : matching.slice(0, TOP_N);
+  const sorted = sort === null
+    ? matching
+    : [...matching].sort((a, b) => {
+        const va = SORT_VALUE[sort.key](a);
+        const vb = SORT_VALUE[sort.key](b);
+        const cmp = typeof va === 'string' ? va.localeCompare(vb as string) : va - (vb as number);
+        return sort.dir === 'desc' ? -cmp : cmp;
+      });
+  const shown = showAll || term !== '' ? sorted : sorted.slice(0, TOP_N);
   const selected = selectedName !== null ? summaries.find((s) => s.name.toLowerCase() === selectedName) ?? null : null;
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
@@ -44,7 +74,7 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
         <span className="text-xs text-ink-faint">
           {term !== ''
             ? `${matching.length} ${matching.length === 1 ? 'item matches' : 'items match'}`
-            : `top ${Math.min(TOP_N, summaries.length)} of ${summaries.length} by total spend`}
+            : `top ${Math.min(TOP_N, summaries.length)} of ${summaries.length}`}
         </span>
         {term === '' && summaries.length > TOP_N && (
           <button type="button" onClick={() => setShowAll((s) => !s)} className="text-xs text-ink-muted transition-colors hover:text-accent">
@@ -55,12 +85,25 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
 
       <div className="overflow-hidden rounded-lg border border-hairline bg-panel">
         <div className="grid grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">
-          <span>Item</span>
-          <span className="text-right">Bought</span>
-          <span className="text-right">Last unit</span>
-          <span className="text-right">Drift</span>
-          <span className="text-right">Total</span>
-          <span className="text-right">Your share</span>
+          {([
+            ['name', 'Item', 'text-left'],
+            ['bought', 'Bought', 'text-right'],
+            ['lastUnit', 'Last unit', 'text-right'],
+            ['drift', 'Drift', 'text-right'],
+            ['total', 'Total', 'text-right'],
+            ['myShare', 'Your share', 'text-right'],
+          ] as const).map(([key, label, align]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => cycleSort(key)}
+              aria-sort={sort?.key === key ? (sort.dir === 'desc' ? 'descending' : 'ascending') : undefined}
+              className={`${align} uppercase tracking-wide transition-colors hover:text-accent ${sort?.key === key ? 'font-semibold text-ink-muted' : ''}`}
+            >
+              {label}
+              {sort?.key === key && <span className="ml-0.5">{sort.dir === 'desc' ? '▼' : '▲'}</span>}
+            </button>
+          ))}
         </div>
         {shown.map((s) => {
           const active = selected?.name === s.name;

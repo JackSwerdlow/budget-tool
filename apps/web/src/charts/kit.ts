@@ -21,12 +21,14 @@ export function axisGBP(pence: number): string {
 
 export type MoneyScale = { yMax: number; y: (value: number) => number; ticks: number[] };
 
-// Always scale to the next dataCeiling ceiling so grid lines stay consistent across months.
-export function moneyScale(dataMax: number, dataCeiling: number): MoneyScale {
-  const yMax = Math.ceil(Math.max(dataMax, 1) / dataCeiling) * dataCeiling;
+// The y-axis ceiling is the next multiple of `step`, with a gridline every step — so the
+// grid stays consistent as the data grows. Default £500 suits the whole-month money charts;
+// pass a finer step for small-value charts (the Items unit-price history uses £5).
+export function moneyScale(dataMax: number, step = 50000): MoneyScale {
+  const yMax = Math.ceil(Math.max(dataMax, 1) / step) * step;
   const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
   const ticks: number[] = [];
-  for (let v = 0; v <= yMax; v += dataCeiling) ticks.push(v);
+  for (let v = 0; v <= yMax; v += step) ticks.push(v);
   return { yMax, y, ticks };
 }
 

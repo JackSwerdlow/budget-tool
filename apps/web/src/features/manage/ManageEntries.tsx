@@ -159,7 +159,7 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
           }}
           className={`text-xs transition-colors hover:text-accent ${selecting ? 'text-accent' : 'text-ink-muted'}`}
         >
-          {selecting ? 'Done selecting' : 'Select'}
+          {selecting ? 'Done' : 'Edit Multiple'}
         </button>
         <input
           value={search}
