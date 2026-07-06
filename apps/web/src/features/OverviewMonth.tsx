@@ -4,6 +4,7 @@ import { monthLabel, todayISO } from '../lib/dates';
 import { RunningChart } from '../charts/RunningChart';
 import { GroupingDonut } from '../charts/GroupingDonut';
 import { ComparisonBars } from '../charts/ComparisonBars';
+import { FlowSankey } from '../charts/FlowSankey';
 
 export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const currentYm = todayISO().slice(0, 7);
@@ -69,6 +70,10 @@ export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerDat
 
       <Panel>
         <ComparisonBars data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
+      </Panel>
+
+      <Panel>
+        <FlowSankey data={data} ym={ym} filterActive={hiddenCategoryIds.size > 0} />
       </Panel>
     </div>
   );

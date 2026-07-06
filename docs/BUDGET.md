@@ -55,7 +55,24 @@ group; and "vs last month" bars — each row (group, expandable to its categorie
 toward 100% of *its own* last-month total, green under / red over (`ComparisonBars`,
 `comparison.comparePct`); hovering a group row (or the Total row) shows a column-aligned
 breakdown box — its categories (or the groups), each with this month's total and its own
-vs-last %, matching the running chart's tooltip.
+vs-last %, matching the running chart's tooltip; and a **Money flow** sankey
+(`charts/FlowSankey.tsx`) — when the salary engine's net pay for the month exactly equals the
+recorded income (true by construction for months saved via the Salary tab; it fetches
+`getAllSalaryConfigs` and reruns `calcSalary` client-side), the month reads as a payslip-to-
+ledger flow: **Gross pay** (left) splits into the deduction stubs (Pension / Income tax /
+National Ins. / Student loan, a quiet warm-neutral ramp; zero-value ones dropped) and **Net
+pay** (middle), which fans out into the month's groups (right, donut colours/order). A month
+whose income doesn't reconcile (hand-edited, or no config) falls back to a two-column Net pay →
+groups flow rather than drawing a join that doesn't add up. Income − spend shows as a green
+**Left over** band; a month that spent past its income instead gets a red **From savings**
+source beside Net pay filling the difference (a group's ribbon can straddle both sources). The
+middle and spend columns are top-aligned (spend hangs from Net pay's top edge) so the
+deduction-label zone stays ribbon-free. Clicking a group drills it into its categories in place
+(donut-style; "‹ all groups" collapses); hover boxes: a group shows its category make-up, Net
+pay shows where it all went (each row's % is its share of net pay, so an overspent month's rows
+sum past 100%), Gross pay shows the payslip split. Like Net Balance it is real money — the one
+Month chart the category filter never touches (a header note says so while a filter is active),
+since hidden spend would otherwise masquerade as left over.
 
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
 Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row

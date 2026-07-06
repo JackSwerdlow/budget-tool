@@ -11,6 +11,8 @@
 A UK salary breakdown that turns a yearly gross into a monthly take-home, and writes that
 month's net pay into the budget's income layer (so Net Balance on the Overview reflects it).
 A month picker sits at the top; the tab has three sub-tabs: **Summary**, **Lifetime**, **Config**.
+The engine also powers Overview → Month's **Money flow** sankey, which reruns `calcSalary`
+client-side to draw the month's gross → deductions → net stage (see [BUDGET.md](BUDGET.md)).
 
 ## Data model & inheritance
 
