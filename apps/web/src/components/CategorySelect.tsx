@@ -38,7 +38,7 @@ export function CategorySelect({
         <span className="ml-auto text-ink-faint">▾</span>
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 max-h-72 w-64 overflow-auto rounded-md border border-hairline bg-panel p-2 shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 max-h-72 w-64 max-w-[calc(100vw-1.5rem)] overflow-auto rounded-md border border-hairline bg-panel p-2 shadow-lg sm:left-auto sm:right-0">
           {groups.map((group) => (
             <div key={group.id} className="mb-2 last:mb-0">
               <div className="mb-1 flex items-center gap-1.5">

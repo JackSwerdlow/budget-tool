@@ -34,3 +34,7 @@
 ## Desktop
 
 - Code signing / notarization — unsigned installers warn on first run (SmartScreen / Gatekeeper).
+
+## Mobile
+
+- Android app — Tauri v2 Android target with full feature parity: mobile-first responsive pass on the shared UI (bottom tab bar on narrow screens), content-URI fixes for DB import/export, signed sideloadable APK. Rides the existing desktop SQL path — no new data transport. (In progress.)

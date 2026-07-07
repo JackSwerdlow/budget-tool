@@ -83,7 +83,8 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-hairline bg-panel">
+      <div className="overflow-x-auto rounded-lg border border-hairline bg-panel">
+        <div className="min-w-[36rem]">
         <div className="grid grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">
           {([
             ['name', 'Item', 'text-left'],
@@ -134,6 +135,7 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
           );
         })}
         {shown.length === 0 && <p className="px-3 py-4 text-sm text-ink-muted">No items match this search.</p>}
+        </div>
       </div>
 
       {selected && <ItemDetail summary={selected} />}

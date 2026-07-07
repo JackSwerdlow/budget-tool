@@ -99,8 +99,8 @@ export function App() {
   }, [tab, overviewView]);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-y-2 border-b border-hairline pb-4 pt-8">
+    <div className="mx-auto flex min-h-full max-w-5xl flex-col px-3 sm:px-6">
+      <header className="flex flex-wrap items-baseline justify-between gap-y-2 border-b border-hairline pb-4 pt-6 sm:pt-8">
         <div>
           <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Budget Tool</h1>
           <p className="mt-1 text-sm text-ink-muted">An app to track monthly spending and trends</p>
@@ -113,7 +113,8 @@ export function App() {
         </div>
       </header>
 
-      <nav className="flex gap-1 border-b border-hairline">
+      {/* One nav, two renderings: fixed bottom tab bar on phones, top tabs from sm up. */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-hairline bg-panel pb-[env(safe-area-inset-bottom)] sm:static sm:flex sm:gap-1 sm:border-b sm:border-t-0 sm:bg-transparent sm:pb-0">
         {TABS.map((t) => {
           const active = t.id === tab;
           return (
@@ -122,12 +123,14 @@ export function App() {
               type="button"
               onClick={() => setTab(t.id)}
               aria-current={active ? 'page' : undefined}
-              className={`relative -mb-px px-4 py-3 text-sm transition-colors ${
+              className={`relative px-1 py-3 text-sm transition-colors sm:-mb-px sm:px-4 ${
                 active ? 'font-medium text-accent' : 'text-ink-muted hover:text-ink'
               }`}
             >
               {t.label}
-              {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
+              {active && (
+                <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-accent sm:inset-x-2 sm:top-auto sm:-bottom-px" />
+              )}
             </button>
           );
         })}
@@ -146,7 +149,7 @@ export function App() {
         ) : tab === 'overview' ? (
           <div>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Segmented
                   value={overviewView}
                   onChange={setOverviewView}
@@ -157,7 +160,7 @@ export function App() {
                   ]}
                 />
                 {data.views.length > 0 && (
-                  <div className="inline-flex items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
+                  <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
                     <button
                       type="button"
                       onClick={() => setHiddenCategoryIds(new Set())}
@@ -278,7 +281,7 @@ export function App() {
         )}
       </main>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint">
+      <footer className="mb-16 flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint sm:mb-0">
         <span>Budget Tool - <a href="https://github.com/JackSwerdlow/budget-tool">GitHub</a> - <a href="https://gam-jam-review.vercel.app/">GamJam Review Page</a></span>
         <span className="hidden items-center gap-2 sm:flex">
           <Kbd>a</Kbd> add

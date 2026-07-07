@@ -4,7 +4,7 @@ import { monthLabel, todayISO } from '../lib/dates';
 
 export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-hairline bg-panel p-5 ${className}`}>{children}</div>
+    <div className={`rounded-lg border border-hairline bg-panel p-4 sm:p-5 ${className}`}>{children}</div>
   );
 }
 
