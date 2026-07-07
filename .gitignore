@@ -243,3 +243,7 @@ npm-debug.log*
 
 # Excel Files
 *.xlsx
+# Android signing — the release keystore and its passwords never enter git.
+apps/desktop/src-tauri/gen/android/keystore.properties
+*.jks
+*.keystore

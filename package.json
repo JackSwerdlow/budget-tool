@@ -19,6 +19,8 @@
     "seed:demo": "cross-env BUDGET_DB=data/budget-demo.db node apps/api/src/seed-demo.ts",
     "tauri:dev": "npm -w @budget/desktop run tauri dev",
     "tauri:build": "npm -w @budget/desktop run tauri build",
+    "tauri:android:dev": "npm -w @budget/desktop run tauri android dev",
+    "tauri:android:build": "npm -w @budget/desktop run tauri android build -- --apk -t aarch64",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint ."
