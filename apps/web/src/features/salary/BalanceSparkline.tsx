@@ -1,6 +1,7 @@
-import { useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { area, curveStepAfter, line } from 'd3-shape';
 import { formatGBP, type StudentLoanResult } from '@budget/core';
+import { useDismissOnOutsideTap } from '../../charts/kit';
 import { monthLabel } from '../../lib/dates';
 
 // Per-month balance sparkline for the student-loan tracker. The walk's series starts at the
@@ -9,6 +10,8 @@ import { monthLabel } from '../../lib/dates';
 // change vs the previous month (up = red, down = green — a growing loan is the bad case).
 export function BalanceSparkline({ series }: { series: StudentLoanResult['series'] }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useDismissOnOutsideTap(hoverIdx !== null, wrapRef, () => setHoverIdx(null));
   const startIdx = series.findIndex((p) => p.balancePence > 0);
   const pts = startIdx === -1 ? [] : series.slice(startIdx);
   if (pts.length < 2) return null;
@@ -28,7 +31,7 @@ export function BalanceSparkline({ series }: { series: StudentLoanResult['series
   const linePath = line<Pt>().x((d) => x(d.i)).y((d) => y(d.v)).curve(curveStepAfter)(data) ?? '';
   const areaPath = area<Pt>().x((d) => x(d.i)).y0(H - PAD).y1((d) => y(d.v)).curve(curveStepAfter)(data) ?? '';
 
-  const onMove = (e: ReactMouseEvent<SVGRectElement>) => {
+  const onMove = (e: ReactPointerEvent<SVGRectElement>) => {
     const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
     const svgX = ((e.clientX - rect.left) / rect.width) * W;
     const i = Math.round(((svgX - PAD) / (W - 2 * PAD)) * (pts.length - 1));
@@ -43,7 +46,7 @@ export function BalanceSparkline({ series }: { series: StudentLoanResult['series
   const hoverDelta = hoverIdx !== null && hoverIdx > 0 ? pts[hoverIdx].balancePence - pts[hoverIdx - 1].balancePence : null;
 
   return (
-    <div className="mt-4">
+    <div ref={wrapRef} className="mt-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Student-loan balance by month">
         <path d={areaPath} className="fill-accent/10" />
         <path d={linePath} className="stroke-accent" strokeWidth={1.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
@@ -55,7 +58,12 @@ export function BalanceSparkline({ series }: { series: StudentLoanResult['series
         ) : (
           <circle cx={x(data.length - 1)} cy={y(last.balancePence)} r={3} className="fill-accent" />
         )}
-        <rect x={0} y={0} width={W} height={H} fill="transparent" onMouseMove={onMove} onMouseLeave={() => setHoverIdx(null)} />
+        <rect
+          x={0} y={0} width={W} height={H} fill="transparent"
+          onPointerMove={onMove}
+          onPointerDown={onMove}
+          onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoverIdx(null); }}
+        />
       </svg>
       {hovered ? (
         <div className="mt-1 flex justify-between text-[10px]">

@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react';
+import { useState, type PointerEvent } from 'react';
 import { area, curveStepAfter, line } from 'd3-shape';
 import {
   formatGBP,
@@ -10,7 +10,7 @@ import {
 } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { dayOfMonth, daysInMonth, monthAbbr, todayISO } from '../lib/dates';
-import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, boxHeight, moneyScale } from './kit';
+import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
 import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 type Pt = { day: number; value: number };
@@ -31,6 +31,11 @@ function dayTicks(days: number): number[] {
 
 export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  // Width-aware frame, destructured under the frame constants' old names so the chart body
+  // reads the same as every fixed-frame chart.
+  const { ref: wrapRef, frame } = useChartFrame();
+  const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
+  useDismissOnOutsideTap(hoveredDay !== null, wrapRef, () => setHoveredDay(null));
   // The reference lines are toggleable: hiding one also releases the y-axis from its value
   // (useful when a filtered-down total sits far below income). Last Month starts on; the
   // income lines start off.
@@ -73,7 +78,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const adjIncomeVisible = showAdjIncome && hasAdjIncome;
 
   const dataMax = Math.max(current, targetVisible ? target : 0, incomeVisible ? incomePence : 0, adjIncomeVisible ? adjIncome : 0);
-  const scale = moneyScale(dataMax);
+  const scale = moneyScale(dataMax, frame);
   const { y } = scale;
   const x = (day: number) => PAD_LEFT + (day / days) * INNER_W;
   const xTicks = dayTicks(days);
@@ -145,7 +150,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     denseByDay[d] = carry;
   }
 
-  const handleMouseMove = (e: MouseEvent<SVGRectElement>) => {
+  const handlePointer = (e: PointerEvent<SVGRectElement>) => {
     const svgEl = e.currentTarget.closest('svg')!;
     const rect = svgEl.getBoundingClientRect();
     const svgX = ((e.clientX - rect.left) / rect.width) * CHART_W;
@@ -189,8 +194,8 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const monthName = monthAbbr(ym);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+    <div ref={wrapRef} className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h3 className="font-serif text-base text-ink">Running total</h3>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
@@ -225,7 +230,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
         </div>
       </div>
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
-        <MoneyGrid scale={scale} />
+        <MoneyGrid scale={scale} frame={frame} />
 
         {/* x-axis day ticks + labels */}
         {xTicks.map((d) => (
@@ -347,13 +352,15 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           );
         })()}
 
-        {/* invisible overlay — must be last to sit on top */}
+        {/* invisible overlay — must be last to sit on top. Pointer events so a tap reveals
+           the breakdown on touch (outside-tap/scroll dismisses; see kit). */}
         <rect
           x={PAD_LEFT} y={PAD_TOP}
           width={INNER_W} height={INNER_H}
           fill="transparent"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoveredDay(null)}
+          onPointerMove={handlePointer}
+          onPointerDown={handlePointer}
+          onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredDay(null); }}
         />
       </svg>
     </div>

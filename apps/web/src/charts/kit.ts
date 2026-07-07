@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 
 // Shared chart primitives (values & hooks) — the visual language the Overview/Trends charts
 // have in common. The matching components (MoneyGrid, the breakdown boxes) live in
@@ -14,6 +14,49 @@ export const PAD_TOP = 22;
 export const PAD_BOTTOM = 28;
 export const INNER_W = CHART_W - PAD_LEFT - PAD_RIGHT;
 export const INNER_H = CHART_H - PAD_TOP - PAD_BOTTOM;
+
+// A chart's viewBox geometry. Charts historically hardcoded the 720×230 frame; on a phone
+// that scales SVG text below legibility, so width-aware charts pick a frame from their
+// measured CSS width instead (COMPACT is ~1:1 viewBox-to-pixel on a 360–412px phone).
+export type ChartFrame = {
+  W: number;
+  H: number;
+  PAD_LEFT: number;
+  PAD_RIGHT: number;
+  PAD_TOP: number;
+  PAD_BOTTOM: number;
+  INNER_W: number;
+  INNER_H: number;
+};
+
+export const DESKTOP_FRAME: ChartFrame = {
+  W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H,
+};
+
+export const COMPACT_FRAME: ChartFrame = {
+  W: 390, H: 250, PAD_LEFT: 46, PAD_RIGHT: 12, PAD_TOP: 22, PAD_BOTTOM: 28,
+  INNER_W: 390 - 46 - 12, INNER_H: 250 - 22 - 28,
+};
+
+// Frame chosen from the ref'd element's measured CSS width (ResizeObserver). Defaults to
+// DESKTOP_FRAME before the first measurement so SSR-less first paint matches the old output.
+export function useChartFrame<T extends HTMLElement = HTMLDivElement>(): {
+  ref: RefObject<T | null>;
+  frame: ChartFrame;
+} {
+  const ref = useRef<T>(null);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      setCompact(entries[0].contentRect.width < 480);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, frame: compact ? COMPACT_FRAME : DESKTOP_FRAME };
+}
 
 export function axisGBP(pence: number): string {
   return `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
@@ -43,10 +86,10 @@ function niceStep(max: number): number {
 // data, so a 4p item history gets a 1p grid while a £2,000 month keeps a £500 one — a fixed
 // step either drowns small charts (one line) or big ones (dozens). An empty chart keeps the
 // old £0–£500 frame rather than a silly 1p axis.
-export function moneyScale(dataMax: number): MoneyScale {
+export function moneyScale(dataMax: number, frame: ChartFrame = DESKTOP_FRAME): MoneyScale {
   const step = dataMax > 0 ? niceStep(dataMax) : 50000;
   const yMax = Math.max(Math.ceil(dataMax / step) * step, step);
-  const y = (value: number) => PAD_TOP + INNER_H - (value / yMax) * INNER_H;
+  const y = (value: number) => frame.PAD_TOP + frame.INNER_H - (value / yMax) * frame.INNER_H;
   const ticks: number[] = [];
   for (let v = 0; v <= yMax; v += step) ticks.push(v);
   const format = step < 100 ? (pence: number) => `£${(pence / 100).toFixed(2)}` : axisGBP;
@@ -68,14 +111,38 @@ export function ellipsize(name: string, max = 12): string {
 
 // ---- Cursor-following HTML breakdown box (see CursorBreakdownBox) ----
 
+// While `active`, a pointer-down outside `ref` (or any scroll) dismisses via `clear` — the
+// touch counterpart of mouseleave, so a tap-revealed tooltip doesn't stick around forever.
+export function useDismissOnOutsideTap(active: boolean, ref: RefObject<Element | null>, clear: () => void) {
+  useEffect(() => {
+    if (!active) return;
+    const onDown = (e: Event) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) clear();
+    };
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('scroll', clear, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('scroll', clear, { capture: true });
+    };
+  }, [active, ref, clear]);
+}
+
 // Cursor position relative to a `position: relative` wrapper, for anchoring the box.
+// Pointer-events so touch works: wire `onPointerMove/onPointerDown → moveTo` (a tap reveals)
+// and `onPointerLeave → leave` (mouse-only — touch "leaves" on finger-up, which would kill a
+// just-tapped box; outside-tap/scroll dismissal handles touch instead).
 export function useCursorPos() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const moveTo = (e: ReactMouseEvent) => {
+  const moveTo = (e: ReactPointerEvent) => {
     const r = wrapRef.current?.getBoundingClientRect();
     if (r) setPos({ x: e.clientX - r.left, y: e.clientY - r.top });
   };
   const clear = () => setPos(null);
-  return { wrapRef, pos, moveTo, clear };
+  const leave = (e: ReactPointerEvent) => {
+    if (e.pointerType !== 'touch') setPos(null);
+  };
+  useDismissOnOutsideTap(pos !== null, wrapRef, clear);
+  return { wrapRef, pos, moveTo, leave, clear };
 }

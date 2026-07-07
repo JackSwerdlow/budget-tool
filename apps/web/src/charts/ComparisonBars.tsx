@@ -1,4 +1,4 @@
-import { useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   categoryTotals,
   comparePct,
@@ -7,7 +7,7 @@ import {
   type Category,
   type LedgerData,
 } from '@budget/core';
-import { useCursorPos } from './kit';
+import { useCursorPos, useDismissOnOutsideTap } from './kit';
 import { CursorBreakdownBox } from './kitComponents';
 
 type Row = { id: number; name: string; color: string; thisPence: number; lastFullPence: number };
@@ -67,14 +67,16 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
   const totalThis = groupRows.reduce((s, r) => s + r.thisPence, 0);
   const totalLast = groupRows.reduce((s, r) => s + r.lastFullPence, 0);
 
-  const onRowHover = (e: ReactMouseEvent, id: number) => {
+  const onRowHover = (e: ReactPointerEvent, id: number) => {
     setHoverId(id);
     moveTo(e);
   };
-  const endHover = () => {
+  const endHover = (e: ReactPointerEvent) => {
+    if (e.pointerType === 'touch') return; // touch dismissal = outside tap/scroll (kit)
     setHoverId(null);
     clear();
   };
+  useDismissOnOutsideTap(hoverId !== null, wrapRef, () => setHoverId(null));
 
   // Same box as the running chart's tooltip: rows column-aligned, totals to one edge, the
   // smaller vs-last % in its own column with a "new" dash when there's no baseline.
@@ -104,8 +106,9 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
         <>
           <div
             className="overflow-hidden rounded-t"
-            onMouseMove={(e) => onRowHover(e, 0)}
-            onMouseLeave={endHover}
+            onPointerMove={(e) => onRowHover(e, 0)}
+            onPointerDown={(e) => onRowHover(e, 0)}
+            onPointerLeave={endHover}
           >
             <TotalRow thisPence={totalThis} lastFullPence={totalLast} />
           </div>
@@ -115,7 +118,7 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
               const cats = categoryRows(row.id);
               return (
                 <div key={row.id} className={`overflow-hidden border-t border-hairline ${index === groupRows.length - 1 ? 'rounded-b' : ''}`}>
-                  <div onMouseMove={(e) => onRowHover(e, row.id)} onMouseLeave={endHover}>
+                  <div onPointerMove={(e) => onRowHover(e, row.id)} onPointerDown={(e) => onRowHover(e, row.id)} onPointerLeave={endHover}>
                     <BarRow row={row} strong expandable={groupCatCount(row.id) > 1} open={open} onToggle={groupCatCount(row.id) > 1 ? () => toggle(row.id) : undefined} />
                   </div>
                   {open && (

@@ -3,7 +3,7 @@ import { calcSalary, categoryTotals, formatGBP, income, type LedgerData, type Sa
 import { getAllSalaryConfigs } from '../api';
 import { previewEmploymentStart, previewYtd, ymToYearMonth } from '../features/salary/salaryState';
 import { monthLabel, todayISO } from '../lib/dates';
-import { CHART_W, ellipsize, useCursorPos } from './kit';
+import { CHART_W, ellipsize, useCursorPos, useDismissOnOutsideTap } from './kit';
 import { CursorBreakdownBox } from './kitComponents';
 
 // Money flow — a sankey for the viewed month. When the salary engine's net pay for the month
@@ -153,10 +153,12 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     };
   }, [data]);
 
-  const clearHover = () => {
+  const clearHover = (e?: { pointerType?: string }) => {
+    if (e?.pointerType === 'touch') return; // touch dismissal = outside tap/scroll (kit)
     setHovered(null);
     clear();
   };
+  useDismissOnOutsideTap(hovered !== null, wrapRef, () => setHovered(null));
 
   const currentYm = todayISO().slice(0, 7);
   const inc = income(data, ym, currentYm);
@@ -331,9 +333,10 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
               className={l.target.groupId !== undefined || drilled ? 'cursor-pointer' : ''}
               style={{ opacity: linkActive(l) ? (hovered === null ? 0.5 : 0.75) : 0.15, transition: 'opacity 150ms' }}
               onClick={() => onNodeClick(l.target)}
-              onMouseEnter={() => setHovered(l.target.key)}
-              onMouseMove={moveTo}
-              onMouseLeave={clearHover}
+              onPointerEnter={() => setHovered(l.target.key)}
+              onPointerMove={moveTo}
+              onPointerDown={(e) => { setHovered(l.target.key); moveTo(e); }}
+              onPointerLeave={clearHover}
             >
               <title>{`${l.source.name} → ${l.target.name}`}</title>
             </path>
@@ -348,9 +351,10 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
               className={n.groupId !== undefined || drilled ? 'cursor-pointer' : ''}
               style={{ opacity: activeKeys !== null && !activeKeys.has(n.key) ? 0.35 : 1, transition: 'opacity 150ms' }}
               onClick={() => onNodeClick(n)}
-              onMouseEnter={() => setHovered(n.key)}
-              onMouseMove={moveTo}
-              onMouseLeave={clearHover}
+              onPointerEnter={() => setHovered(n.key)}
+              onPointerMove={moveTo}
+              onPointerDown={(e) => { setHovered(n.key); moveTo(e); }}
+              onPointerLeave={clearHover}
             >
               <rect x={col.x} y={n.y} width={NODE_W} height={Math.max(n.h, 1.5)} rx={2} fill={n.color} stroke="var(--color-panel)" strokeWidth={1}>
                 <title>{n.name}</title>

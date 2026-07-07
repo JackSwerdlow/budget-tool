@@ -1,16 +1,17 @@
 import type { RefObject } from 'react';
-import { BOX_W, CHART_W, PAD_LEFT, PAD_RIGHT, boxHeight, ellipsize, type MoneyScale } from './kit';
+import { BOX_W, DESKTOP_FRAME, boxHeight, ellipsize, type ChartFrame, type MoneyScale } from './kit';
 
 // Shared chart components — see kit.ts for the values/hooks half.
 
-// Horizontal gridlines + right-aligned £ labels for a money y-axis.
-export function MoneyGrid({ scale }: { scale: MoneyScale }) {
+// Horizontal gridlines + right-aligned £ labels for a money y-axis. Pass the same frame the
+// scale was built with (width-aware charts) — the default keeps fixed-frame charts unchanged.
+export function MoneyGrid({ scale, frame = DESKTOP_FRAME }: { scale: MoneyScale; frame?: ChartFrame }) {
   return (
     <>
       {scale.ticks.map((t) => (
         <g key={`y${t}`}>
-          <line x1={PAD_LEFT} y1={scale.y(t)} x2={CHART_W - PAD_RIGHT} y2={scale.y(t)} className="stroke-hairline/60" strokeWidth={1} />
-          <text x={PAD_LEFT - 8} y={scale.y(t) + 3} textAnchor="end" className="fill-ink-faint text-[10px] tabular-nums">
+          <line x1={frame.PAD_LEFT} y1={scale.y(t)} x2={frame.W - frame.PAD_RIGHT} y2={scale.y(t)} className="stroke-hairline/60" strokeWidth={1} />
+          <text x={frame.PAD_LEFT - 8} y={scale.y(t) + 3} textAnchor="end" className="fill-ink-faint text-[10px] tabular-nums">
             {scale.format(t)}
           </text>
         </g>

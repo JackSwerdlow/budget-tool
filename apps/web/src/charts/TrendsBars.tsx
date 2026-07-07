@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { formatGBP, income, previousMonth, type LedgerData } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
-import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_RIGHT, PAD_TOP, boxHeight, moneyScale } from './kit';
+import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
 import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 // Per-month stacked bars over the same range as the category×month matrix — the running
@@ -20,6 +20,12 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [showAvg, setShowAvg] = useState(true);
   const [showIncome, setShowIncome] = useState(false);
+  // On touch, the first tap on a column reveals the breakdown and must not also navigate;
+  // a second tap on the now-hovered column clicks through as normal.
+  const suppressClick = useRef(false);
+  const { ref: wrapRef, frame } = useChartFrame();
+  const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
+  useDismissOnOutsideTap(hoveredIdx !== null, wrapRef, () => setHoveredIdx(null));
 
   const currentYm = todayISO().slice(0, 7);
 
@@ -80,7 +86,7 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
     avgVisible ? avgSpend : 0,
     incomeVisible ? Math.max(...incomes) : 0,
   );
-  const scale = moneyScale(dataMax);
+  const scale = moneyScale(dataMax, frame);
   const { y } = scale;
 
   const band = INNER_W / months.length;
@@ -115,10 +121,10 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
   const boxH = boxHeight(hovered?.rows.length ?? 0);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+    <div ref={wrapRef} className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h3 className="font-serif text-base text-ink">Spend by month</h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             {hasAvg && (
               <LineToggle
@@ -143,7 +149,7 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
         </div>
       </div>
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
-        <MoneyGrid scale={scale} />
+        <MoneyGrid scale={scale} frame={frame} />
 
         {/* x labels (thinned on long ranges; the current month keeps the matrix's accent *) */}
         {months.map((m, i) => (
@@ -261,9 +267,16 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
             className="cursor-pointer"
             role="button"
             aria-label={`Open ${monthLabel(m)} in the Month view`}
-            onMouseEnter={() => setHoveredIdx(i)}
-            onMouseLeave={() => setHoveredIdx(null)}
-            onClick={() => onOpenMonth(m)}
+            onPointerEnter={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
+            onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}
+            onPointerDown={(e) => {
+              if (e.pointerType === 'touch' && hoveredIdx !== i) suppressClick.current = true;
+              setHoveredIdx(i);
+            }}
+            onClick={() => {
+              if (suppressClick.current) { suppressClick.current = false; return; }
+              onOpenMonth(m);
+            }}
           />
         ))}
       </svg>

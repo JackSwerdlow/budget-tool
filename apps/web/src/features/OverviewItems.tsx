@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { formatGBP, itemSummaries, type ItemSummary, type LedgerData } from '@budget/core';
-import { CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_TOP, moneyScale } from '../charts/kit';
+import { moneyScale, useChartFrame, useDismissOnOutsideTap } from '../charts/kit';
 import { MoneyGrid, SvgBreakdownBox } from '../charts/kitComponents';
 import { monthShort } from '../lib/dates';
 
@@ -147,6 +147,9 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
 // purchase, hover for the exact date/qty/price.
 function ItemDetail({ summary }: { summary: ItemSummary }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const { ref: wrapRef, frame } = useChartFrame();
+  const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
+  useDismissOnOutsideTap(hoverIdx !== null, wrapRef, () => setHoverIdx(null));
   const pts = summary.purchases;
 
   if (pts.length < 2) {
@@ -157,7 +160,7 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
     );
   }
 
-  const scale = moneyScale(Math.max(...pts.map((p) => p.unitPricePence)));
+  const scale = moneyScale(Math.max(...pts.map((p) => p.unitPricePence)), frame);
   const { y } = scale;
   const x = (i: number) => PAD_LEFT + (pts.length === 1 ? INNER_W / 2 : (i / (pts.length - 1)) * INNER_W);
   // Step path: unit price holds until the next purchase changes it.
@@ -170,16 +173,23 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
   const labelStep = Math.ceil(pts.length / 10);
   const hovered = hoverIdx !== null ? pts[hoverIdx] : null;
 
+  const seek = (e: ReactPointerEvent<SVGRectElement>) => {
+    const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * CHART_W;
+    const i = Math.round(((svgX - PAD_LEFT) / INNER_W) * (pts.length - 1));
+    setHoverIdx(Math.max(0, Math.min(i, pts.length - 1)));
+  };
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline gap-3">
+    <div ref={wrapRef} className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h4 className="font-serif text-sm text-ink">{summary.name} — unit price over purchases</h4>
         <span className="text-xs text-ink-faint">
           {formatGBP(summary.firstUnitPricePence)} first · {formatGBP(summary.lastUnitPricePence)} latest
         </span>
       </div>
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Unit price of ${summary.name} over time`}>
-        <MoneyGrid scale={scale} />
+        <MoneyGrid scale={scale} frame={frame} />
         {pts.map((p, i) => (
           (i % labelStep === 0 || i === pts.length - 1) && (
             <text key={`x${i}`} x={x(i)} y={CHART_H - 9} textAnchor="middle" className="fill-ink-faint text-[10px] tabular-nums">
@@ -225,13 +235,9 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
           width={INNER_W}
           height={INNER_H}
           fill="transparent"
-          onMouseMove={(e) => {
-            const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
-            const svgX = ((e.clientX - rect.left) / rect.width) * CHART_W;
-            const i = Math.round(((svgX - PAD_LEFT) / INNER_W) * (pts.length - 1));
-            setHoverIdx(Math.max(0, Math.min(i, pts.length - 1)));
-          }}
-          onMouseLeave={() => setHoverIdx(null)}
+          onPointerMove={seek}
+          onPointerDown={seek}
+          onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoverIdx(null); }}
         />
       </svg>
     </div>

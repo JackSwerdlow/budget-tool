@@ -199,9 +199,12 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
               className="grid min-w-max gap-0"
               // Column 1 (11.5px): invisible indent spacer for subcategory rows.
               // Column 2 (remainder): label content. Group rows span both with col-span-2.
-              style={{ gridTemplateColumns: `11.5px calc(10.5rem - 11.5px) repeat(${months.length}, minmax(88px, 1fr))` }}
+              // min() narrows the label column on phones (38vw) without touching desktop
+              // (10.5rem always wins from ~442px up); label cells are sticky so the row
+              // names survive the horizontal scroll.
+              style={{ gridTemplateColumns: `11.5px calc(min(10.5rem, 38vw) - 11.5px) repeat(${months.length}, minmax(72px, 1fr))` }}
             >
-              <div className="col-span-2 flex h-9 items-center justify-center bg-panel px-2 text-[11px] uppercase tracking-wide text-ink-faint border-r-[1.75px] border-hairline">
+              <div className="sticky left-0 z-10 col-span-2 flex h-9 items-center justify-center bg-panel px-2 text-[11px] uppercase tracking-wide text-ink-faint border-r-[1.75px] border-hairline">
                 Group
               </div>
               {/* month headers open that month in the Month view */}
@@ -276,7 +279,9 @@ function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend }: 
 
   const labelClass = [
     `flex ${row.strong ? 'h-14' : 'h-10'} w-full items-center gap-1.5 transition-colors`,
-    row.strong ? `col-span-2 px-2 text-[15px] border-l-[1.75px] border-black ${groupBorder}` : `px-2 text-sm ${subcatBorder}`,
+    row.strong
+      ? `sticky left-0 z-10 col-span-2 px-2 text-[15px] border-l-[1.75px] border-black ${groupBorder}`
+      : `sticky left-[11.5px] z-10 px-2 text-sm ${subcatBorder}`,
     isClickable ? 'cursor-pointer' : '',
     labelBg,
   ].join(' ');
@@ -285,7 +290,7 @@ function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend }: 
     <>
       {/* Indent spacer: occupies the first grid column for subcategory rows, paper background so it's invisible */}
       {!row.strong && (
-        <div className="h-10" style={{ backgroundColor: 'var(--color-paper)' }} />
+        <div className="sticky left-0 z-10 h-10" style={{ backgroundColor: 'var(--color-paper)' }} />
       )}
       {isClickable ? (
         <button type="button" onClick={onToggle} {...rowHandlers} className={labelClass}>
@@ -381,7 +386,7 @@ function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; m
   const totalRange = maxTotal - minTotal;
   return (
     <>
-      <div className={`col-span-2 flex h-11 items-center justify-center px-2 ${colBorder}`}>
+      <div className={`sticky left-0 z-10 col-span-2 flex h-11 items-center justify-center bg-paper px-2 ${colBorder}`}>
         <span className="font-extrabold text-[19px] text-ink">Month Totals</span>
       </div>
       {monthTotals.map((amount, j) => {

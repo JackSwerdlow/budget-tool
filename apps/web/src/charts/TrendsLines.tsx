@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatGBP, previousMonth, type LedgerData } from '@budget/core';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
-import { BOX_W, CHART_H, CHART_W, INNER_H, INNER_W, PAD_BOTTOM, PAD_LEFT, PAD_TOP, boxHeight, moneyScale } from './kit';
+import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
 import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 type Series = { id: number; name: string; color: string; values: number[] };
@@ -19,6 +19,9 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   const [drillGroupId, setDrillGroupId] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [emphasisId, setEmphasisId] = useState<number | null>(null);
+  const { ref: wrapRef, frame } = useChartFrame();
+  const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
+  useDismissOnOutsideTap(hoveredIdx !== null, wrapRef, () => setHoveredIdx(null));
 
   const currentYm = todayISO().slice(0, 7);
   if (months.length === 0) return null;
@@ -47,7 +50,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   if (groupSeries.length === 0) return null;
 
   const dataMax = Math.max(...series.flatMap((s) => s.values));
-  const scale = moneyScale(dataMax);
+  const scale = moneyScale(dataMax, frame);
   const { y } = scale;
   const band = INNER_W / months.length;
   const cx = (i: number) => PAD_LEFT + i * band + band / 2;
@@ -84,7 +87,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   const lineOpacity = (id: number) => (emphasisId === null ? 1 : emphasisId === id ? 1 : 0.25);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={wrapRef} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div className="flex items-baseline gap-3">
           <h3 className="font-serif text-base text-ink">Category trend</h3>
@@ -125,11 +128,11 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
       <svg
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         className="w-full"
-        onMouseLeave={() => setHoveredIdx(null)}
+        onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}
         role="img"
         aria-label={`${drilled ? `${drillGroup!.name} categories` : 'Group'} spend trend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}
       >
-        <MoneyGrid scale={scale} />
+        <MoneyGrid scale={scale} frame={frame} />
 
         {months.map((m, i) => (
           (i % labelStep === 0 || i === months.length - 1) && (
@@ -155,7 +158,8 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
             width={band}
             height={INNER_H}
             fill="transparent"
-            onMouseEnter={() => setHoveredIdx(i)}
+            onPointerEnter={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
+            onPointerDown={() => setHoveredIdx(i)}
           />
         ))}
 
@@ -189,9 +193,9 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
               className={drilled ? '' : 'cursor-pointer'}
               role={drilled ? undefined : 'button'}
               aria-label={drilled ? undefined : `Show ${s.name}'s categories`}
-              onMouseEnter={() => setEmphasisId(s.id)}
-              onMouseLeave={() => setEmphasisId(null)}
-              onMouseMove={(e) => {
+              onPointerEnter={(e) => { if (e.pointerType !== 'touch') setEmphasisId(s.id); }}
+              onPointerLeave={(e) => { if (e.pointerType !== 'touch') setEmphasisId(null); }}
+              onPointerMove={(e) => {
                 // The fat stroke sits above the month columns, so it keeps the month
                 // tooltip alive itself: map the pointer back through the viewBox scale.
                 const r = e.currentTarget.ownerSVGElement?.getBoundingClientRect();

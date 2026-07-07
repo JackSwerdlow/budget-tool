@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { arc, pie } from 'd3-shape';
 import { categoryTotals, formatGBP, type LedgerData } from '@budget/core';
-import { useCursorPos } from './kit';
+import { useCursorPos, useDismissOnOutsideTap } from './kit';
 import { CursorBreakdownBox } from './kitComponents';
 
 type Slice = { id: number; name: string; color: string; value: number };
@@ -25,10 +25,12 @@ export function GroupingDonut({
   useEffect(() => setExpanded(null), [ym, hiddenCategoryIds]);
   useEffect(() => setHoveredId(null), [expanded]);
 
-  const clearHover = () => {
+  const clearHover = (e?: { pointerType?: string }) => {
+    if (e?.pointerType === 'touch') return; // touch dismissal = outside tap/scroll (kit)
     setHoveredId(null);
     clear();
   };
+  useDismissOnOutsideTap(hoveredId !== null, wrapRef, () => setHoveredId(null));
 
   const catTotals = categoryTotals(data, ym);
   const groupValue = (groupId: number) =>
@@ -75,9 +77,10 @@ export function GroupingDonut({
             className="cursor-pointer transition-opacity"
             style={{ opacity: hoveredId !== null && hoveredId !== a.data.id ? 0.35 : 1 }}
             onClick={() => (drilled ? collapse() : setExpanded(a.data.id))}
-            onMouseEnter={() => setHoveredId(a.data.id)}
-            onMouseMove={onHoverMove}
-            onMouseLeave={clearHover}
+            onPointerEnter={() => setHoveredId(a.data.id)}
+            onPointerMove={onHoverMove}
+            onPointerDown={(e) => { setHoveredId(a.data.id); onHoverMove(e); }}
+            onPointerLeave={clearHover}
           >
             <title>{a.data.name}</title>
           </path>
@@ -110,9 +113,10 @@ export function GroupingDonut({
                   onClick={() => (drilled ? collapse() : setExpanded(s.id))}
                   className="flex w-full items-center gap-3 py-1 text-left text-sm transition-opacity bg-raised/40"
                   style={{ opacity: hoveredId !== null && !active ? 0.45 : 1 }}
-                  onMouseEnter={() => setHoveredId(s.id)}
-                  onMouseMove={onHoverMove}
-                  onMouseLeave={clearHover}
+                  onPointerEnter={() => setHoveredId(s.id)}
+                  onPointerMove={onHoverMove}
+                  onPointerDown={(e) => { setHoveredId(s.id); onHoverMove(e); }}
+                  onPointerLeave={clearHover}
                 >
                   <div className="flex w-32 shrink-0 items-center gap-1.5 text-sm text-ink">
                     <span className="w-3 shrink-0" />
