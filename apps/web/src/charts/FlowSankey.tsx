@@ -3,7 +3,7 @@ import { calcSalary, categoryTotals, formatGBP, income, type LedgerData, type Sa
 import { getAllSalaryConfigs } from '../api';
 import { previewEmploymentStart, previewYtd, ymToYearMonth } from '../features/salary/salaryState';
 import { monthLabel, todayISO } from '../lib/dates';
-import { CHART_W, ellipsize, useCursorPos, useDismissOnOutsideTap } from './kit';
+import { CHART_W, ellipsize, useChartFrame, useCursorPos, useDismissOnOutsideTap } from './kit';
 import { CursorBreakdownBox } from './kitComponents';
 
 // Money flow — a sankey for the viewed month. When the salary engine's net pay for the month
@@ -17,14 +17,19 @@ import { CursorBreakdownBox } from './kitComponents';
 // masquerade as left over). Clicking a group drills it into its categories in place.
 
 const NODE_W = 12;
-const L_GUTTER = 86; // two-line left labels (name over value) keep this narrow
-const R_GUTTER = 132;
-const MONEY_PX = 200; // pixel height of the tallest column's money (gaps come on top)
 const GAP = 6;
 const PAD_Y = 10;
-const X_LEFT = L_GUTTER;
-const X_RIGHT = CHART_W - R_GUTTER - NODE_W;
-const X_MID = Math.round((X_LEFT + X_RIGHT) / 2);
+
+// Frame + label-gutter geometry per width mode. Desktop keeps the original numbers exactly;
+// compact shrinks the viewBox to ~1:1 pixels on a phone, narrows the gutters, and switches
+// the right column's labels to two lines (name over value) so they fit the smaller gutter.
+// L_GUTTER: two-line left labels (name over value) keep this narrow.
+// MONEY_PX: pixel height of the tallest column's money (gaps come on top).
+// NAME_MAX: ellipsize length for single-line node names.
+const SANKEY_GEOM = {
+  desktop: { W: CHART_W, L_GUTTER: 86, R_GUTTER: 132, MONEY_PX: 200, NAME_MAX: 14, rightTwoLine: false },
+  compact: { W: 390, L_GUTTER: 64, R_GUTTER: 84, MONEY_PX: 230, NAME_MAX: 11, rightTwoLine: true },
+};
 
 // The deductions ramp — a quiet warm-neutral family (deliberately near-monochrome so the
 // group colours stay dominant), offset from the seeded group tokens.
@@ -142,6 +147,12 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   const [hovered, setHovered] = useState<string | null>(null);
   const [configs, setConfigs] = useState<SalaryConfig[]>([]);
   const { wrapRef, pos, moveTo, clear } = useCursorPos();
+  const { ref: frameRef, frame } = useChartFrame();
+  const geom = frame.W < 480 ? SANKEY_GEOM.compact : SANKEY_GEOM.desktop;
+  const { W, L_GUTTER, R_GUTTER, MONEY_PX, NAME_MAX } = geom;
+  const X_LEFT = L_GUTTER;
+  const X_RIGHT = W - R_GUTTER - NODE_W;
+  const X_MID = Math.round((X_LEFT + X_RIGHT) / 2);
   useEffect(() => setExpanded(null), [ym]);
   useEffect(() => {
     let stale = false;
@@ -286,7 +297,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
       halo: hasGrossStage,
       twoLine: !hasGrossStage,
     },
-    { placed: spendPlaced, x: X_RIGHT, anchor: 'start' as const, labelX: X_RIGHT + NODE_W + 8, halo: false, twoLine: false },
+    { placed: spendPlaced, x: X_RIGHT, anchor: 'start' as const, labelX: X_RIGHT + NODE_W + 8, halo: false, twoLine: geom.rightTwoLine },
   ];
 
   const hoveredGroup = hovered?.startsWith('g') ? data.groups.find((g) => `g${g.id}` === hovered) ?? null : null;
@@ -300,6 +311,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   });
 
   return (
+    <div ref={frameRef}>
     <div ref={wrapRef} className="relative">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-baseline gap-3">
@@ -314,7 +326,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
       </div>
 
       <svg
-        viewBox={`0 0 ${CHART_W} ${svgH}`}
+        viewBox={`0 0 ${W} ${svgH}`}
         className="w-full"
         role="img"
         aria-label={hasGrossStage ? "Money flow: gross pay through deductions and net pay into the month's groups" : "Money flow: net pay into the month's groups"}
@@ -370,7 +382,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
                 </>
               ) : (
                 <text x={col.labelX} y={ys[i]} textAnchor={col.anchor} style={col.halo ? halo : undefined}>
-                  <tspan className={`fill-ink text-[11px] ${hovered === n.key ? 'font-semibold' : ''}`}>{ellipsize(n.name, 14)}</tspan>
+                  <tspan className={`fill-ink text-[11px] ${hovered === n.key ? 'font-semibold' : ''}`}>{ellipsize(n.name, NAME_MAX)}</tspan>
                   <tspan className="fill-ink-faint text-[10px] tabular-nums" dx={6}>
                     {formatGBP(n.value)}
                   </tspan>
@@ -402,6 +414,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
           rows={midPlaced.filter((n) => n.key !== 'savings').map((n) => boxRow(n, gross))}
         />
       )}
+    </div>
     </div>
   );
 }
