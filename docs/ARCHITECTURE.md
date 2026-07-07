@@ -28,8 +28,9 @@ Grotesk on paper tones).
 - **Overview** — the calm, read-mostly home. A *Month* view (running-total chart, grouping
   donut, "vs last month" bars, money-flow sankey), a *Trends* view (stacked bars +
   category×month heat matrix), and an *Items* view (cross-time item analytics). → [BUDGET.md](BUDGET.md)
-- **Add** — *Single* (a fast amount field + category grid) and *List* (an itemised grocery
-  receipt with flatmate splitting). → [BUDGET.md](BUDGET.md)
+- **Add** — *Single* (a fast amount field + category grid), *Monthly* (a confirm-a-pre-filled
+  checklist of recurring items — rent/bills/subs — that writes normal entries), and *List*
+  (an itemised grocery receipt with flatmate splitting). → [BUDGET.md](BUDGET.md)
 - **Manage** — edit/delete past entries and restructure the taxonomy. → [BUDGET.md](BUDGET.md)
 - **Salary** — *Summary / Lifetime / Config* sub-tabs: a UK PAYE breakdown, lifetime
   cumulative-per-tax-year totals, a pension forecast, and a student-loan tracker. Writes the

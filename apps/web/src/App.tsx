@@ -7,6 +7,7 @@ import { useEscape } from './lib/useEscape';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
+import { AddMonthly } from './features/AddMonthly';
 import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
@@ -30,7 +31,7 @@ export function App() {
   const { data, error, loading, refresh } = useData();
   const [tab, setTab] = useState<Tab>('overview');
   const [overviewView, setOverviewView] = useState<'month' | 'trends' | 'items'>('month');
-  const [addView, setAddView] = useState<'single' | 'list'>('single');
+  const [addView, setAddView] = useState<'single' | 'list' | 'monthly'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
   const [showFilter, setShowFilter] = useState(false);
@@ -260,10 +261,17 @@ export function App() {
                 options={[
                   { id: 'single', label: 'Single' },
                   { id: 'list', label: 'List' },
+                  { id: 'monthly', label: 'Monthly' },
                 ]}
               />
             </div>
-            {addView === 'single' ? <AddSingle data={data} /> : <AddList data={data} />}
+            {addView === 'single' ? (
+              <AddSingle data={data} />
+            ) : addView === 'list' ? (
+              <AddList data={data} />
+            ) : (
+              <AddMonthly data={data} />
+            )}
           </div>
         ) : (
           <Manage data={data} ym={ym} onYmChange={setYm} />

@@ -14,6 +14,9 @@
   flatmate **share %**, and category, plus an optional collapsible delivery/bag fee. A list
   contributes one per-category subtotal each to the ledger; it does **not** create entries
   (see Invariant 4 in [ARCHITECTURE.md](ARCHITECTURE.md)).
+- **Recurring item** (a monthly template — rent, bills, subs) — a name, one category, and a
+  default amount. It never holds spend itself: confirming it for a month writes a normal
+  **Entry** (see Add → Monthly), linked via a per-month row so the checklist knows what's done.
 - **Taxonomy** — categories grouped under top-level groups, **one category per entry**.
   Seeded with a default 5 groups / 15 categories but fully customisable via Manage.
 - **Income** — a light per-month figure feeding Net Balance; populated by the Salary tab
@@ -143,6 +146,21 @@ cheap item's history on pennies (sub-£1 grids label ticks at 2dp). An empty cha
   highlighted suggestion, **Tab** fills it and then advances to Qty as normal. A "Start from"
   picker (recent 8 lists) seeds the form with a past list's items **dated today** — the weekly
   shop rarely changes much, so most rows just need a price check; Clear returns to a blank form.
+- **Monthly** (`features/AddMonthly.tsx`, checklist math in `core/recurring.ts`) — a
+  confirm-a-pre-filled checklist for the spends that arrive every month (rent, bills, subs).
+  Each **recurring item** is a template (name, category, default amount); a month shows every
+  item as *due*, *confirmed* (✓ with its entry's date and amount), or *skipped this month*
+  (struck through), with an "x of y done" count. Confirming writes a **normal entry** — amount
+  prefilled from the **last confirmed month's** amount (bills vary; falls back to the template
+  default), date editable (today, or the 1st when browsing another month), Enter confirms —
+  so every view/export sees it like any hand-typed spend; the entry's note carries the item
+  name when it differs from the category name. The template↔entry link lives in
+  `recurring_months` (one row per item×month; `entry_id` NULL = skipped): undoing a
+  confirmation is just deleting its entry (row ✕, or later via Manage) — the FK cascade
+  returns the item to due — and re-confirming an already-confirmed month is rejected outright,
+  so a double count can't happen. "edit items" flips the checklist into template management
+  (rename / recategorise / change default / two-click delete / add); deleting a template keeps
+  its past entries, and templates count as category usage for Manage's reassign-on-delete.
 
 ## Manage
 

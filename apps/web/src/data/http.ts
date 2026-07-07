@@ -1,5 +1,5 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD, View } from '@budget/core';
-import type { DataPort, EntryPatchInput, NewEntryInput, NewListInput } from './port';
+import type { BudgetList, Category, Entry, Group, LedgerData, MonthlyIncome, RecurringTemplate, SalaryConfig, SalaryConfigResponse, SalaryYTD, View } from '@budget/core';
+import type { ConfirmRecurringInput, DataPort, EntryPatchInput, NewEntryInput, NewListInput, NewRecurringTemplateInput } from './port';
 
 // Resolve the API root relative to where the app is actually served, so it works at
 // the origin root AND behind a sub-path reverse proxy (e.g. /proxy/8100/api/…).
@@ -118,6 +118,31 @@ export async function clearDefaultIncome(): Promise<void> {
   if (!res.ok) throw new Error(`clear default income failed: ${res.status}`);
 }
 
+// ── Recurring templates + monthly checklist ──────────────────────────────────
+export const createRecurringTemplate = (input: NewRecurringTemplateInput) =>
+  send<RecurringTemplate>('recurring', 'POST', input);
+
+export const updateRecurringTemplate = (id: number, patch: Partial<NewRecurringTemplateInput>) =>
+  send<RecurringTemplate>(`recurring/${id}`, 'PATCH', patch);
+
+export async function deleteRecurringTemplate(id: number): Promise<void> {
+  const res = await fetch(`${API}recurring/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`delete recurring template failed: ${res.status}`);
+}
+
+export const confirmRecurring = (templateId: number, input: ConfirmRecurringInput) =>
+  send<Entry>(`recurring/${templateId}/confirm`, 'POST', input);
+
+export async function skipRecurring(templateId: number, month: string): Promise<void> {
+  const res = await fetch(`${API}recurring/${templateId}/skip/${month}`, { method: 'PUT' });
+  if (!res.ok) throw new Error(`skip recurring failed: ${res.status}`);
+}
+
+export async function unskipRecurring(templateId: number, month: string): Promise<void> {
+  const res = await fetch(`${API}recurring/${templateId}/skip/${month}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`unskip recurring failed: ${res.status}`);
+}
+
 // ── Salary config ─────────────────────────────────────────────────────────────
 export async function getSalaryConfig(year: number, month: number): Promise<SalaryConfigResponse> {
   const res = await fetch(`${API}salary-config/${year}/${month}`);
@@ -152,4 +177,6 @@ export const httpPort: DataPort = {
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
   getAllSalaryConfigs, createView, updateView, deleteView,
+  createRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
+  confirmRecurring, skipRecurring, unskipRecurring,
 };

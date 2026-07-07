@@ -24,6 +24,8 @@ function makeData(): LedgerData {
       { year: 2026, month: 5, amount_pence: 75000 },
     ],
     views: [],
+    recurringTemplates: [],
+    recurringMonths: [],
     defaultIncomePence: null,
   };
 }
@@ -94,7 +96,7 @@ describe('averageNet (mean over active months through the viewed month; gaps ski
 
   it('returns 0 when there is no activity at all', () => {
     expect(
-      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, NOW, NOW),
+      averageNet({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], recurringTemplates: [], recurringMonths: [], defaultIncomePence: null }, NOW, NOW),
     ).toBe(0);
   });
 
@@ -116,6 +118,8 @@ describe('averageNet (mean over active months through the viewed month; gaps ski
         { year: 2026, month: 5, amount_pence: 101 },
       ],
       views: [],
+      recurringTemplates: [],
+      recurringMonths: [],
       defaultIncomePence: null,
     };
     expect(averageNet(data, NOW, NOW)).toBe(101); // (100 + 101) / 2 = 100.5 -> 101
@@ -140,7 +144,7 @@ describe('averageSpend (mean monthly spend through the viewed month; gaps skippe
 
   it('returns 0 when there is no activity at all', () => {
     expect(
-      averageSpend({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], defaultIncomePence: null }, '2026-06'),
+      averageSpend({ groups: [], categories: [], entries: [], lists: [], income: [], views: [], recurringTemplates: [], recurringMonths: [], defaultIncomePence: null }, '2026-06'),
     ).toBe(0);
   });
 });

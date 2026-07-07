@@ -253,8 +253,61 @@ fn delete_category_tx(conn: &mut Connection, id: i64, reassign_to: i64) -> Resul
     tx.execute("UPDATE entries SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
     tx.execute("UPDATE list_items SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
     tx.execute("UPDATE lists SET delivery_category_id = ?1 WHERE delivery_category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
+    tx.execute("UPDATE recurring_templates SET category_id = ?1 WHERE category_id = ?2", params![reassign_to, id]).map_err(|e| e.to_string())?;
     tx.execute("DELETE FROM categories WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmRecurring {
+    amount_pence: i64,
+    date: String,
+    note: Option<String>,
+}
+
+// Entry + month row atomically. The entry's category always comes from the template row;
+// a month already confirmed errors (replacing entry_id would orphan the old entry into a
+// double count) — undoing a confirmation is deleting its entry (FK cascade).
+fn confirm_recurring_tx(
+    conn: &mut Connection,
+    template_id: i64,
+    input: &ConfirmRecurring,
+    created_at: &str,
+) -> Result<Json, String> {
+    let month: String = input.date.chars().take(7).collect();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let category_id: i64 = tx
+        .query_row("SELECT category_id FROM recurring_templates WHERE id = ?1", params![template_id], |r| r.get(0))
+        .map_err(|_| "recurring template not found".to_string())?;
+    let confirmed: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM recurring_months WHERE template_id = ?1 AND month = ?2 AND entry_id IS NOT NULL",
+            params![template_id, month],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if confirmed > 0 {
+        return Err("month already confirmed".to_string());
+    }
+    tx.execute(
+        "INSERT INTO entries (amount_pence, category_id, date, note, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![input.amount_pence, category_id, input.date, input.note, created_at],
+    )
+    .map_err(|e| e.to_string())?;
+    let entry_id = tx.last_insert_rowid();
+    tx.execute(
+        "INSERT INTO recurring_months (template_id, month, entry_id) VALUES (?1, ?2, ?3)
+         ON CONFLICT(template_id, month) DO UPDATE SET entry_id = excluded.entry_id",
+        params![template_id, month, entry_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    let mut rows = select(
+        conn,
+        "SELECT id, amount_pence, category_id, date, note, created_at FROM entries WHERE id = $1",
+        &[json!(entry_id)],
+    )?;
+    rows.pop().ok_or_else(|| "entry not found after insert".to_string())
 }
 
 fn reorder_groups_tx(conn: &mut Connection, ids: &[i64]) -> Result<(), String> {
@@ -295,6 +348,17 @@ pub fn update_list(state: State<Db>, id: i64, input: NewList) -> Result<Json, St
 pub fn delete_category(state: State<Db>, id: i64, reassign_to: i64) -> Result<(), String> {
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     delete_category_tx(&mut conn, id, reassign_to)
+}
+
+#[tauri::command]
+pub fn confirm_recurring(
+    state: State<Db>,
+    template_id: i64,
+    input: ConfirmRecurring,
+    created_at: String,
+) -> Result<Json, String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    confirm_recurring_tx(&mut conn, template_id, &input, &created_at)
 }
 
 #[tauri::command]
@@ -519,6 +583,100 @@ mod tests {
         delete_category_tx(&mut c, bills, groceries).unwrap();
         assert_eq!(select(&c, "SELECT category_id AS c FROM entries", &[]).unwrap()[0]["c"].as_i64().unwrap(), groceries);
         assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM categories WHERE id = $1", &[json!(bills)]).unwrap()[0]["n"].as_i64().unwrap(), 0);
+    }
+
+    fn recurring_template(c: &Connection, name: &str, category_id: i64, amount_pence: i64) -> i64 {
+        execute(
+            c,
+            "INSERT INTO recurring_templates (name, category_id, amount_pence, sort_order) VALUES ($1, $2, $3, 1)",
+            &[json!(name), json!(category_id), json!(amount_pence)],
+        )
+        .unwrap()
+        .1
+    }
+
+    #[test]
+    fn confirm_recurring_tx_writes_entry_and_month_row_with_template_category() {
+        let mut c = seeded();
+        let rent = cat_id(&c, "Rent");
+        let t = recurring_template(&c, "Rent", rent, 95000);
+
+        let entry = confirm_recurring_tx(
+            &mut c,
+            t,
+            &ConfirmRecurring { amount_pence: 96000, date: "2026-07-01".into(), note: None },
+            "2026-07-01T00:00:00Z",
+        )
+        .unwrap();
+        assert_eq!(entry["amount_pence"].as_i64().unwrap(), 96000);
+        assert_eq!(entry["category_id"].as_i64().unwrap(), rent);
+
+        let rows = select(&c, "SELECT template_id, month, entry_id FROM recurring_months", &[]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["month"].as_str().unwrap(), "2026-07");
+        assert_eq!(rows[0]["entry_id"].as_i64().unwrap(), entry["id"].as_i64().unwrap());
+    }
+
+    #[test]
+    fn confirm_recurring_tx_rejects_an_already_confirmed_month() {
+        let mut c = seeded();
+        let rent = cat_id(&c, "Rent");
+        let t = recurring_template(&c, "Rent", rent, 95000);
+        let input = ConfirmRecurring { amount_pence: 95000, date: "2026-07-01".into(), note: None };
+        confirm_recurring_tx(&mut c, t, &input, "t").unwrap();
+
+        let again = confirm_recurring_tx(&mut c, t, &input, "t");
+        assert!(again.is_err());
+        // The failed second confirm must not leave a stray entry behind.
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM entries", &[]).unwrap()[0]["n"].as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn confirm_recurring_tx_upgrades_a_skipped_month() {
+        let mut c = seeded();
+        let rent = cat_id(&c, "Rent");
+        let t = recurring_template(&c, "Rent", rent, 95000);
+        execute(&c, "INSERT INTO recurring_months (template_id, month, entry_id) VALUES ($1, $2, NULL)", &[json!(t), json!("2026-07")]).unwrap();
+
+        confirm_recurring_tx(
+            &mut c,
+            t,
+            &ConfirmRecurring { amount_pence: 95000, date: "2026-07-01".into(), note: None },
+            "t",
+        )
+        .unwrap();
+        let rows = select(&c, "SELECT entry_id FROM recurring_months", &[]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0]["entry_id"].is_i64());
+    }
+
+    #[test]
+    fn deleting_a_confirmed_entry_cascades_the_month_row() {
+        let mut c = seeded();
+        let rent = cat_id(&c, "Rent");
+        let t = recurring_template(&c, "Rent", rent, 95000);
+        let entry = confirm_recurring_tx(
+            &mut c,
+            t,
+            &ConfirmRecurring { amount_pence: 95000, date: "2026-07-01".into(), note: None },
+            "t",
+        )
+        .unwrap();
+
+        execute(&c, "DELETE FROM entries WHERE id = $1", &[json!(entry["id"].as_i64().unwrap())]).unwrap();
+        assert_eq!(select(&c, "SELECT COUNT(*) AS n FROM recurring_months", &[]).unwrap()[0]["n"].as_i64().unwrap(), 0);
+    }
+
+    #[test]
+    fn delete_category_tx_reassigns_recurring_templates_too() {
+        let mut c = seeded();
+        let bills = cat_id(&c, "Bills");
+        let groceries = cat_id(&c, "Groceries");
+        let t = recurring_template(&c, "Water", bills, 3200);
+
+        delete_category_tx(&mut c, bills, groceries).unwrap();
+        let rows = select(&c, "SELECT category_id AS cid FROM recurring_templates WHERE id = $1", &[json!(t)]).unwrap();
+        assert_eq!(rows[0]["cid"].as_i64().unwrap(), groceries);
     }
 
     #[test]

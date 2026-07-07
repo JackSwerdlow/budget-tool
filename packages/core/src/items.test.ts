@@ -32,6 +32,8 @@ function makeData(lists: BudgetList[]): LedgerData {
     lists,
     income: [],
     views: [],
+    recurringTemplates: [],
+    recurringMonths: [],
     defaultIncomePence: null,
   };
 }

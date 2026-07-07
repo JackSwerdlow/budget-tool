@@ -76,6 +76,25 @@ CREATE TABLE IF NOT EXISTS views (
   hidden_category_ids TEXT NOT NULL DEFAULT '[]'
 );
 
+-- Recurring monthly templates (Rent / Bills / Subs). Confirming one for a month creates a
+-- normal `entries` row — templates never hold spend themselves.
+CREATE TABLE IF NOT EXISTS recurring_templates (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT NOT NULL,
+  category_id  INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+  amount_pence INTEGER NOT NULL,
+  sort_order   INTEGER NOT NULL
+);
+
+-- One row per template×month decision: entry_id set = confirmed (deleting that entry
+-- cascades this row away, so the template reads as due again); NULL entry_id = skipped.
+CREATE TABLE IF NOT EXISTS recurring_months (
+  template_id INTEGER NOT NULL REFERENCES recurring_templates(id) ON DELETE CASCADE,
+  month       TEXT NOT NULL,
+  entry_id    INTEGER REFERENCES entries(id) ON DELETE CASCADE,
+  PRIMARY KEY (template_id, month)
+);
+
 CREATE INDEX IF NOT EXISTS idx_entries_date       ON entries(date);
 CREATE INDEX IF NOT EXISTS idx_entries_category   ON entries(category_id);
 CREATE INDEX IF NOT EXISTS idx_lists_date         ON lists(date);

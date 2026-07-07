@@ -53,6 +53,24 @@ export type MonthlyIncome = {
   amount_pence: number;
 };
 
+// A recurring monthly template (Rent / Bills / Subs). amount_pence is only the fallback
+// prefill — confirming a month writes a normal Entry, never the template itself.
+export type RecurringTemplate = {
+  id: number;
+  name: string;
+  category_id: number;
+  amount_pence: number;
+  sort_order: number;
+};
+
+// A template's decision for one month: entry_id set = confirmed, null = skipped.
+// No row = still due. (Deleting the entry cascades the row away → due again.)
+export type RecurringMonth = {
+  template_id: number;
+  month: string;
+  entry_id: number | null;
+};
+
 // A named, saved snapshot of Overview's category-hide filter (not a per-category tag —
 // hidden_category_ids is that View's own copy of which category ids are hidden).
 export type View = {
@@ -70,6 +88,8 @@ export type LedgerData = {
   lists: BudgetList[];
   income: MonthlyIncome[];
   views: View[];
+  recurringTemplates: RecurringTemplate[];
+  recurringMonths: RecurringMonth[];
   // Optional default monthly income: fills the current and future months that have no
   // explicit figure (never a past one). null when no default is set.
   defaultIncomePence: number | null;

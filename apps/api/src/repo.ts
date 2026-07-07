@@ -40,6 +40,14 @@ export function getBootstrap(db: DatabaseSync) {
     .prepare('SELECT year, month, amount_pence FROM monthly_income ORDER BY year, month')
     .all();
 
+  const recurringTemplates = db
+    .prepare('SELECT id, name, category_id, amount_pence, sort_order FROM recurring_templates ORDER BY sort_order, id')
+    .all();
+
+  const recurringMonths = db
+    .prepare('SELECT template_id, month, entry_id FROM recurring_months ORDER BY month, template_id')
+    .all();
+
   return {
     groups,
     categories,
@@ -47,6 +55,8 @@ export function getBootstrap(db: DatabaseSync) {
     lists: listsWithItems,
     income,
     views: getViews(db),
+    recurringTemplates,
+    recurringMonths,
     defaultIncomePence: getDefaultIncome(db),
   };
 }
@@ -254,11 +264,12 @@ export function categoryUsage(db: DatabaseSync, id: number): number {
   return (
     q('SELECT COUNT(*) AS n FROM entries WHERE category_id = ?') +
     q('SELECT COUNT(*) AS n FROM list_items WHERE category_id = ?') +
-    q('SELECT COUNT(*) AS n FROM lists WHERE delivery_category_id = ?')
+    q('SELECT COUNT(*) AS n FROM lists WHERE delivery_category_id = ?') +
+    q('SELECT COUNT(*) AS n FROM recurring_templates WHERE category_id = ?')
   );
 }
 
-// Reassign all three references then delete — in one transaction (PLAN §3/§6.6).
+// Reassign all four references then delete — in one transaction (PLAN §3/§6.6).
 export function deleteCategory(
   db: DatabaseSync,
   id: number,
@@ -271,6 +282,7 @@ export function deleteCategory(
       db.prepare('UPDATE entries SET category_id = ? WHERE category_id = ?').run(reassignTo, id);
       db.prepare('UPDATE list_items SET category_id = ? WHERE category_id = ?').run(reassignTo, id);
       db.prepare('UPDATE lists SET delivery_category_id = ? WHERE delivery_category_id = ?').run(reassignTo, id);
+      db.prepare('UPDATE recurring_templates SET category_id = ? WHERE category_id = ?').run(reassignTo, id);
       db.prepare('DELETE FROM categories WHERE id = ?').run(id);
       db.exec('COMMIT');
     } catch (err) {
@@ -387,6 +399,91 @@ export function reorderCategories(db: DatabaseSync, items: { id: number; group_i
     db.exec('ROLLBACK');
     throw err;
   }
+}
+
+// ── Recurring templates + monthly checklist ──────────────────────────────────
+export type NewRecurringTemplate = { name: string; category_id: number; amount_pence: number };
+
+export function getRecurringTemplate(db: DatabaseSync, id: number) {
+  return db
+    .prepare('SELECT id, name, category_id, amount_pence, sort_order FROM recurring_templates WHERE id = ?')
+    .get(id);
+}
+
+export function createRecurringTemplate(db: DatabaseSync, input: NewRecurringTemplate) {
+  const { m } = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM recurring_templates').get() as { m: number };
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO recurring_templates (name, category_id, amount_pence, sort_order) VALUES (?, ?, ?, ?)')
+    .run(input.name, input.category_id, input.amount_pence, m + 1);
+  return getRecurringTemplate(db, Number(lastInsertRowid));
+}
+
+export function updateRecurringTemplate(db: DatabaseSync, id: number, patch: Partial<NewRecurringTemplate>) {
+  const existing = getRecurringTemplate(db, id) as NewRecurringTemplate | undefined;
+  if (!existing) return undefined;
+  db.prepare('UPDATE recurring_templates SET name = ?, category_id = ?, amount_pence = ? WHERE id = ?').run(
+    patch.name ?? existing.name,
+    patch.category_id ?? existing.category_id,
+    patch.amount_pence ?? existing.amount_pence,
+    id,
+  );
+  return getRecurringTemplate(db, id);
+}
+
+// Past confirmed entries survive as ordinary entries; only the template and its
+// month rows go (ON DELETE CASCADE).
+export function deleteRecurringTemplate(db: DatabaseSync, id: number): { deleted: boolean } {
+  const { changes } = db.prepare('DELETE FROM recurring_templates WHERE id = ?').run(id);
+  return { deleted: Number(changes) > 0 };
+}
+
+export type ConfirmRecurring = { amount_pence: number; date: string; note: string | null };
+
+// Entry + month row in one transaction; the month bucket is the date's string slice.
+// The entry's category always comes from the template row, never the caller.
+export function confirmRecurring(db: DatabaseSync, templateId: number, input: ConfirmRecurring) {
+  const template = getRecurringTemplate(db, templateId) as { category_id: number } | undefined;
+  if (!template) return undefined;
+  db.exec('BEGIN');
+  try {
+    // A month already confirmed must be undone via its entry (delete → FK cascade), not
+    // re-confirmed — silently replacing entry_id would orphan the old entry into a double count.
+    const existing = db
+      .prepare('SELECT entry_id FROM recurring_months WHERE template_id = ? AND month = ?')
+      .get(templateId, input.date.slice(0, 7)) as { entry_id: number | null } | undefined;
+    if (existing?.entry_id != null) throw new Error('month already confirmed');
+    const createdAt = new Date().toISOString();
+    const { lastInsertRowid } = db
+      .prepare('INSERT INTO entries (amount_pence, category_id, date, note, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(input.amount_pence, template.category_id, input.date, input.note, createdAt);
+    const entryId = Number(lastInsertRowid);
+    db.prepare(
+      `INSERT INTO recurring_months (template_id, month, entry_id) VALUES (?, ?, ?)
+       ON CONFLICT(template_id, month) DO UPDATE SET entry_id = excluded.entry_id`,
+    ).run(templateId, input.date.slice(0, 7), entryId);
+    const entry = getEntry(db, entryId);
+    db.exec('COMMIT');
+    return entry;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+// A NULL-entry month row = "skipped". Overwriting a confirmed row here is not allowed —
+// undoing a confirmation is deleting its entry (the FK cascade clears the row).
+export function skipRecurring(db: DatabaseSync, templateId: number, month: string): { skipped: boolean } {
+  const { changes } = db
+    .prepare('INSERT OR IGNORE INTO recurring_months (template_id, month, entry_id) VALUES (?, ?, NULL)')
+    .run(templateId, month);
+  return { skipped: Number(changes) > 0 };
+}
+
+export function unskipRecurring(db: DatabaseSync, templateId: number, month: string): { deleted: boolean } {
+  const { changes } = db
+    .prepare('DELETE FROM recurring_months WHERE template_id = ? AND month = ? AND entry_id IS NULL')
+    .run(templateId, month);
+  return { deleted: Number(changes) > 0 };
 }
 
 // ── Manage: income ───────────────────────────────────────────────────────────

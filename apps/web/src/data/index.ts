@@ -39,4 +39,6 @@ export const {
   reorderGroups, reorderCategories, setIncome, deleteIncome, setDefaultIncome,
   clearDefaultIncome, getSalaryConfig, getSalaryYTD, saveSalaryConfig, deleteSalaryConfig,
   getAllSalaryConfigs, createView, updateView, deleteView,
+  createRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
+  confirmRecurring, skipRecurring, unskipRecurring,
 } = dataPort;

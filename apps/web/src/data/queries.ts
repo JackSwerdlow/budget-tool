@@ -1,4 +1,4 @@
-import type { BudgetList, Category, Entry, Group, LedgerData, SalaryConfig, View } from '@budget/core';
+import type { BudgetList, Category, Entry, Group, LedgerData, RecurringTemplate, SalaryConfig, View } from '@budget/core';
 import { computeSalaryYTD, resolveEmploymentStart, type YTDConfigRow } from '@budget/core';
 import type { SqlExecutor } from './executor';
 import type { DataPort } from './port';
@@ -34,9 +34,16 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     return (
       (await q('SELECT COUNT(*) AS n FROM entries WHERE category_id = $1')) +
       (await q('SELECT COUNT(*) AS n FROM list_items WHERE category_id = $1')) +
-      (await q('SELECT COUNT(*) AS n FROM lists WHERE delivery_category_id = $1'))
+      (await q('SELECT COUNT(*) AS n FROM lists WHERE delivery_category_id = $1')) +
+      (await q('SELECT COUNT(*) AS n FROM recurring_templates WHERE category_id = $1'))
     );
   };
+
+  const getRecurringTemplate = async (id: number) =>
+    (await exec.select<RecurringTemplate>(
+      'SELECT id, name, category_id, amount_pence, sort_order FROM recurring_templates WHERE id = $1',
+      [id],
+    ))[0];
 
   // All saved configs' YTD-relevant columns, ascending — fed to the core walk so an inherited
   // prior-year salary is resolved for every month from the anchor.
@@ -71,6 +78,12 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
         lists.push({ ...l, items } as BudgetList);
       }
       const income = await exec.select('SELECT year, month, amount_pence FROM monthly_income ORDER BY year, month');
+      const recurringTemplates = await exec.select(
+        'SELECT id, name, category_id, amount_pence, sort_order FROM recurring_templates ORDER BY sort_order, id',
+      );
+      const recurringMonths = await exec.select(
+        'SELECT template_id, month, entry_id FROM recurring_months ORDER BY month, template_id',
+      );
       const viewRows = await exec.select<ViewRow>('SELECT id, name, sort_order, hidden_category_ids FROM views ORDER BY sort_order, id');
       const views = viewRows.map(rowToView);
       const def = await exec.select<{ value: string }>("SELECT value FROM settings WHERE key = 'default_income_pence'");
@@ -79,7 +92,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
         const n = Number(def[0].value);
         defaultIncomePence = Number.isSafeInteger(n) ? n : null;
       }
-      return { groups, categories, entries, lists, income, views, defaultIncomePence } as LedgerData;
+      return { groups, categories, entries, lists, income, views, recurringTemplates, recurringMonths, defaultIncomePence } as LedgerData;
     },
 
     async createEntry(input) {
@@ -219,6 +232,54 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
     async reorderCategories(items) {
       await invoke('reorder_categories', { items });
       return { ok: true };
+    },
+
+    async createRecurringTemplate(input) {
+      const m = (await exec.select<{ m: number }>('SELECT COALESCE(MAX(sort_order), 0) AS m FROM recurring_templates'))[0].m;
+      const r = await exec.execute(
+        'INSERT INTO recurring_templates (name, category_id, amount_pence, sort_order) VALUES ($1, $2, $3, $4)',
+        [input.name, input.category_id, input.amount_pence, m + 1],
+      );
+      return (await getRecurringTemplate(r.lastInsertId))!;
+    },
+
+    async updateRecurringTemplate(id, patch) {
+      const ex = await getRecurringTemplate(id);
+      if (!ex) throw new Error(`recurring template ${id} not found`);
+      await exec.execute('UPDATE recurring_templates SET name = $1, category_id = $2, amount_pence = $3 WHERE id = $4', [
+        patch.name ?? ex.name,
+        patch.category_id ?? ex.category_id,
+        patch.amount_pence ?? ex.amount_pence,
+        id,
+      ]);
+      return (await getRecurringTemplate(id))!;
+    },
+
+    async deleteRecurringTemplate(id) {
+      // Month rows cascade; past confirmed entries survive as ordinary entries.
+      await exec.execute('DELETE FROM recurring_templates WHERE id = $1', [id]);
+    },
+
+    async confirmRecurring(templateId, input) {
+      // Transactional (entry + month row) → Rust. createdAt passed for parity with HTTP.
+      const createdAt = new Date().toISOString();
+      return (await invoke('confirm_recurring', { templateId, input, createdAt })) as Entry;
+    },
+
+    async skipRecurring(templateId, month) {
+      // OR IGNORE: never overwrite a confirmed row — undoing a confirmation is deleting
+      // its entry (the FK cascade clears the month row).
+      await exec.execute('INSERT OR IGNORE INTO recurring_months (template_id, month, entry_id) VALUES ($1, $2, NULL)', [
+        templateId,
+        month,
+      ]);
+    },
+
+    async unskipRecurring(templateId, month) {
+      await exec.execute('DELETE FROM recurring_months WHERE template_id = $1 AND month = $2 AND entry_id IS NULL', [
+        templateId,
+        month,
+      ]);
     },
 
     async setIncome(year, month, amountPence) {

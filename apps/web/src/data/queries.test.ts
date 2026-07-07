@@ -121,6 +121,83 @@ test('income: monthly set/delete and default set/clear', async () => {
   expect((await port.fetchBootstrap()).defaultIncomePence).toBeNull();
 });
 
+test('bootstrap: recurring templates and months start empty', async () => {
+  const { port } = freshPort();
+  const boot = await port.fetchBootstrap();
+  expect(boot.recurringTemplates).toEqual([]);
+  expect(boot.recurringMonths).toEqual([]);
+});
+
+test('recurring template create / update / delete', async () => {
+  const { port } = freshPort();
+  const rent = await catId(port, 'Rent');
+  const bills = await catId(port, 'Bills');
+
+  const t = await port.createRecurringTemplate({ name: 'Rent', category_id: rent, amount_pence: 95000 });
+  expect(t.name).toBe('Rent');
+  expect(t.amount_pence).toBe(95000);
+  expect(t.sort_order).toBe(1);
+
+  const u = await port.updateRecurringTemplate(t.id, { amount_pence: 97000, category_id: bills });
+  expect(u.amount_pence).toBe(97000);
+  expect(u.category_id).toBe(bills);
+  expect(u.name).toBe('Rent');
+
+  await port.deleteRecurringTemplate(t.id);
+  expect((await port.fetchBootstrap()).recurringTemplates).toEqual([]);
+});
+
+test('recurring: skip / unskip a month; skip never overwrites a confirmed row', async () => {
+  const { port, db } = freshPort();
+  const rent = await catId(port, 'Rent');
+  const t = await port.createRecurringTemplate({ name: 'Rent', category_id: rent, amount_pence: 95000 });
+
+  await port.skipRecurring(t.id, '2026-07');
+  expect((await port.fetchBootstrap()).recurringMonths).toEqual([{ template_id: t.id, month: '2026-07', entry_id: null }]);
+
+  await port.unskipRecurring(t.id, '2026-07');
+  expect((await port.fetchBootstrap()).recurringMonths).toEqual([]);
+
+  // A confirmed month row (as the Rust confirm command writes it) survives a stray skip
+  // and is not deletable via unskip — undoing a confirmation goes through its entry.
+  const e = await port.createEntry({ amount_pence: 95000, category_id: rent, date: '2026-07-01', note: null });
+  db.prepare('INSERT INTO recurring_months (template_id, month, entry_id) VALUES (?, ?, ?)').run(t.id, '2026-07', e.id);
+  await port.skipRecurring(t.id, '2026-07');
+  await port.unskipRecurring(t.id, '2026-07');
+  expect((await port.fetchBootstrap()).recurringMonths).toEqual([{ template_id: t.id, month: '2026-07', entry_id: e.id }]);
+});
+
+test('recurring: deleting the confirmed entry cascades the month row back to due', async () => {
+  const { port, db } = freshPort();
+  const rent = await catId(port, 'Rent');
+  const t = await port.createRecurringTemplate({ name: 'Rent', category_id: rent, amount_pence: 95000 });
+  const e = await port.createEntry({ amount_pence: 95000, category_id: rent, date: '2026-07-01', note: null });
+  db.prepare('INSERT INTO recurring_months (template_id, month, entry_id) VALUES (?, ?, ?)').run(t.id, '2026-07', e.id);
+
+  await port.deleteEntry(e.id);
+  expect((await port.fetchBootstrap()).recurringMonths).toEqual([]);
+});
+
+test('recurring: deleting a template cascades its month rows but keeps past entries', async () => {
+  const { port, db } = freshPort();
+  const rent = await catId(port, 'Rent');
+  const t = await port.createRecurringTemplate({ name: 'Rent', category_id: rent, amount_pence: 95000 });
+  const e = await port.createEntry({ amount_pence: 95000, category_id: rent, date: '2026-07-01', note: null });
+  db.prepare('INSERT INTO recurring_months (template_id, month, entry_id) VALUES (?, ?, ?)').run(t.id, '2026-07', e.id);
+
+  await port.deleteRecurringTemplate(t.id);
+  const boot = await port.fetchBootstrap();
+  expect(boot.recurringMonths).toEqual([]);
+  expect(boot.entries).toHaveLength(1);
+});
+
+test('recurring: a template counts as category usage, so delete refuses without reassign', async () => {
+  const { port } = freshPort();
+  const rent = await catId(port, 'Rent');
+  await port.createRecurringTemplate({ name: 'Rent', category_id: rent, amount_pence: 95000 });
+  expect(await port.deleteCategory(rent)).toEqual({ deleted: false, inUse: true });
+});
+
 const SALARY_CFG: SalaryConfig = {
   year: 2026, month: 6, gross_yearly_pence: 5_946_600, note: null,
   hours_per_week: 37, work_weeks_per_year: 52, work_days_per_week: 5,

@@ -32,6 +32,8 @@ function makeData(): LedgerData {
     ],
     income: [],
     views: [],
+    recurringTemplates: [],
+    recurringMonths: [],
     defaultIncomePence: null,
   };
 }

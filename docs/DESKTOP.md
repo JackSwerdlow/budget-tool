@@ -30,8 +30,8 @@ Registered commands (`lib.rs` `generate_handler!`):
   `$N` placeholders to positional `?`, identical to the node:sqlite test executor, which is what
   the parity tests cover).
 - **Transactional** `create_list`, `update_list`, `delete_category` (reassign-then-delete),
-  `reorder_groups`, `reorder_categories` — multi-statement writes that must be one real
-  transaction on the single connection.
+  `confirm_recurring` (entry + recurring-month row), `reorder_groups`, `reorder_categories` —
+  multi-statement writes that must be one real transaction on the single connection.
 - **`import_database`** (copy a chosen `.db` over app-config `budget.db`, then re-migrate) and
   **`export_database`** (copy `budget.db` to a chosen path). Surfaced in Manage → Database
   (`DatabaseTools.tsx`, desktop-only).

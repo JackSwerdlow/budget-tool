@@ -1,6 +1,6 @@
 import type {
   BudgetList, Category, Entry, Group, LedgerData,
-  MonthlyIncome, SalaryConfig, SalaryConfigResponse, SalaryYTD, View,
+  MonthlyIncome, RecurringTemplate, SalaryConfig, SalaryConfigResponse, SalaryYTD, View,
 } from '@budget/core';
 
 export type NewEntryInput = {
@@ -27,6 +27,20 @@ export type NewListInput = {
   delivery_share_pct: number;
   delivery_category_id: number;
   items: NewListItemInput[];
+};
+
+export type NewRecurringTemplateInput = {
+  name: string;
+  category_id: number;
+  amount_pence: number;
+};
+
+// Confirming writes a normal entry (month = date.slice(0, 7)) and records the decision
+// in recurring_months, atomically.
+export type ConfirmRecurringInput = {
+  amount_pence: number;
+  date: string;
+  note: string | null;
 };
 
 // The single contract every transport adapter (HTTP / Tauri SQL) implements.
@@ -60,4 +74,10 @@ export interface DataPort {
   saveSalaryConfig(cfg: SalaryConfig, netMonthlyPence: number): Promise<SalaryConfigResponse>;
   deleteSalaryConfig(year: number, month: number): Promise<void>;
   getAllSalaryConfigs(): Promise<SalaryConfig[]>;
+  createRecurringTemplate(input: NewRecurringTemplateInput): Promise<RecurringTemplate>;
+  updateRecurringTemplate(id: number, patch: Partial<NewRecurringTemplateInput>): Promise<RecurringTemplate>;
+  deleteRecurringTemplate(id: number): Promise<void>;
+  confirmRecurring(templateId: number, input: ConfirmRecurringInput): Promise<Entry>;
+  skipRecurring(templateId: number, month: string): Promise<void>;
+  unskipRecurring(templateId: number, month: string): Promise<void>;
 }

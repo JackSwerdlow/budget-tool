@@ -498,3 +498,111 @@ describe('migrate', () => {
     expect(cats.n).toBe(15);
   });
 });
+
+describe('recurring templates + monthly checklist', () => {
+  type Template = { id: number; name: string; category_id: number; amount_pence: number; sort_order: number };
+  type RecurringBoot = Boot & {
+    recurringTemplates: Template[];
+    recurringMonths: Array<{ template_id: number; month: string; entry_id: number | null }>;
+  };
+  const boot = async (app: ReturnType<typeof freshApp>) => body<RecurringBoot>(await app.request('/api/bootstrap'));
+
+  it('creates, patches, and deletes a template; bootstrap carries both recurring arrays', async () => {
+    const app = freshApp();
+    expect((await boot(app)).recurringTemplates).toEqual([]);
+    expect((await boot(app)).recurringMonths).toEqual([]);
+
+    const post = await app.request('/api/recurring', json({ name: 'Rent', category_id: 1, amount_pence: 95000 }));
+    expect(post.status).toBe(201);
+    const t = await body<Template>(post);
+    expect(t).toMatchObject({ name: 'Rent', category_id: 1, amount_pence: 95000, sort_order: 1 });
+
+    const patch = await app.request(`/api/recurring/${t.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ amount_pence: 97000 }),
+    });
+    expect(patch.status).toBe(200);
+    expect((await body<Template>(patch)).amount_pence).toBe(97000);
+
+    const del = await app.request(`/api/recurring/${t.id}`, { method: 'DELETE' });
+    expect(del.status).toBe(200);
+    expect((await boot(app)).recurringTemplates).toEqual([]);
+  });
+
+  it('rejects an invalid template and a patch to a missing id', async () => {
+    const app = freshApp();
+    expect((await app.request('/api/recurring', json({ name: '', category_id: 1, amount_pence: 1 }))).status).toBe(400);
+    expect((await app.request('/api/recurring', json({ name: 'X', category_id: 1, amount_pence: -5 }))).status).toBe(400);
+    const patch = await app.request('/api/recurring/999', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ amount_pence: 100 }),
+    });
+    expect(patch.status).toBe(404);
+  });
+
+  it('confirm writes an entry (category from the template) plus a month row', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Netflix', category_id: 12, amount_pence: 1099 })));
+
+    const res = await app.request(`/api/recurring/${t.id}/confirm`, json({ amount_pence: 1199, date: '2026-07-03', note: 'Netflix' }));
+    expect(res.status).toBe(201);
+    const entry = await body<Entry & { category_id: number }>(res);
+    expect(entry.amount_pence).toBe(1199);
+    expect(entry.category_id).toBe(12);
+
+    const b = await boot(app);
+    expect(b.entries).toHaveLength(1);
+    expect(b.recurringMonths).toEqual([{ template_id: t.id, month: '2026-07', entry_id: entry.id }]);
+  });
+
+  it('re-confirming an already-confirmed month is rejected (no orphaned double count)', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Rent', category_id: 1, amount_pence: 95000 })));
+    await app.request(`/api/recurring/${t.id}/confirm`, json({ amount_pence: 95000, date: '2026-07-01', note: null }));
+    const again = await app.request(`/api/recurring/${t.id}/confirm`, json({ amount_pence: 95000, date: '2026-07-02', note: null }));
+    expect(again.status).toBe(409);
+    expect((await boot(app)).entries).toHaveLength(1);
+  });
+
+  it('confirming a skipped month upgrades the row to confirmed', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Rent', category_id: 1, amount_pence: 95000 })));
+    await app.request(`/api/recurring/${t.id}/skip/2026-07`, { method: 'PUT' });
+    const res = await app.request(`/api/recurring/${t.id}/confirm`, json({ amount_pence: 95000, date: '2026-07-01', note: null }));
+    expect(res.status).toBe(201);
+    const b = await boot(app);
+    expect(b.recurringMonths).toHaveLength(1);
+    expect(b.recurringMonths[0].entry_id).not.toBeNull();
+  });
+
+  it('deleting the confirmed entry cascades the month row back to due', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Rent', category_id: 1, amount_pence: 95000 })));
+    const entry = await body<Entry>(await app.request(`/api/recurring/${t.id}/confirm`, json({ amount_pence: 95000, date: '2026-07-01', note: null })));
+    await app.request(`/api/entries/${entry.id}`, { method: 'DELETE' });
+    const b = await boot(app);
+    expect(b.entries).toEqual([]);
+    expect(b.recurringMonths).toEqual([]);
+  });
+
+  it('skip / unskip round-trips and validates the month', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Rent', category_id: 1, amount_pence: 95000 })));
+    expect((await app.request(`/api/recurring/${t.id}/skip/2026-13`, { method: 'PUT' })).status).toBe(400);
+    await app.request(`/api/recurring/${t.id}/skip/2026-07`, { method: 'PUT' });
+    expect((await boot(app)).recurringMonths).toEqual([{ template_id: t.id, month: '2026-07', entry_id: null }]);
+    await app.request(`/api/recurring/${t.id}/skip/2026-07`, { method: 'DELETE' });
+    expect((await boot(app)).recurringMonths).toEqual([]);
+  });
+
+  it('deleting a category in use by a template reassigns the template', async () => {
+    const app = freshApp();
+    const t = await body<Template>(await app.request('/api/recurring', json({ name: 'Water', category_id: 2, amount_pence: 3200 })));
+    const del = await app.request('/api/categories/2?reassignTo=3', { method: 'DELETE' });
+    expect(await body<{ deleted: boolean }>(del)).toEqual({ deleted: true });
+    const b = await boot(app);
+    expect(b.recurringTemplates.find((x) => x.id === t.id)!.category_id).toBe(3);
+  });
+});

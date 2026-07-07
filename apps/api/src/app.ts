@@ -2,10 +2,12 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { DatabaseSync } from 'node:sqlite';
 import {
+  confirmRecurring,
   createCategory,
   createEntry,
   createGroup,
   createList,
+  createRecurringTemplate,
   createView,
   clearDefaultIncome,
   deleteCategory,
@@ -13,6 +15,7 @@ import {
   deleteGroup,
   deleteIncome,
   deleteList,
+  deleteRecurringTemplate,
   deleteView,
   getBootstrap,
   getGroup,
@@ -23,10 +26,13 @@ import {
   getSalaryYTD,
   setDefaultIncome,
   setIncome,
+  skipRecurring,
+  unskipRecurring,
   updateCategory,
   updateEntry,
   updateGroup,
   updateList,
+  updateRecurringTemplate,
   updateView,
   upsertSalaryConfig,
   reorderCategories,
@@ -394,6 +400,102 @@ export function createApp(db: DatabaseSync): Hono {
     const id = Number(c.req.param('id'));
     if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
     return c.json(deleteList(db, id));
+  });
+
+  // ── Recurring templates + monthly checklist ───────────────────────────────
+  const MONTH_RE = /^\d{4}-\d{2}$/;
+  const isValidMonth = (s: string) => {
+    if (!MONTH_RE.test(s)) return false;
+    const m = Number(s.slice(5, 7));
+    return m >= 1 && m <= 12;
+  };
+
+  api.post('/recurring', async (c) => {
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const name = String(body.name ?? '').trim();
+    const categoryId = Number(body.category_id);
+    const amount = Number(body.amount_pence);
+    if (name === '' || !Number.isInteger(categoryId) || !isPence(amount)) {
+      return c.json({ error: 'invalid recurring template' }, 400);
+    }
+    try {
+      return c.json(createRecurringTemplate(db, { name, category_id: categoryId, amount_pence: amount }), 201);
+    } catch (err) {
+      return c.json({ error: String(err) }, 400);
+    }
+  });
+
+  api.patch('/recurring/:id', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const p: { name?: string; category_id?: number; amount_pence?: number } = {};
+    if ('name' in body) {
+      const n = String(body.name ?? '').trim();
+      if (n === '') return c.json({ error: 'invalid name' }, 400);
+      p.name = n;
+    }
+    if ('category_id' in body) {
+      const cat = Number(body.category_id);
+      if (!Number.isInteger(cat)) return c.json({ error: 'invalid category' }, 400);
+      p.category_id = cat;
+    }
+    if ('amount_pence' in body) {
+      const a = Number(body.amount_pence);
+      if (!isPence(a)) return c.json({ error: 'invalid amount' }, 400);
+      p.amount_pence = a;
+    }
+    try {
+      const updated = updateRecurringTemplate(db, id, p);
+      if (!updated) return c.json({ error: 'not found' }, 404);
+      return c.json(updated);
+    } catch (err) {
+      return c.json({ error: String(err) }, 400);
+    }
+  });
+
+  api.delete('/recurring/:id', (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+    return c.json(deleteRecurringTemplate(db, id));
+  });
+
+  api.post('/recurring/:id/confirm', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+    const body = await readJson(c);
+    if (!body) return c.json({ error: 'invalid JSON' }, 400);
+    const amount = Number(body.amount_pence);
+    const date = String(body.date ?? '');
+    if (!isPence(amount) || !isValidDate(date)) return c.json({ error: 'invalid confirmation' }, 400);
+    const note = body.note == null ? null : String(body.note);
+    try {
+      const entry = confirmRecurring(db, id, { amount_pence: amount, date, note });
+      if (!entry) return c.json({ error: 'not found' }, 404);
+      return c.json(entry, 201);
+    } catch (err) {
+      return c.json({ error: String(err) }, 409);
+    }
+  });
+
+  api.put('/recurring/:id/skip/:month', (c) => {
+    const id = Number(c.req.param('id'));
+    const month = c.req.param('month');
+    if (!Number.isInteger(id) || !isValidMonth(month)) return c.json({ error: 'invalid skip' }, 400);
+    try {
+      return c.json(skipRecurring(db, id, month));
+    } catch (err) {
+      return c.json({ error: String(err) }, 400);
+    }
+  });
+
+  api.delete('/recurring/:id/skip/:month', (c) => {
+    const id = Number(c.req.param('id'));
+    const month = c.req.param('month');
+    if (!Number.isInteger(id) || !isValidMonth(month)) return c.json({ error: 'invalid skip' }, 400);
+    return c.json(unskipRecurring(db, id, month));
   });
 
   // ── Salary config ───────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ pub fn run() {
       db::create_list,
       db::update_list,
       db::delete_category,
+      db::confirm_recurring,
       db::reorder_groups,
       db::reorder_categories,
       db::import_database,
