@@ -281,13 +281,13 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
                         <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(r.entry.amount_pence)}</span>
                         {!selecting && (
                           <>
-                            <button type="button" onClick={() => setEditing(r.entry.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
+                            <button type="button" onClick={() => setEditing(r.entry.id)} className="-m-2 shrink-0 p-2 text-xs text-ink-muted hover:text-ink">Edit</button>
                             <ConfirmButton
                               onConfirm={() => onDeleteEntry(r.entry.id)}
                               idleLabel="✕"
                               confirmLabel="Delete?"
                               ariaLabel="Delete"
-                              idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
+                              idleClassName="-m-2 shrink-0 p-2 text-ink-faint transition-colors hover:text-over"
                               confirmClassName="shrink-0 text-xs font-medium text-over"
                             />
                           </>
@@ -313,13 +313,13 @@ export function ManageEntries({ data, ym, onYmChange }: { data: LedgerData; ym: 
                       <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">list</span>
                       <span className="truncate text-ink">{r.list.note || `${r.list.items.length} items`}</span>
                       <span className="ml-auto shrink-0 tabular-nums text-ink">{formatGBP(listTotals(r.list).mine)}</span>
-                      <button type="button" onClick={() => setEditingList(r.list.id)} className="shrink-0 text-xs text-ink-muted hover:text-ink">Edit</button>
+                      <button type="button" onClick={() => setEditingList(r.list.id)} className="-m-2 shrink-0 p-2 text-xs text-ink-muted hover:text-ink">Edit</button>
                       <ConfirmButton
                         onConfirm={() => onDeleteList(r.list.id)}
                         idleLabel="✕"
                         confirmLabel="Delete?"
                         ariaLabel="Delete list"
-                        idleClassName="shrink-0 text-ink-faint transition-colors hover:text-over"
+                        idleClassName="-m-2 shrink-0 p-2 text-ink-faint transition-colors hover:text-over"
                         confirmClassName="shrink-0 text-xs font-medium text-over"
                       />
                     </div>

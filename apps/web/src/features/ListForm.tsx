@@ -334,7 +334,7 @@ export function ListForm({
                   />
                   <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint">%</span>
                 </div>
-                <button type="button" onClick={() => updateRow(row.key, { sharePct: 50 })} className="rounded border border-hairline px-1 py-1 text-[10px] text-ink-muted hover:text-ink" title="50%">½</button>
+                <button type="button" onClick={() => updateRow(row.key, { sharePct: 50 })} className="rounded border border-hairline px-1.5 py-2 text-[10px] leading-none text-ink-muted hover:text-ink" title="50%">½</button>
               </div>
               <CategorySelect groups={data.groups} categories={data.categories} value={row.categoryId} onChange={(id) => updateRow(row.key, { categoryId: id })} />
               <div className="text-right text-sm tabular-nums text-ink">{mine === null ? <span className="text-ink-faint">—</span> : formatGBP(mine)}</div>
@@ -342,7 +342,7 @@ export function ListForm({
                 type="button"
                 onClick={() => removeRow(row.key)}
                 aria-label="Remove item"
-                className="justify-self-end text-ink-faint transition-colors hover:text-over"
+                className="-m-2 justify-self-end p-2 text-ink-faint transition-colors hover:text-over"
               >
                 ✕
               </button>

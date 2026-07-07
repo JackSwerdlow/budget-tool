@@ -3,6 +3,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -39,7 +40,8 @@ function DragHandle({ listeners, attributes }: { listeners?: object; attributes?
   return (
     <button
       type="button"
-      className="cursor-grab touch-none text-ink-faint/50 hover:text-ink-faint active:cursor-grabbing"
+      // -m/p pair: bigger touch target without moving the glyph
+      className="-m-2 cursor-grab touch-none p-2 text-ink-faint/50 hover:text-ink-faint active:cursor-grabbing"
       aria-label="Drag to reorder"
       {...listeners}
       {...attributes}
@@ -227,8 +229,11 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
   const [activeCatId, setActiveCatId] = useState<number | null>(null);
 
+  // TouchSensor alongside PointerSensor: on touch, a 200ms hold starts a drag while a plain
+  // swipe scrolls — PointerSensor's distance constraint alone would hijack page scrolling.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   // Only collide with same-type items: groups↔groups, categories↔categories.
