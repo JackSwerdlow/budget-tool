@@ -4,7 +4,8 @@ use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::{json, Map, Number, Value as Json};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, Runtime, State};
+use tauri_plugin_fs::{FilePath, FsExt};
 
 // One shared connection behind a Mutex (managed state). A single-user offline app never
 // needs concurrency, and one connection makes the transactional commands real transactions.
@@ -373,15 +374,21 @@ pub fn reorder_categories(state: State<Db>, items: Vec<ReorderCategory>) -> Resu
     reorder_categories_tx(&mut conn, &items)
 }
 
+// User-chosen paths arrive as tauri_plugin_fs::FilePath: a plain path on desktop, a
+// content:// URI on Android (the dialog plugin returns those; std::fs can't open them).
+// app.fs() resolves both, so these commands are the same code on every platform. The
+// app-config side (budget.db) is always a real filesystem path — std::fs is fine there.
+
 // ── import ────────────────────────────────────────────────────────────────────
 #[tauri::command]
-pub fn import_database(app: AppHandle, state: State<Db>, src_path: String) -> Result<(), String> {
+pub fn import_database<R: Runtime>(app: AppHandle<R>, state: State<Db>, src_path: FilePath) -> Result<(), String> {
+    let bytes = app.fs().read(src_path).map_err(|e| e.to_string())?;
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let db_path = dir.join("budget.db");
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     // Release the file handle on budget.db before overwriting it.
     *guard = Connection::open_in_memory().map_err(|e| e.to_string())?;
-    std::fs::copy(&src_path, &db_path).map_err(|e| e.to_string())?;
+    std::fs::write(&db_path, bytes).map_err(|e| e.to_string())?;
     // Re-open + migrate (a user's older file may predate a later schema addition).
     let conn = open_at(&db_path).map_err(|e| e.to_string())?;
     *guard = conn;
@@ -390,21 +397,28 @@ pub fn import_database(app: AppHandle, state: State<Db>, src_path: String) -> Re
 
 // ── export ────────────────────────────────────────────────────────────────────
 #[tauri::command]
-pub fn export_database(app: AppHandle, state: State<Db>, dest_path: String) -> Result<(), String> {
+pub fn export_database<R: Runtime>(app: AppHandle<R>, state: State<Db>, dest_path: FilePath) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let db_path = dir.join("budget.db");
     // Hold the lock so no write runs mid-copy; the single rollback-journal connection means
     // the on-disk file is consistent at rest, so a plain copy yields a complete database.
     let _guard = state.0.lock().map_err(|e| e.to_string())?;
-    std::fs::copy(&db_path, &dest_path).map_err(|e| e.to_string())?;
-    Ok(())
+    let bytes = std::fs::read(&db_path).map_err(|e| e.to_string())?;
+    write_file(&app, dest_path, &bytes)
 }
 
-// Save UI-generated text (the CSV/JSON exports) to a user-chosen path. Plain std::fs —
-// an invoke command needs no fs-plugin capability.
+// Save UI-generated text (the CSV/JSON exports) to a user-chosen path.
 #[tauri::command]
-pub fn save_text_file(dest_path: String, contents: String) -> Result<(), String> {
-    std::fs::write(&dest_path, contents).map_err(|e| e.to_string())
+pub fn save_text_file<R: Runtime>(app: AppHandle<R>, dest_path: FilePath, contents: String) -> Result<(), String> {
+    write_file(&app, dest_path, contents.as_bytes())
+}
+
+fn write_file<R: Runtime>(app: &AppHandle<R>, dest: FilePath, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let mut opts = tauri_plugin_fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    let mut f = app.fs().open(dest, opts).map_err(|e| e.to_string())?;
+    f.write_all(bytes).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -471,12 +485,35 @@ mod tests {
         assert_eq!(cats[0]["n"].as_i64().unwrap(), 15);
     }
 
+    // A mock app with the fs plugin exercises the same write_file path production uses;
+    // FilePath::Path is the desktop variant (Android's content:// variant needs a device).
+    fn fs_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap()
+    }
+
     #[test]
     fn save_text_file_writes_the_contents() {
+        let app = fs_app();
         let dest = std::env::temp_dir().join("budget-export-save-test.csv");
         let _ = std::fs::remove_file(&dest);
-        save_text_file(dest.to_string_lossy().into_owned(), "a,b\n1,2\n".into()).unwrap();
+        save_text_file(app.handle().clone(), FilePath::Path(dest.clone()), "a,b\n1,2\n".into()).unwrap();
         assert_eq!(std::fs::read_to_string(&dest).unwrap(), "a,b\n1,2\n");
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    #[test]
+    fn write_file_roundtrips_bytes() {
+        let app = fs_app();
+        let dest = std::env::temp_dir().join("budget-export-bytes-test.bin");
+        let _ = std::fs::remove_file(&dest);
+        write_file(&app.handle().clone(), FilePath::Path(dest.clone()), &[0u8, 159, 146, 150]).unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), vec![0u8, 159, 146, 150]);
+        // Overwrite must truncate, not append.
+        write_file(&app.handle().clone(), FilePath::Path(dest.clone()), b"xy").unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"xy");
         let _ = std::fs::remove_file(&dest);
     }
 

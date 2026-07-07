@@ -7,6 +7,10 @@ use tauri::Manager;
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
+    // Rust-side file IO for user-chosen paths: on Android the dialog plugin returns
+    // content:// URIs that std::fs can't open; the fs plugin resolves both those and
+    // plain desktop paths (no JS fs permissions needed — access stays in commands).
+    .plugin(tauri_plugin_fs::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
