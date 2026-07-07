@@ -91,7 +91,7 @@ matches no existing View (and the cap isn't hit), a "save as View" affordance ap
 "Categories ▾". The filter always starts at "All" (no default exclusion) each session — Net
 Balance's money is the one thing it never touches.
 
-**Trends** (`features/OverviewTrends.tsx`) has two sections sharing one month range (default
+**Trends** (`features/OverviewTrends.tsx`) has three sections sharing one month range (default
 last 6 months; custom From/To picker in the matrix header) and the same shared category filter
 as Month. Clicking a bar (or a matrix month-header) opens that month in the Month view:
 
@@ -104,6 +104,15 @@ as Month. Clicking a bar (or a matrix month-header) opens that month in the Mont
   Hovering a bar shows the running-chart-style breakdown box: month, total, ±delta vs the
   previous month (green up / red down, matching the matrix arrows), then per-group rows with
   their own deltas (the first month compares against the month before the range).
+- **Category trend** (`charts/TrendsLines.tsx`) — one line per group (donut colours/order)
+  across the range, so rising/falling spend is readable as slope where the stacked bars
+  above only show composition. Clicking a group's line or legend chip drills into that
+  group's category lines in place (donut/sankey drill pattern; "‹ all groups" collapses,
+  and a filter change that empties the drilled group falls back to the groups view).
+  Hovering a legend chip or line emphasises it; hovering a month shows a crosshair, dots,
+  and the bars' breakdown box (per-series values + vs-last-month deltas, sorted desc).
+  The segment into the half-finished current month is dashed so the tail-off reads as
+  incomplete data, not a collapse.
 - **Category × month** heat matrix (`charts/TrendsMatrix.tsx`, `core/trends.ts`): cell colour
   is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
   `±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group

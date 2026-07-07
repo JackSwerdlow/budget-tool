@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { categoryTotalsByMonth, previousMonth, type LedgerData } from '@budget/core';
 import { TrendsBars } from '../charts/TrendsBars';
+import { TrendsLines } from '../charts/TrendsLines';
 import { TrendsMatrix } from '../charts/TrendsMatrix';
 import { monthsRange, todayISO } from '../lib/dates';
 
@@ -35,6 +36,7 @@ export function OverviewTrends({ data, hiddenCategoryIds, onOpenMonth }: {
   return (
     <div className="space-y-8">
       <TrendsBars data={data} months={months} totalsByMonth={totalsByMonth} hiddenCategoryIds={hiddenCategoryIds} onOpenMonth={onOpenMonth} />
+      <TrendsLines data={data} months={months} totalsByMonth={totalsByMonth} hiddenCategoryIds={hiddenCategoryIds} />
       <TrendsMatrix
         data={data}
         hiddenCategoryIds={hiddenCategoryIds}

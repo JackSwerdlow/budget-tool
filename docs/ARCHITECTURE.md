@@ -26,8 +26,8 @@ Grotesk on paper tones).
 ## The surfaces
 
 - **Overview** — the calm, read-mostly home. A *Month* view (running-total chart, grouping
-  donut, "vs last month" bars, money-flow sankey), a *Trends* view (stacked bars +
-  category×month heat matrix), and an *Items* view (cross-time item analytics). → [BUDGET.md](BUDGET.md)
+  donut, "vs last month" bars, money-flow sankey), a *Trends* view (stacked bars, per-group
+  trend lines, category×month heat matrix), and an *Items* view (cross-time item analytics). → [BUDGET.md](BUDGET.md)
 - **Add** — *Single* (a fast amount field + category grid), *Monthly* (a confirm-a-pre-filled
   checklist of recurring items — rent/bills/subs — that writes normal entries), and *List*
   (an itemised grocery receipt with flatmate splitting). → [BUDGET.md](BUDGET.md)
