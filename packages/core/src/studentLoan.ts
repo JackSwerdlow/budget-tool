@@ -39,7 +39,8 @@ export function computeStudentLoan(
     if (isAnchor) {
       balance = w.cfg.sl_balance_pence as number;
       anchored = true;
-    } else if (anchored) {
+    }
+    if (anchored) {
       const interest = monthInterest(balance, w.cfg.sl_interest_rate_pct ?? 0, w.year, w.month);
       const opening = balance + interest;
       const extra = w.isExplicit ? Math.max(0, w.cfg.extra_payment_pence ?? 0) : 0;
