@@ -62,6 +62,8 @@ breaks:
 
 The app icon is a Ledger-style **Fraunces "£" over a double account-book rule** in the app's
 paper/ink/accent palette. The 1024px source is `apps/desktop/app-icon.png`; regenerate the
-platform set with `npm run tauri -- icon ./app-icon.png` from `apps/desktop` (the unused
-android/ios outputs aren't kept — mobile isn't built). Installers are still **unsigned**
-(first-run SmartScreen/Gatekeeper warnings) — see [IDEAS.md](IDEAS.md) for the signing polish.
+platform set with `npm run tauri -- icon ./app-icon.png` from `apps/desktop` — this also writes
+the Android mipmaps into `gen/android` (kept; iOS outputs aren't — no iOS target). Desktop
+installers are still **unsigned** (first-run SmartScreen/Gatekeeper warnings) — see
+[IDEAS.md](IDEAS.md) for the signing polish. The **Android** build of this same shell is
+documented in [MOBILE.md](MOBILE.md).

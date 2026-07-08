@@ -1,6 +1,6 @@
 ---
 name: add-data-operation
-description: Add a new data operation (DataPort method) to the budget tool. Use whenever adding, changing, or removing a DB operation, query, mutation, or schema column — the operation must be implemented on BOTH the web (HTTP) and desktop (Tauri SQL) transports or the desktop app silently breaks.
+description: Add a new data operation (DataPort method) to the budget tool. Use whenever adding, changing, or removing a DB operation, query, mutation, or schema column — the operation must be implemented on BOTH the web (HTTP) and Tauri SQL transports (the SQL path serves desktop AND Android) or the Tauri apps silently break.
 ---
 
 # Add a data operation (both transports)
@@ -22,6 +22,9 @@ silent-desktop-breakage mistake.
 - Client call in `apps/web/src/data/http.ts` (implements the `DataPort` method).
 
 ## 3. SQL path (desktop / Tauri)
+
+(This one path serves **both** Tauri targets — desktop and the Android app run the same
+`queries.ts` → `invoke()` → `db.rs` code; there is no third transport.)
 
 - Implement the same method in `apps/web/src/data/queries.ts` via the injected executor.
   Placeholders are `$1, $2, …` (the executor converts to positional `?`).

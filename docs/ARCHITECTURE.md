@@ -7,8 +7,9 @@
 > that break the build or corrupt data if violated.
 >
 > Read this to orient, then open the one surface doc you need:
-> [BUDGET](BUDGET.md) · [SALARY](SALARY.md) · [DESKTOP](DESKTOP.md). Possible future work
-> lives in [IDEAS.md](IDEAS.md); how to work in this repo is in [../CLAUDE.md](../CLAUDE.md).
+> [BUDGET](BUDGET.md) · [SALARY](SALARY.md) · [DESKTOP](DESKTOP.md) · [MOBILE](MOBILE.md).
+> Possible future work lives in [IDEAS.md](IDEAS.md); how to work in this repo is in
+> [../CLAUDE.md](../CLAUDE.md).
 
 ## What this is
 
@@ -17,8 +18,8 @@ spent into a customisable taxonomy of spending categories (seeded with a default
 itemised lists with per-item flatmate cost-splitting. It shows live monthly views — a running
 total, a grouping donut, a "vs last month" comparison, and a category×month trend matrix — plus
 a light income → net-balance layer and a full UK **salary** breakdown (PAYE, NI, pension,
-student loan). It runs two ways from one codebase: in the browser during development, and as an
-installable offline desktop app.
+student loan). It runs three ways from one codebase: in the browser during development, as an
+installable offline desktop app, and as an Android app (same Tauri shell, third build target).
 
 The visual identity is **"Ledger"**: a warm, editorial account-book look (Fraunces + Hanken
 Grotesk on paper tones).
@@ -37,6 +38,8 @@ Grotesk on paper tones).
   month's net pay into the income layer. → [SALARY.md](SALARY.md)
 - **Desktop** — the Tauri shell that packages the web app as an offline installable.
   → [DESKTOP.md](DESKTOP.md)
+- **Mobile** — the same Tauri shell built for Android (bottom tab bar under `sm`, compact chart
+  frames, tap-to-reveal chart breakdowns; sideloaded signed APK). → [MOBILE.md](MOBILE.md)
 
 ## How it's built
 
@@ -50,8 +53,9 @@ apps/api/        a thin Node + node:sqlite (Hono) HTTP store — returns raw row
 apps/web/        Vite + React + Tailwind. Loads the whole ledger once, lets @budget/core
                  derive every view, renders; a mutation refetches and the UI recomputes —
                  "everything live" by construction.
-apps/desktop/    Tauri v2 (Rust) shell. Reuses apps/web verbatim; only the data transport
-                 differs.
+apps/desktop/    Tauri v2 (Rust) shell for BOTH desktop and Android (gen/android is the
+                 generated Gradle project). Reuses apps/web verbatim; only the data
+                 transport differs from the browser build.
 ```
 
 **Data flow.** The client fetches everything once (`bootstrap` — groups, categories, entries,
@@ -64,15 +68,18 @@ money math lives in `core`**.
 (`apps/web/src/data/port.ts`), chosen at runtime by `window.isTauri`:
 
 - browser / `npm run dev` → `data/http.ts` → `apps/api` (Hono + node:sqlite)
-- inside Tauri → `data/queries.ts` → `data/executor.ts` → `invoke()` →
+- inside Tauri (desktop **and** Android — `window.isTauri` is true in both) →
+  `data/queries.ts` → `data/executor.ts` → `invoke()` →
   `apps/desktop/src-tauri/src/db.rs` (one rusqlite connection; multi-statement writes are
   dedicated Rust commands so they are real transactions)
 
 Adding a new DB operation is the one thing that must be done on **both** paths — see the
-operating rule in [../CLAUDE.md](../CLAUDE.md). Full detail in [DESKTOP.md](DESKTOP.md).
+operating rule in [../CLAUDE.md](../CLAUDE.md). There is no third transport: Android rides the
+SQL path unchanged. Full detail in [DESKTOP.md](DESKTOP.md) · [MOBILE.md](MOBILE.md).
 
 **Running it.** `npm run dev` = web (`:5001`) + API (`:8100`); `npm run tauri:dev` = the
-desktop app (needs the Rust toolchain).
+desktop app (needs the Rust toolchain); `npm run tauri:android:dev` = the Android app on a
+device/emulator (needs the Android toolchain — see [MOBILE.md](MOBILE.md)).
 
 ## Invariants
 

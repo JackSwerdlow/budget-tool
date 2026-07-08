@@ -4,14 +4,15 @@
 
 A personal, single-user **budget tool** (replaces an Excel workflow): manual spend entry into a
 customisable taxonomy, itemised grocery lists with flatmate splitting, live monthly views, and a
-UK salary breakdown. Ships as a web/dev build and an offline Tauri desktop app from one codebase.
+UK salary breakdown. Ships as a web/dev build, an offline Tauri desktop app, and an Android app
+(same Tauri shell) from one codebase.
 
 **Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first** — it's the map (what the app is,
 where everything lives, and the **Invariants**). Then open the surface doc you need. At the start
 of a session, also skim `git log --oneline -20` for recent work.
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the map: character, surfaces, how it's built, **invariants**, known workarounds. **Read first.**
-- [`docs/BUDGET.md`](docs/BUDGET.md) · [`docs/SALARY.md`](docs/SALARY.md) · [`docs/DESKTOP.md`](docs/DESKTOP.md) — surface maps (open the one you're touching).
+- [`docs/BUDGET.md`](docs/BUDGET.md) · [`docs/SALARY.md`](docs/SALARY.md) · [`docs/DESKTOP.md`](docs/DESKTOP.md) · [`docs/MOBILE.md`](docs/MOBILE.md) — surface maps (open the one you're touching).
 - [`docs/IDEAS.md`](docs/IDEAS.md) — possible future work (candidates, **not** commitments or a roadmap).
 - `docs/archive/` — historical build logs + superseded specs; may be stale.
 
@@ -41,16 +42,22 @@ something previously set aside, help with it — surface any prior reasoning, do
 - Affects one line/section → a **code comment**.
 - True only because of fixable debt → a **Known workaround** in `ARCHITECTURE.md` + an `IDEAS.md` entry.
 
-## Operating rule — keep web & desktop in sync
+## Operating rule — keep web, desktop & Android in sync
 
-The app runs two ways (browser via `apps/api`; desktop via rusqlite), so UI / styling / component
-/ `packages/core` / `apps/api` changes apply to both automatically. The **one** thing that must be
-done on both paths is a **new data operation** (a new `DataPort` method): implement it in **both**
-`apps/web/src/data/http.ts` (→ `apps/api` route + `repo.ts`) **and** `data/queries.ts` (+ a Rust
-command in `db.rs` if it needs a transaction), and cover it in **both** `queries.test.ts` and the
-`db.rs` tests. Touch only the HTTP side and the desktop app silently breaks. Full detail:
-[`docs/DESKTOP.md`](docs/DESKTOP.md); step-by-step checklist: the `add-data-operation` skill
+The app runs three ways (browser via `apps/api`; desktop **and Android** via rusqlite), so UI /
+styling / component / `packages/core` / `apps/api` changes apply to all three automatically. The
+**one** thing that must be done on both data paths is a **new data operation** (a new `DataPort`
+method): implement it in **both** `apps/web/src/data/http.ts` (→ `apps/api` route + `repo.ts`)
+**and** `data/queries.ts` (+ a Rust command in `db.rs` if it needs a transaction), and cover it
+in **both** `queries.test.ts` and the `db.rs` tests. That is still exactly **two**
+implementations — Android rides the desktop SQL path; there is no third transport. Touch only
+the HTTP side and both Tauri apps silently break. Full detail: [`docs/DESKTOP.md`](docs/DESKTOP.md)
+· [`docs/MOBILE.md`](docs/MOBILE.md); step-by-step checklist: the `add-data-operation` skill
 (`.claude/skills/add-data-operation/SKILL.md`).
+
+Because the UI is shared by all three targets, keep base (unprefixed) Tailwind styles
+**mobile-first** — desktop spacing/layout goes behind `sm:`/`lg:` — and spot-check layout
+changes at a ~360px viewport as well as desktop width.
 
 ## Before calling work done
 
