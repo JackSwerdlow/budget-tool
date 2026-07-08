@@ -55,6 +55,19 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         "ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    let _ = conn.execute(
+        "ALTER TABLE salary_config ADD COLUMN sl_vir_enabled INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute("ALTER TABLE salary_config ADD COLUMN sl_vir_max_rate_pct REAL", []);
+    let _ = conn.execute(
+        "ALTER TABLE salary_config ADD COLUMN sl_vir_lower_income_pence INTEGER",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE salary_config ADD COLUMN sl_vir_upper_income_pence INTEGER",
+        [],
+    );
     // Column removals (vestigial exclude_from_discretionary, dead since Views shipped).
     let _ = conn.execute(
         "ALTER TABLE categories DROP COLUMN exclude_from_discretionary",
@@ -739,6 +752,27 @@ mod tests {
             .query_map([], |r| r.get::<_, String>(1)).unwrap()
             .map(|x| x.unwrap()).collect();
         assert!(cols.iter().any(|c| c == "extra_payment_pence"));
+    }
+
+    #[test]
+    fn migrate_adds_sl_vir_columns_to_older_db() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "CREATE TABLE salary_config (year INTEGER, month INTEGER, gross_yearly_pence INTEGER, PRIMARY KEY(year,month));",
+        ).unwrap();
+        migrate(&c).unwrap();
+        let cols: Vec<String> = c
+            .prepare("PRAGMA table_info(salary_config)").unwrap()
+            .query_map([], |r| r.get::<_, String>(1)).unwrap()
+            .map(|x| x.unwrap()).collect();
+        for col in [
+            "sl_vir_enabled",
+            "sl_vir_max_rate_pct",
+            "sl_vir_lower_income_pence",
+            "sl_vir_upper_income_pence",
+        ] {
+            assert!(cols.iter().any(|c| c == col), "missing {col}");
+        }
     }
 
     #[test]

@@ -105,6 +105,10 @@ export const EMPTY_CONFIG_FIELDS = {
   sl_rate_pct: '9',
   sl_balance_pence: '',
   sl_interest_rate_pct: '',
+  sl_vir_enabled: false,
+  sl_vir_max_rate_pct: '',
+  sl_vir_lower_income_pence: '29385.00',
+  sl_vir_upper_income_pence: '52885.00',
   extra_payment_pence: '',
 };
 
@@ -133,6 +137,10 @@ export function configToFields(cfg: import('@budget/core').SalaryConfig): Config
     sl_rate_pct: String(cfg.sl_rate_pct),
     sl_balance_pence: cfg.sl_balance_pence != null ? poundsToDisplay(cfg.sl_balance_pence) : '',
     sl_interest_rate_pct: cfg.sl_interest_rate_pct != null ? String(cfg.sl_interest_rate_pct) : '',
+    sl_vir_enabled: Boolean(cfg.sl_vir_enabled),
+    sl_vir_max_rate_pct: cfg.sl_vir_max_rate_pct != null ? String(cfg.sl_vir_max_rate_pct) : '',
+    sl_vir_lower_income_pence: cfg.sl_vir_lower_income_pence != null ? poundsToDisplay(cfg.sl_vir_lower_income_pence) : EMPTY_CONFIG_FIELDS.sl_vir_lower_income_pence,
+    sl_vir_upper_income_pence: cfg.sl_vir_upper_income_pence != null ? poundsToDisplay(cfg.sl_vir_upper_income_pence) : EMPTY_CONFIG_FIELDS.sl_vir_upper_income_pence,
     extra_payment_pence: cfg.extra_payment_pence && cfg.extra_payment_pence > 0 ? poundsToDisplay(cfg.extra_payment_pence) : '',
   };
 }
@@ -166,6 +174,10 @@ export function fieldsToConfig(year: number, month: number, grossPounds: number,
     sl_rate_pct: p('sl_rate_pct'),
     sl_balance_pence: fields.sl_balance_pence ? Math.round(parseFloat(String(fields.sl_balance_pence)) * 100) : null,
     sl_interest_rate_pct: fields.sl_interest_rate_pct ? parseFloat(String(fields.sl_interest_rate_pct)) : null,
+    sl_vir_enabled: Boolean(fields.sl_vir_enabled),
+    sl_vir_max_rate_pct: fields.sl_vir_max_rate_pct ? parseFloat(String(fields.sl_vir_max_rate_pct)) : null,
+    sl_vir_lower_income_pence: fields.sl_vir_lower_income_pence ? Math.round(parseFloat(String(fields.sl_vir_lower_income_pence)) * 100) : null,
+    sl_vir_upper_income_pence: fields.sl_vir_upper_income_pence ? Math.round(parseFloat(String(fields.sl_vir_upper_income_pence)) * 100) : null,
     extra_payment_pence: fields.extra_payment_pence ? Math.max(0, Math.round(parseFloat(String(fields.extra_payment_pence)) * 100)) : 0,
   };
 
@@ -179,6 +191,10 @@ export function fieldsToConfig(year: number, month: number, grossPounds: number,
   ];
   for (const k of required) {
     if (!Number.isFinite(cfg[k] as number)) return null;
+  }
+  if (cfg.sl_vir_enabled) {
+    const vir = [cfg.sl_vir_max_rate_pct, cfg.sl_vir_lower_income_pence, cfg.sl_vir_upper_income_pence];
+    if (vir.some((v) => v == null || !Number.isFinite(v))) return null;
   }
   return cfg;
 }

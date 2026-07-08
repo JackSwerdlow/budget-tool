@@ -123,7 +123,21 @@ payroll deductions over time.
 A running balance threaded through the same month-walk as Lifetime. It starts from a
 user-declared **anchor** ("Set balance" on a Config row), grows by **interest** (daily-apportioned
 from the annual rate), and shrinks by the **payroll repayment** plus any **extra payments**
-(extra applies only in months with an explicit config). The balance is floored at zero, and a
+(extra applies only in months with an explicit config).
+
+**Interest** is either **flat** (the entered annual rate — right for Plan 1/4/5-style loans) or,
+with the Config **Variable interest rate** toggle on (gov.uk Plan 2), **income-scaled**: the
+entered rate becomes the minimum (RPI-only) rate and the effective rate climbs linearly to the
+max rate as the tax year's income moves between the lower and upper income thresholds
+(`rate = min + (max − min) × clamp((income − lower)/(upper − lower), 0, 1)`). Income is the
+same base the payroll repayment uses (gross + bonus), summed over the actual months of each
+tax year — a part-year start yields the real lower income (the SLC does not annualise), and a
+raise saved later in the year raises the whole year's rate. The VIR is applied
+contemporaneously per tax year; the SLC's real charge-RPI-then-adjust-after-HMRC-data mechanism
+trues the year up to the same figure, so the simpler model converges with it (the intra-year
+compounding difference is second-order). RPI/threshold changes over time (each Sept/April) are
+represented the usual way — save a config that month with the new figures. The statutory
+formula: [reg 21A, SI 2009/470](https://www.legislation.gov.uk/uksi/2009/470/regulation/21A). The balance is floored at zero, and a
 **payoff projection** forward-walks from the latest rate + payroll until it clears. The tracker
 box ends with a per-month balance **sparkline** (`BalanceSparkline` in `SalaryView.tsx`, drawn
 from the already-computed `series`; the pre-anchor £0 lead-in is trimmed, and the y-axis spans
@@ -134,8 +148,9 @@ crosshair and swaps the strip below to that month's balance and its change vs th
 ## Config
 
 All tax/pension/NI/SL parameters, always editable in place: the five gross fields, pension %s,
-income-tax bands & rates, NI thresholds & rates, and the student-loan settings — plus the
-"Set balance" anchor and the optional extra monthly payment. A first-ever month pre-fills the
+income-tax bands & rates, NI thresholds & rates, and the student-loan settings (including the
+variable-interest-rate toggle with its max rate + income thresholds) — plus the "Set balance"
+anchor and the optional extra monthly payment. A first-ever month pre-fills the
 statutory tax/NI/SL parameters (allowance, bands, rates, thresholds) and the time fields with
 current UK values as a convenience (`EMPTY_CONFIG_FIELDS` in `salaryState.ts`, kept matching the
 payslip-validated set); gross pay, pension %s and the student-loan balance/interest start blank,

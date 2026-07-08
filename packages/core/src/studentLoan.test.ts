@@ -104,3 +104,89 @@ test('no balance ever set → zero result, payoff null', () => {
   expect(r.remainingBalancePence).toBe(0);
   expect(r.payoff).toBeNull();
 });
+
+// ── Variable interest rate (VIR) ─────────────────────────────────────────────
+// gov.uk Plan 2 example thresholds: lower £29,385, upper £52,885; RPI-only 3.2%, max 6.2%.
+const VIR = {
+  sl_interest_rate_pct: 3.2,
+  sl_vir_enabled: true,
+  sl_vir_max_rate_pct: 6.2,
+  sl_vir_lower_income_pence: 2_938_500,
+  sl_vir_upper_income_pence: 5_288_500,
+};
+// Full-year income £42,000 → rate = 3.2 + 3 × (42000 − 29385)/(52885 − 29385)
+const VIR_RATE_42K = 3.2 + 3 * (4_200_000 - 2_938_500) / (5_288_500 - 2_938_500);
+
+test('VIR scales the rate with the tax year income (gov.uk linear formula)', () => {
+  const r = computeStudentLoan([cfg(2026, 4, { ...VIR, sl_balance_pence: 4_500_000 })], { year: 2026, month: 5 });
+  const iApr = Math.round(4_500_000 * VIR_RATE_42K / 100 * 30 / 365);
+  const b1 = 4_500_000 + iApr - PAYROLL;
+  const iMay = Math.round(b1 * VIR_RATE_42K / 100 * 31 / 365);
+  expect(r.totalInterestPence).toBe(iApr + iMay);
+  expect(r.remainingBalancePence).toBe(b1 + iMay - PAYROLL);
+});
+
+test('VIR clamps: income below the lower threshold charges the minimum rate, above the upper the max', () => {
+  const below = computeStudentLoan(
+    [cfg(2026, 4, { ...VIR, sl_vir_lower_income_pence: 9_000_000, sl_vir_upper_income_pence: 9_900_000, sl_balance_pence: 4_500_000 })],
+    { year: 2026, month: 4 },
+  );
+  expect(below.totalInterestPence).toBe(Math.round(4_500_000 * 3.2 / 100 * 30 / 365));
+
+  const above = computeStudentLoan(
+    [cfg(2026, 4, { ...VIR, sl_vir_lower_income_pence: 100_000, sl_vir_upper_income_pence: 200_000, sl_balance_pence: 4_500_000 })],
+    { year: 2026, month: 4 },
+  );
+  expect(above.totalInterestPence).toBe(Math.round(4_500_000 * 6.2 / 100 * 30 / 365));
+});
+
+test('VIR part-year start: the first (short) tax year uses actual income, not annualised', () => {
+  // First config Jan 2026 → tax year 2025 income is 3 months (£10,500, below the lower
+  // threshold → minimum rate); from April 2026 the full £42,000 sets the scaled rate.
+  const r = computeStudentLoan([cfg(2026, 1, { ...VIR, sl_balance_pence: 4_500_000 })], { year: 2026, month: 4 });
+  let bal = 4_500_000;
+  let interest = 0;
+  for (const [m, days] of [[1, 31], [2, 28], [3, 31]]) {
+    void m;
+    const i = Math.round(bal * 3.2 / 100 * days / 365);
+    bal += i - PAYROLL;
+    interest += i;
+  }
+  const iApr = Math.round(bal * VIR_RATE_42K / 100 * 30 / 365);
+  expect(r.totalInterestPence).toBe(interest + iApr);
+  expect(r.remainingBalancePence).toBe(bal + iApr - PAYROLL);
+});
+
+test('VIR counts a later-saved raise into the whole tax year income, even before the raise month', () => {
+  // £42k Apr–Sep + £84k Oct–Mar → tax-year income £63,000, above the upper threshold → max
+  // rate already applies in April/May (the year is trued up as one income figure).
+  const configs = [
+    cfg(2026, 4, { ...VIR, sl_balance_pence: 4_500_000 }),
+    cfg(2026, 10, { ...VIR, gross_yearly_pence: 8_400_000 }),
+  ];
+  const r = computeStudentLoan(configs, { year: 2026, month: 4 });
+  expect(r.totalInterestPence).toBe(Math.round(4_500_000 * 6.2 / 100 * 30 / 365));
+});
+
+test('VIR degenerate params fall back to the flat rate', () => {
+  const r = computeStudentLoan(
+    [cfg(2026, 4, { ...VIR, sl_vir_upper_income_pence: 2_938_500, sl_balance_pence: 4_500_000 })],
+    { year: 2026, month: 4 },
+  );
+  expect(r.totalInterestPence).toBe(Math.round(4_500_000 * 3.2 / 100 * 30 / 365));
+});
+
+test('VIR payoff projection holds the forward rate from a full year at the latest salary', () => {
+  const flat = computeStudentLoan(
+    [cfg(2026, 4, { sl_interest_rate_pct: 3.2, sl_balance_pence: 1_000_000 })],
+    { year: 2026, month: 4 },
+  );
+  const vir = computeStudentLoan(
+    [cfg(2026, 4, { ...VIR, sl_vir_lower_income_pence: 100_000, sl_vir_upper_income_pence: 200_000, sl_balance_pence: 1_000_000 })],
+    { year: 2026, month: 4 },
+  );
+  // Same balance and payroll, but the VIR run accrues at 6.2% vs 3.2% → more interest to clear.
+  expect(flat.payoff).not.toBeNull();
+  expect(vir.payoff).not.toBeNull();
+  expect(vir.payoff!.remainingInterestPence).toBeGreaterThan(flat.payoff!.remainingInterestPence);
+});

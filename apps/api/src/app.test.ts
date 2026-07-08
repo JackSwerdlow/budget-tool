@@ -422,6 +422,41 @@ describe('salary config', () => {
     expect(data.config.extra_payment_pence).toBe(50_000);
   });
 
+  it('PUT round-trips the student-loan VIR fields; omitted → off/null', async () => {
+    const app = freshApp();
+    await app.request('/api/salary-config/2026/6', put({
+      ...SALARY_BODY,
+      sl_vir_enabled: true, sl_vir_max_rate_pct: 6.2,
+      sl_vir_lower_income_pence: 2_938_500, sl_vir_upper_income_pence: 5_288_500,
+    }));
+
+    const get = await app.request('/api/salary-config/2026/6');
+    type VirConfig = {
+      sl_vir_enabled: boolean; sl_vir_max_rate_pct: number | null;
+      sl_vir_lower_income_pence: number | null; sl_vir_upper_income_pence: number | null;
+    };
+    const data = await body<{ config: VirConfig }>(get);
+    expect(data.config.sl_vir_enabled).toBe(true);
+    expect(data.config.sl_vir_max_rate_pct).toBe(6.2);
+    expect(data.config.sl_vir_lower_income_pence).toBe(2_938_500);
+    expect(data.config.sl_vir_upper_income_pence).toBe(5_288_500);
+
+    await app.request('/api/salary-config/2026/7', put(SALARY_BODY));
+    const plain = await body<{ config: VirConfig }>(await app.request('/api/salary-config/2026/7'));
+    expect(plain.config.sl_vir_enabled).toBe(false);
+    expect(plain.config.sl_vir_max_rate_pct).toBeNull();
+    expect(plain.config.sl_vir_lower_income_pence).toBeNull();
+    expect(plain.config.sl_vir_upper_income_pence).toBeNull();
+  });
+
+  it('PUT rejects invalid VIR values', async () => {
+    const app = freshApp();
+    const bad = await app.request('/api/salary-config/2026/6', put({ ...SALARY_BODY, sl_vir_max_rate_pct: 'nope' }));
+    expect(bad.status).toBe(400);
+    const badLower = await app.request('/api/salary-config/2026/6', put({ ...SALARY_BODY, sl_vir_lower_income_pence: 12.5 }));
+    expect(badLower.status).toBe(400);
+  });
+
   it('GET for later month inherits from saved earlier month', async () => {
     const app = freshApp();
     await app.request('/api/salary-config/2026/6', put(SALARY_BODY));

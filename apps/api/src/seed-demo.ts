@@ -907,6 +907,10 @@ const salaryConfig = {
   sl_threshold_yearly_pence: 2_847_000,
   sl_rate_pct: 9,
   sl_interest_rate_pct: 4.3,
+  sl_vir_enabled: false,
+  sl_vir_max_rate_pct: null,
+  sl_vir_lower_income_pence: null,
+  sl_vir_upper_income_pence: null,
   bonus_pence: 0,
   extra_payment_pence: 0,
 };

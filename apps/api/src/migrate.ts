@@ -8,6 +8,10 @@ export function migrate(db: DatabaseSync): void {
   // Column additions for existing databases
   try { db.exec('ALTER TABLE salary_config ADD COLUMN bonus_pence INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE salary_config ADD COLUMN extra_payment_pence INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE salary_config ADD COLUMN sl_vir_enabled INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE salary_config ADD COLUMN sl_vir_max_rate_pct REAL'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE salary_config ADD COLUMN sl_vir_lower_income_pence INTEGER'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE salary_config ADD COLUMN sl_vir_upper_income_pence INTEGER'); } catch { /* already exists */ }
   // Column removals (vestigial exclude_from_discretionary, dead since Views shipped)
   try { db.exec('ALTER TABLE categories DROP COLUMN exclude_from_discretionary'); } catch { /* already gone */ }
 }

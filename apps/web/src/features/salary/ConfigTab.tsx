@@ -85,8 +85,19 @@ export function ConfigTab({ configFields, setConfigFields, saveBarProps }: Confi
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <PoundInput label="Threshold (yearly)" value={configFields.sl_threshold_yearly_pence} onChange={(v) => set('sl_threshold_yearly_pence', v)} />
                 <PctInput label="Rate" value={configFields.sl_rate_pct} onChange={(v) => set('sl_rate_pct', v)} />
-                <PctInput label="Annual interest rate (%)" value={configFields.sl_interest_rate_pct} onChange={(v) => set('sl_interest_rate_pct', v)} />
+                <PctInput label={configFields.sl_vir_enabled ? 'Min interest rate (%)' : 'Annual interest rate (%)'} value={configFields.sl_interest_rate_pct} onChange={(v) => set('sl_interest_rate_pct', v)} />
               </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="sl-vir-enabled" checked={Boolean(configFields.sl_vir_enabled)} onChange={(e) => set('sl_vir_enabled', e.target.checked)} className="h-4 w-4 accent-accent" />
+                <label htmlFor="sl-vir-enabled" className="text-sm text-ink">Variable interest rate (scales with income, e.g. Plan 2)</label>
+              </div>
+              {configFields.sl_vir_enabled && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <PctInput label="Max interest rate (%)" value={configFields.sl_vir_max_rate_pct} onChange={(v) => set('sl_vir_max_rate_pct', v)} />
+                  <PoundInput label="Lower income threshold" value={configFields.sl_vir_lower_income_pence} onChange={(v) => set('sl_vir_lower_income_pence', v)} />
+                  <PoundInput label="Upper income threshold" value={configFields.sl_vir_upper_income_pence} onChange={(v) => set('sl_vir_upper_income_pence', v)} />
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="sl-set-balance"
                   checked={configFields.sl_balance_pence !== '' || showBalance}

@@ -567,6 +567,13 @@ export function createApp(db: DatabaseSync): Hono {
     if (slBalance !== null && !isPence(slBalance)) return c.json({ error: 'invalid sl_balance_pence' }, 400);
     if (slInterest !== null && !isRealPct(slInterest)) return c.json({ error: 'invalid sl_interest_rate_pct' }, 400);
 
+    const slVirMax = body.sl_vir_max_rate_pct == null ? null : Number(body.sl_vir_max_rate_pct);
+    const slVirLower = body.sl_vir_lower_income_pence == null ? null : Number(body.sl_vir_lower_income_pence);
+    const slVirUpper = body.sl_vir_upper_income_pence == null ? null : Number(body.sl_vir_upper_income_pence);
+    if (slVirMax !== null && !isRealPct(slVirMax)) return c.json({ error: 'invalid sl_vir_max_rate_pct' }, 400);
+    if (slVirLower !== null && !isPence(slVirLower)) return c.json({ error: 'invalid sl_vir_lower_income_pence' }, 400);
+    if (slVirUpper !== null && !isPence(slVirUpper)) return c.json({ error: 'invalid sl_vir_upper_income_pence' }, 400);
+
     const cfg = {
       year, month,
       gross_yearly_pence: gross,
@@ -581,6 +588,9 @@ export function createApp(db: DatabaseSync): Hono {
       sl_enabled: Boolean(body.sl_enabled),
       sl_threshold_yearly_pence: slThreshold, sl_rate_pct: slRate,
       sl_balance_pence: slBalance, sl_interest_rate_pct: slInterest,
+      sl_vir_enabled: Boolean(body.sl_vir_enabled),
+      sl_vir_max_rate_pct: slVirMax,
+      sl_vir_lower_income_pence: slVirLower, sl_vir_upper_income_pence: slVirUpper,
       bonus_pence: body.bonus_pence == null ? 0 : Number(body.bonus_pence),
       extra_payment_pence: body.extra_payment_pence == null ? 0 : Number(body.extra_payment_pence),
     };

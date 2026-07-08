@@ -286,3 +286,24 @@ test('salary: extra_payment_pence round-trips', async () => {
   const def = await port.getSalaryConfig(2026, 8); // inherits — carries the saved row's value
   expect(def.config?.extra_payment_pence).toBe(50_000);
 });
+
+test('salary: student-loan VIR fields round-trip, and default off/null when omitted', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig({
+    ...SALARY_CFG,
+    sl_vir_enabled: true, sl_vir_max_rate_pct: 6.2,
+    sl_vir_lower_income_pence: 2_938_500, sl_vir_upper_income_pence: 5_288_500,
+  }, 335_995);
+  const got = (await port.getSalaryConfig(2026, 6)).config;
+  expect(got?.sl_vir_enabled).toBe(true);
+  expect(got?.sl_vir_max_rate_pct).toBe(6.2);
+  expect(got?.sl_vir_lower_income_pence).toBe(2_938_500);
+  expect(got?.sl_vir_upper_income_pence).toBe(5_288_500);
+
+  await port.saveSalaryConfig({ ...SALARY_CFG, year: 2026, month: 7 }, 335_995);
+  const plain = (await port.getSalaryConfig(2026, 7)).config;
+  expect(plain?.sl_vir_enabled).toBe(false);
+  expect(plain?.sl_vir_max_rate_pct).toBeNull();
+  expect(plain?.sl_vir_lower_income_pence).toBeNull();
+  expect(plain?.sl_vir_upper_income_pence).toBeNull();
+});

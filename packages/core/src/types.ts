@@ -120,6 +120,13 @@ export type SalaryConfig = {
   sl_rate_pct: number;
   sl_balance_pence: number | null;
   sl_interest_rate_pct: number | null;
+  // Variable interest rate (Plan 2-style): when enabled, sl_interest_rate_pct is the minimum
+  // (RPI-only) rate and the effective rate scales linearly up to sl_vir_max_rate_pct as the
+  // tax year's income moves between the lower and upper income thresholds.
+  sl_vir_enabled?: boolean;
+  sl_vir_max_rate_pct?: number | null;
+  sl_vir_lower_income_pence?: number | null;
+  sl_vir_upper_income_pence?: number | null;
   bonus_pence?: number;
   extra_payment_pence?: number;
 };

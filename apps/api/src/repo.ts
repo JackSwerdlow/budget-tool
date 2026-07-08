@@ -537,11 +537,15 @@ type SalaryConfigRow = {
   ni_primary_pct: number; ni_upper_pct: number;
   sl_enabled: number; sl_threshold_yearly_pence: number; sl_rate_pct: number;
   sl_balance_pence: number | null; sl_interest_rate_pct: number | null;
+  sl_vir_enabled: number; sl_vir_max_rate_pct: number | null;
+  sl_vir_lower_income_pence: number | null; sl_vir_upper_income_pence: number | null;
   bonus_pence: number;
   extra_payment_pence: number;
 };
 
-type SalaryConfig = Omit<SalaryConfigRow, 'sl_enabled'> & { sl_enabled: boolean };
+type SalaryConfig = Omit<SalaryConfigRow, 'sl_enabled' | 'sl_vir_enabled'> & {
+  sl_enabled: boolean; sl_vir_enabled: boolean;
+};
 type SalaryConfigResponse = {
   config: SalaryConfig | null;
   inheritedFrom: { year: number; month: number } | null;
@@ -549,7 +553,7 @@ type SalaryConfigResponse = {
 };
 
 function rowToConfig(row: SalaryConfigRow): SalaryConfig {
-  return { ...row, sl_enabled: row.sl_enabled === 1 };
+  return { ...row, sl_enabled: row.sl_enabled === 1, sl_vir_enabled: row.sl_vir_enabled === 1 };
 }
 
 // All saved configs' YTD-relevant columns, ascending — fed to the core walk so an inherited
@@ -615,9 +619,10 @@ export function upsertSalaryConfig(db: DatabaseSync, cfg: SalaryConfig): SalaryC
        ni_lower_monthly_pence, ni_upper_monthly_pence, ni_primary_pct, ni_upper_pct,
        sl_enabled, sl_threshold_yearly_pence, sl_rate_pct,
        sl_balance_pence, sl_interest_rate_pct,
+       sl_vir_enabled, sl_vir_max_rate_pct, sl_vir_lower_income_pence, sl_vir_upper_income_pence,
        bonus_pence, extra_payment_pence
      ) VALUES (
-       ?,?,?,?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,?,  ?,?,?,?,  ?,?,?,  ?,?,  ?,?
+       ?,?,?,?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,?,  ?,?,?,?,  ?,?,?,  ?,?,  ?,?,?,?,  ?,?
      )
      ON CONFLICT(year, month) DO UPDATE SET
        gross_yearly_pence=excluded.gross_yearly_pence, note=excluded.note,
@@ -639,6 +644,10 @@ export function upsertSalaryConfig(db: DatabaseSync, cfg: SalaryConfig): SalaryC
        sl_rate_pct=excluded.sl_rate_pct,
        sl_balance_pence=excluded.sl_balance_pence,
        sl_interest_rate_pct=excluded.sl_interest_rate_pct,
+       sl_vir_enabled=excluded.sl_vir_enabled,
+       sl_vir_max_rate_pct=excluded.sl_vir_max_rate_pct,
+       sl_vir_lower_income_pence=excluded.sl_vir_lower_income_pence,
+       sl_vir_upper_income_pence=excluded.sl_vir_upper_income_pence,
        bonus_pence=excluded.bonus_pence,
        extra_payment_pence=excluded.extra_payment_pence`,
   ).run(
@@ -650,6 +659,8 @@ export function upsertSalaryConfig(db: DatabaseSync, cfg: SalaryConfig): SalaryC
     cfg.ni_lower_monthly_pence, cfg.ni_upper_monthly_pence, cfg.ni_primary_pct, cfg.ni_upper_pct,
     cfg.sl_enabled ? 1 : 0, cfg.sl_threshold_yearly_pence, cfg.sl_rate_pct,
     cfg.sl_balance_pence ?? null, cfg.sl_interest_rate_pct ?? null,
+    cfg.sl_vir_enabled ? 1 : 0, cfg.sl_vir_max_rate_pct ?? null,
+    cfg.sl_vir_lower_income_pence ?? null, cfg.sl_vir_upper_income_pence ?? null,
     cfg.bonus_pence ?? 0, cfg.extra_payment_pence ?? 0,
   );
   const row = db.prepare('SELECT * FROM salary_config WHERE year = ? AND month = ?').get(cfg.year, cfg.month) as SalaryConfigRow;
