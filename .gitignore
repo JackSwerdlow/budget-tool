@@ -247,3 +247,4 @@ npm-debug.log*
 apps/desktop/src-tauri/gen/android/keystore.properties
 *.jks
 *.keystore
+*.apk
