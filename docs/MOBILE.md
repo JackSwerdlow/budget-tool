@@ -69,9 +69,12 @@ rusqlite's `bundled` SQLite cross-compiles under the NDK with no special flags.
    "install unknown apps" on first use. Updates install over the top; the DB persists.
 4. Version bumps ride `tauri.conf.json`'s `version` (Tauri derives the Android versionCode).
 
-Not set up (deliberately, single-user): CI/release-workflow APK builds — `release.yml` still
-covers desktop only. If ever wanted: an ubuntu job with Java 21 + SDK/NDK + base64 keystore
-secrets on an `android-v*` tag.
+**CI release builds**: pushing an `android-v*` tag (matching `tauri.conf.json`'s version), or a
+manual dispatch, runs `.github/workflows/release-android.yml` — an ubuntu job that reconstructs
+`keystore.properties` from three repository secrets (`ANDROID_KEYSTORE_BASE64` = base64 of the
+.jks, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`), builds the signed APK, and attaches it as
+`budget-tool-android-v<version>.apk` to a **draft** GitHub Release (publish manually — same flow
+as the desktop `release.yml`). The workflow file is the source of truth for the details.
 
 ## Data across devices
 

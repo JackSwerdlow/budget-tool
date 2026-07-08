@@ -1,0 +1,100 @@
+name: release-android
+
+# Build the signed Android APK on a real runner and attach it to a draft GitHub Release.
+# Trigger by pushing a tag like `android-v0.2.0` (must match the version in
+# apps/desktop/src-tauri/tauri.conf.json), or run the workflow manually.
+#
+# Needs three repository secrets (see docs/MOBILE.md):
+#   ANDROID_KEYSTORE_BASE64 — base64 of the upload keystore (.jks)
+#   ANDROID_KEY_ALIAS       — key alias inside the keystore
+#   ANDROID_KEY_PASSWORD    — store + key password (one value, matching the local setup)
+on:
+  push:
+    tags:
+      - 'android-v*'
+  workflow_dispatch:
+
+jobs:
+  publish-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358'
+
+      - name: Set NDK_HOME
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      # Reconstruct the gitignored signing config the Gradle build reads
+      # (gen/android/keystore.properties). The keystore is decoded outside the
+      # checkout; nothing here prints a secret value.
+      - name: Setup Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::error::Missing repository secret(s): ANDROID_KEYSTORE_BASE64 / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD"
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+          {
+            echo "password=$ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "storeFile=$RUNNER_TEMP/keystore.jks"
+          } > apps/desktop/src-tauri/gen/android/keystore.properties
+
+      - name: Build signed APK
+        run: npm run tauri:android:build
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        run: >
+          cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          "budget-tool-android-v${{ steps.version.outputs.version }}.apk"
+
+      - name: Attach APK to draft release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: true
+          prerelease: false
+          tag_name: android-v${{ steps.version.outputs.version }}
+          name: 'Budget Tool Android v${{ steps.version.outputs.version }}'
+          body: 'Sideload APK — transfer to the phone and open it (allow "install unknown apps" on first use). Updates install over the top; app data persists.'
+          files: budget-tool-android-v${{ steps.version.outputs.version }}.apk
