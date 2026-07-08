@@ -92,8 +92,10 @@ matches no existing View (and the cap isn't hit), a "save as View" affordance ap
 Balance's money is the one thing it never touches.
 
 **Trends** (`features/OverviewTrends.tsx`) has three sections sharing one month range (default
-last 6 months; custom From/To picker in the matrix header) and the same shared category filter
-as Month. Clicking a bar (or a matrix month-header) opens that month in the Month view:
+last 6 months; custom From/To picker — `features/TrendsRangePicker.tsx` — lives in the page
+header next to the view switcher, in the same slot Month's month picker uses, since it drives
+all three sections below) and the same shared category filter as Month. Clicking a bar (or a
+matrix month-header) opens that month in the Month view:
 
 - **Spend by month** (`charts/TrendsBars.tsx`) — a stacked per-month bar chart in the running
   chart's visual language: group colours/stack order matching the donut, and two pill toggles —

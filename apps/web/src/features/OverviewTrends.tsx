@@ -1,30 +1,22 @@
-import { useState } from 'react';
 import { categoryTotalsByMonth, previousMonth, type LedgerData } from '@budget/core';
 import { TrendsBars } from '../charts/TrendsBars';
 import { TrendsLines } from '../charts/TrendsLines';
 import { TrendsMatrix } from '../charts/TrendsMatrix';
-import { monthsRange, todayISO } from '../lib/dates';
+import { monthsRange } from '../lib/dates';
 
-// The Trends view: the stacked per-month bars and the category×month matrix share one
-// month range (the picker lives in the matrix header; the state lives here). Clicking a
-// bar (or a matrix month header) opens that month in the Month view via onOpenMonth.
-export function OverviewTrends({ data, hiddenCategoryIds, onOpenMonth }: {
+// The Trends view: the stacked per-month bars, the line chart, and the category×month matrix
+// share one month range. The range picker itself lives in App.tsx's header (TrendsRangePicker,
+// next to the tab switcher) since it affects all three charts, not just the matrix below them.
+// Clicking a bar (or a matrix month header) opens that month in the Month view via onOpenMonth.
+export function OverviewTrends({ data, hiddenCategoryIds, displayStart, displayEnd, onOpenMonth }: {
   data: LedgerData;
   hiddenCategoryIds: Set<number>;
+  displayStart: string;
+  displayEnd: string;
   onOpenMonth: (ym: string) => void;
 }) {
-  const [rangeStart, setRangeStart] = useState<string | null>(null);
-  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
-
-  const currentYm = todayISO().slice(0, 7);
-  let defaultStart = currentYm;
-  for (let i = 0; i < 5; i++) defaultStart = previousMonth(defaultStart);
-
-  const displayStart = rangeStart ?? defaultStart;
-  const displayEnd = rangeEnd ?? currentYm;
   // A From after the To yields no months — both sections handle the empty range.
   const months = monthsRange(displayStart, displayEnd, 60);
-  const isCustomRange = rangeStart !== null || rangeEnd !== null;
 
   // One ledger pass covers both sections; the month before the range is included as the
   // baseline for the first column's / first bar's vs-last-month figures.
@@ -44,11 +36,6 @@ export function OverviewTrends({ data, hiddenCategoryIds, onOpenMonth }: {
         totalsByMonth={totalsByMonth}
         onOpenMonth={onOpenMonth}
         displayStart={displayStart}
-        displayEnd={displayEnd}
-        isCustomRange={isCustomRange}
-        onRangeStart={setRangeStart}
-        onRangeEnd={setRangeEnd}
-        onResetRange={() => { setRangeStart(null); setRangeEnd(null); }}
       />
     </div>
   );

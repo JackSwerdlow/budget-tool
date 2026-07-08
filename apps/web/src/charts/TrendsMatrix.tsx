@@ -6,7 +6,7 @@ import {
   type LedgerData,
   type MatrixCell,
 } from '@budget/core';
-import { monthLabel, monthShort, monthsRange, todayISO } from '../lib/dates';
+import { monthLabel, monthShort, todayISO } from '../lib/dates';
 
 // §6.0 heat ramp (less -> more spend, per row).
 const RAMP = [
@@ -62,31 +62,20 @@ type RenderRow = {
   prevMonthPence: number; // pence in the month before displayStart, for first-column % computation
 };
 
-export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, displayStart, displayEnd, isCustomRange, onRangeStart, onRangeEnd, onResetRange, onOpenMonth }: {
+export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, displayStart, onOpenMonth }: {
   data: LedgerData;
   hiddenCategoryIds: Set<number>;
-  // The month range is owned by OverviewTrends so the bar chart above shares it.
-  // displayStart/End are the resolved picks (may not match months[] when the range is empty).
+  // The month range is owned by App.tsx (TrendsRangePicker) so all three Trends charts share it.
+  // displayStart is the resolved pick (may not match months[0] when the range is empty).
   months: string[];
   // Shared with TrendsBars (computed once in OverviewTrends); includes previousMonth(months[0]).
   totalsByMonth: ReadonlyMap<string, Map<number, number>>;
   displayStart: string;
-  displayEnd: string;
-  isCustomRange: boolean;
-  onRangeStart: (ym: string) => void;
-  onRangeEnd: (ym: string) => void;
-  onResetRange: () => void;
   onOpenMonth: (ym: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [showRange, setShowRange] = useState(false);
 
   const currentYm = todayISO().slice(0, 7);
-
-  let optStart = currentYm;
-  for (let i = 0; i < 47; i++) optStart = previousMonth(optStart);
-  const monthOptions = monthsRange(optStart, currentYm, 48);
-
 
   const visibleGroups = data.groups
     .map((g) => {
@@ -151,44 +140,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </button>
         )}
-        <button
-          type="button"
-          className={`text-xs transition-colors hover:text-accent ${isCustomRange ? 'text-accent' : 'text-ink-muted'}`}
-          onClick={() => setShowRange((s) => !s)}
-        >
-          {isCustomRange ? 'Custom range' : '6 months'} {showRange ? '▴' : '▾'}
-        </button>
       </div>
-
-      {showRange && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-ink-muted">
-          <span>From</span>
-          <select
-            value={displayStart}
-            onChange={(e) => onRangeStart(e.target.value)}
-            className="rounded border border-hairline bg-panel px-1.5 py-0.5 text-xs text-ink"
-          >
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>{monthLabel(m)}</option>
-            ))}
-          </select>
-          <span>to</span>
-          <select
-            value={displayEnd}
-            onChange={(e) => onRangeEnd(e.target.value)}
-            className="rounded border border-hairline bg-panel px-1.5 py-0.5 text-xs text-ink"
-          >
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>{monthLabel(m)}</option>
-            ))}
-          </select>
-          {isCustomRange && (
-            <button type="button" onClick={onResetRange} className="text-ink-muted transition-colors hover:text-accent">
-              Reset
-            </button>
-          )}
-        </div>
-      )}
 
       {visibleGroups.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">No spend recorded yet.</p>

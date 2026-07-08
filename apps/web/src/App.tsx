@@ -12,6 +12,7 @@ import { OverviewMonth } from './features/OverviewMonth';
 import { Manage } from './features/manage/Manage';
 import { Salary } from './features/salary/Salary';
 import { OverviewTrends } from './features/OverviewTrends';
+import { TrendsRangePicker } from './features/TrendsRangePicker';
 import { OverviewItems } from './features/OverviewItems';
 import { CategoryVisibilityPanel } from './components/CategoryVisibilityPanel';
 
@@ -33,6 +34,8 @@ export function App() {
   const [overviewView, setOverviewView] = useState<'month' | 'trends' | 'items'>('month');
   const [addView, setAddView] = useState<'single' | 'list' | 'monthly'>('single');
   const [ym, setYm] = useState<string>(todayISO().slice(0, 7));
+  const [trendsRangeStart, setTrendsRangeStart] = useState<string | null>(null);
+  const [trendsRangeEnd, setTrendsRangeEnd] = useState<string | null>(null);
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<number>>(new Set());
   const [showFilter, setShowFilter] = useState(false);
   const [saveViewOpen, setSaveViewOpen] = useState(false);
@@ -55,6 +58,15 @@ export function App() {
   const lastEntryDate = data
     ? ([...data.entries.map((e) => e.date), ...data.lists.map((l) => l.date)].sort().at(-1) ?? null)
     : null;
+
+  // The Trends range picker lives in the header (below) rather than above the matrix, since
+  // it drives all three Trends charts. Default: the 6 months ending this month.
+  const trendsCurrentYm = todayISO().slice(0, 7);
+  let trendsDefaultStart = trendsCurrentYm;
+  for (let i = 0; i < 5; i++) trendsDefaultStart = previousMonth(trendsDefaultStart);
+  const trendsDisplayStart = trendsRangeStart ?? trendsDefaultStart;
+  const trendsDisplayEnd = trendsRangeEnd ?? trendsCurrentYm;
+  const trendsIsCustomRange = trendsRangeStart !== null || trendsRangeEnd !== null;
 
   // Escape dismisses the transient Overview panels (filter checklist, save-as-View form).
   useEscape(() => {
@@ -232,6 +244,16 @@ export function App() {
                   ))}
               </div>
               {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
+              {overviewView === 'trends' && (
+                <TrendsRangePicker
+                  displayStart={trendsDisplayStart}
+                  displayEnd={trendsDisplayEnd}
+                  isCustomRange={trendsIsCustomRange}
+                  onRangeStart={setTrendsRangeStart}
+                  onRangeEnd={setTrendsRangeEnd}
+                  onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
+                />
+              )}
             </div>
             {showFilter && (
               <div className="mb-6">
@@ -244,6 +266,8 @@ export function App() {
               <OverviewTrends
                 data={data}
                 hiddenCategoryIds={hiddenCategoryIds}
+                displayStart={trendsDisplayStart}
+                displayEnd={trendsDisplayEnd}
                 onOpenMonth={(m) => {
                   setYm(m);
                   setOverviewView('month');
