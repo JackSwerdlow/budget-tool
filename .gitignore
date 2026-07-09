@@ -233,13 +233,13 @@ npm-debug.log*
 !apps/web/src/lib/
 !apps/web/src/lib/**
 
-# App data — live DB is local-only; the demo DB is committed (Phase 6).
-# Ignore the live DB and ALL transient SQLite sidecars; keep the demo DB.
+# App data — all local-only. The demo DB was committed as a seed through Phase 6
+# but now doubles as a live personal DB via `npm run dev:demo`, so it's untracked too.
 /data/budget.db
+/data/budget-demo.db
 /data/*.db-wal
 /data/*.db-shm
 /data/*.db-journal
-!/data/budget-demo.db
 
 # Excel Files
 *.xlsx
