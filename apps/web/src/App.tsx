@@ -277,12 +277,14 @@ export function App() {
                   onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
                 />
               )}
+              {/* Inside the sticky bar (as a full-width row) so it opens attached to the controls
+                  rather than at the page's top when scrolled down. */}
+              {showFilter && (
+                <div className="mt-1 w-full">
+                  <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
+                </div>
+              )}
             </div>
-            {showFilter && (
-              <div className="mb-6">
-                <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
-              </div>
-            )}
             <div {...overviewSwipe}>
               {overviewView === 'month' ? (
                 <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
