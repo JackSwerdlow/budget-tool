@@ -129,8 +129,11 @@ persisted list-item rows ("how much on milk?"): a searchable table of every item
 (grouped case-insensitively; latest casing wins) — times bought, last unit price, unit-price
 **drift** (latest vs first, red up / green down), full total and your-share total. Every column
 header is sortable (click cycles desc ▼ → asc ▲ → none; "none" falls back to total-spend
-order); the view starts with **Total** sorted desc. Top 15 by default ("Show all" expands;
-searching always searches everything). Clicking a row opens the item's unit-price history: a
+order); the view starts with **Total** sorted desc. Under `sm` only **Item · Last unit ·
+Total** show (six money columns would starve the item name on a phone); the rest — bought,
+drift, your-share — return from `sm` up and stay reachable via the row detail. Top 15 by
+default ("Show all" expands; searching always searches everything). Clicking a row opens the
+item's unit-price history: a
 stepped kit-frame chart, one dot per purchase, hover for the date/qty/price. Uses the same
 shared category filter as Month/Trends; analysis only — the ledger itself is untouched.
 

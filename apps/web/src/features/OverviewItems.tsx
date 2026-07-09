@@ -84,22 +84,26 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-hairline bg-panel">
-        <div className="min-w-[36rem]">
-        <div className="grid grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">
+        {/* Six money columns can't all fit a phone without starving the item name, so under sm
+            only Item · Last unit · Total show (the price-over-time headline); the rest return
+            from sm up, and every column stays reachable via a row's detail panel. Hidden cells
+            use display:none so they drop out of the grid, keeping the two column templates aligned. */}
+        <div className="sm:min-w-[36rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">
           {([
-            ['name', 'Item', 'text-left'],
-            ['bought', 'Bought', 'text-right'],
-            ['lastUnit', 'Last unit', 'text-right'],
-            ['drift', 'Drift', 'text-right'],
-            ['total', 'Total', 'text-right'],
-            ['myShare', 'Your share', 'text-right'],
-          ] as const).map(([key, label, align]) => (
+            ['name', 'Item', 'text-left', ''],
+            ['bought', 'Bought', 'text-right', 'hidden sm:block'],
+            ['lastUnit', 'Last unit', 'text-right', ''],
+            ['drift', 'Drift', 'text-right', 'hidden sm:block'],
+            ['total', 'Total', 'text-right', ''],
+            ['myShare', 'Your share', 'text-right', 'hidden sm:block'],
+          ] as const).map(([key, label, align, hide]) => (
             <button
               key={key}
               type="button"
               onClick={() => cycleSort(key)}
               aria-sort={sort?.key === key ? (sort.dir === 'desc' ? 'descending' : 'ascending') : undefined}
-              className={`${align} uppercase tracking-wide transition-colors hover:text-accent ${sort?.key === key ? 'font-semibold text-ink-muted' : ''}`}
+              className={`${align} ${hide} uppercase tracking-wide transition-colors hover:text-accent ${sort?.key === key ? 'font-semibold text-ink-muted' : ''}`}
             >
               {label}
               {sort?.key === key && <span className="ml-0.5">{sort.dir === 'desc' ? '▼' : '▲'}</span>}
@@ -118,19 +122,19 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
               type="button"
               onClick={() => setSelectedName(active ? null : s.name.toLowerCase())}
               aria-expanded={active}
-              className={`grid w-full grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline px-3 py-1.5 text-left text-sm transition-colors last:border-b-0 hover:bg-raised/40 ${active ? 'bg-raised/60' : ''}`}
+              className={`grid w-full grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline px-3 py-1.5 text-left text-sm transition-colors last:border-b-0 hover:bg-raised/40 ${active ? 'bg-raised/60' : ''}`}
             >
               <span className="flex min-w-0 items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: lastCat?.color }} />
                 <span className={`truncate ${active ? 'font-semibold text-accent' : 'text-ink'}`}>{s.name}</span>
               </span>
-              <span className="text-right tabular-nums text-ink-muted">×{s.timesBought}</span>
+              <span className="hidden text-right tabular-nums text-ink-muted sm:block">×{s.timesBought}</span>
               <span className="text-right tabular-nums text-ink">{formatGBP(s.lastUnitPricePence)}</span>
-              <span className={`text-right tabular-nums text-xs ${drift === null || drift === 0 ? 'text-ink-faint' : drift > 0 ? 'text-over' : 'text-under'}`}>
+              <span className={`hidden text-right tabular-nums text-xs sm:block ${drift === null || drift === 0 ? 'text-ink-faint' : drift > 0 ? 'text-over' : 'text-under'}`}>
                 {drift === null || drift === 0 ? '—' : `${drift > 0 ? '+' : ''}${drift}%`}
               </span>
               <span className="text-right tabular-nums text-ink">{formatGBP(s.totalPence)}</span>
-              <span className="text-right tabular-nums text-ink-muted">{formatGBP(s.totalMyPence)}</span>
+              <span className="hidden text-right tabular-nums text-ink-muted sm:block">{formatGBP(s.totalMyPence)}</span>
             </button>
           );
         })}
