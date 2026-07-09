@@ -10,8 +10,9 @@ import {
 } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { dayOfMonth, daysInMonth, monthAbbr, todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 type Pt = { day: number; value: number };
 type StackPt = { day: number; byGroup: Map<number, number>; total: number };
@@ -36,6 +37,9 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
   useDismissOnOutsideTap(hoveredDay !== null, wrapRef, () => setHoveredDay(null));
+  // Touch shows the scrubbed values in the strip above (not the in-chart box, which would cover
+  // the chart under the finger); mouse keeps the follow-cursor box. See MOBILE.md.
+  const coarse = coarsePointer();
   // The reference lines are toggleable: hiding one also releases the y-axis from its value
   // (useful when a filtered-down total sits far below income). Last Month starts on; the
   // income lines start off.
@@ -229,6 +233,15 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           </span>
         </div>
       </div>
+      {coarse && (
+        <ChartInspectStrip
+          active={hoveredPt !== null}
+          title={hoveredPt ? `${hoveredPt.day} ${monthName}` : 'Running total'}
+          value={formatGBP(hoveredPt ? hoveredPt.value : current)}
+          delta={hoveredPt && delta !== null && delta !== 0 ? `${delta > 0 ? '+' : ''}${formatGBP(delta)}` : undefined}
+          deltaClass={delta !== null && delta > 0 ? 'text-accent' : 'text-ink-faint'}
+        />
+      )}
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
         <MoneyGrid scale={scale} frame={frame} />
 
@@ -332,22 +345,25 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
             <g>
               <line x1={hx} y1={PAD_TOP} x2={hx} y2={y(0)} className="stroke-ink/20" strokeWidth={1} />
               <circle cx={hx} cy={hy} r={4.5} className="fill-accent" stroke="var(--color-panel)" strokeWidth={2} />
-              <SvgBreakdownBox
-                x={boxX}
-                y={boxY}
-                title={`${hoveredPt.day} ${monthName}`}
-                big={formatGBP(hoveredPt.value)}
-                sub={`${delta !== null && delta > 0 ? '+' : ''}${formatGBP(delta ?? 0)}`}
-                subClass={delta !== null && delta > 0 ? 'fill-accent' : 'fill-ink-faint'}
-                rows={hoverByGroup.map((r) => ({
-                  key: r.id,
-                  color: r.color,
-                  name: r.name,
-                  value: formatGBP(r.value),
-                  extra: r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—',
-                  extraClass: r.delta > 0 ? 'fill-accent' : 'fill-ink-faint',
-                }))}
-              />
+              {/* Touch reads the values off the strip above; only the mouse sees the in-chart box. */}
+              {!coarse && (
+                <SvgBreakdownBox
+                  x={boxX}
+                  y={boxY}
+                  title={`${hoveredPt.day} ${monthName}`}
+                  big={formatGBP(hoveredPt.value)}
+                  sub={`${delta !== null && delta > 0 ? '+' : ''}${formatGBP(delta ?? 0)}`}
+                  subClass={delta !== null && delta > 0 ? 'fill-accent' : 'fill-ink-faint'}
+                  rows={hoverByGroup.map((r) => ({
+                    key: r.id,
+                    color: r.color,
+                    name: r.name,
+                    value: formatGBP(r.value),
+                    extra: r.delta !== 0 ? `${r.delta > 0 ? '+' : ''}${formatGBP(r.delta)}` : '—',
+                    extraClass: r.delta > 0 ? 'fill-accent' : 'fill-ink-faint',
+                  }))}
+                />
+              )}
             </g>
           );
         })()}
@@ -361,6 +377,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           onPointerMove={handlePointer}
           onPointerDown={handlePointer}
           onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredDay(null); }}
+          onPointerUp={(e) => { if (e.pointerType === 'touch') setHoveredDay(null); }}
         />
       </svg>
     </div>

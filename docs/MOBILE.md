@@ -15,11 +15,17 @@ Tauri targets; there is no third transport. The DB lives in the app's per-user c
 device and **persists across app updates** (same-signature installs).
 
 The UI is the shared responsive build: under Tailwind's `sm` breakpoint the top tabs become a
-fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), chart
-breakdowns are tap-to-reveal (outside-tap/scroll dismisses), and the Overview control bar (view
-toggle / View filter / Categories) is `sticky` to the top so it stays reachable without
-scrolling up — all in `apps/web`, so desktop and web pick the same code up automatically at
-their widths.
+fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), and the
+Overview control bar (view toggle / View filter / Categories) is `sticky` to the top so it stays
+reachable without scrolling up — all in `apps/web`, so desktop and web pick the same code up
+automatically at their widths.
+
+**Touch chart tooltips** are moving from the follow-cursor box (which covered the chart under
+the finger) to a persistent **inspect strip** above the chart (`ChartInspectStrip` in the chart
+kit): idle it shows the headline, and a press-&-scrub updates it live to the point under the
+finger, lifting to dismiss. It renders only for a coarse pointer; the mouse keeps the in-chart
+hover boxes untouched. Adopted on the Running-total chart first; the other charts still use the
+tap-to-reveal box until the pattern is rolled out to them.
 
 Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
 `window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper

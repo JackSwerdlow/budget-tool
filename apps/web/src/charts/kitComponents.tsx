@@ -63,6 +63,31 @@ export function SvgBreakdownBox({ x, y, title, big, sub, subClass, rows }: {
   );
 }
 
+// Touch "inspect strip": a persistent single-line header above a chart (see MOBILE.md). Idle it
+// shows the chart's headline; while a finger presses & scrubs the chart it updates live to the
+// point under the finger — so the breakdown never covers the chart the way a follow-finger box
+// does. Mouse keeps the in-chart hover boxes; callers render this only for a coarse pointer.
+export function ChartInspectStrip({ title, value, delta, deltaClass = 'text-ink-faint', active }: {
+  title: string;
+  value: string;
+  delta?: string;
+  deltaClass?: string;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={`mb-3 flex items-baseline gap-2 rounded-md border px-3 py-2 transition-colors ${
+        active ? 'border-hairline bg-raised/60' : 'border-transparent bg-raised/25'
+      }`}
+      aria-live="polite"
+    >
+      <span className="truncate text-xs uppercase tracking-wide text-ink-faint">{title}</span>
+      <span className="ml-auto shrink-0 font-serif text-base tabular-nums text-ink">{value}</span>
+      {delta && <span className={`shrink-0 text-xs tabular-nums ${deltaClass}`}>{delta}</span>}
+    </div>
+  );
+}
+
 export type HtmlBoxRow = {
   key: number | string;
   color: string;
