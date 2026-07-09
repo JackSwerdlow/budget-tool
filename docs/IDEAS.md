@@ -32,7 +32,6 @@
 - Salary tables cramped on mobile — `RateStrip` / `BreakdownTable` are 7-column `w-full` tables whose money columns overlap at ~360px. Trading-212-style: at base width show one range at a time (toggle Yearly / Monthly / Weekly / …); keep the full table from `sm` up.
 - Swipe between sub-tabs — left/right swipe to move across Overview's Month/Trends/Items (and Add's Single/List/Monthly). Touch-only gesture; new interaction.
 - Pinned view/category control on mobile — the Segmented view toggle + View buttons + Categories filter scroll away with the page (only the tab bar is fixed). Make that control bar sticky at base width. Small-scope cousin of the *Sidebar nav + persistent summary figures* entry under Style / IA — decide whether it's a standalone sticky header or the first slice of that.
-- Trends range picker popover overflows off-screen left — the `right-0`-anchored dropdown extends past the left viewport edge when the picker isn't at the right of the screen (e.g. after the header wraps), leaving its selects untappable. (An earlier overflow was patched in `9a6f1c7`; this configuration still breaks.) Clamp/anchor the popover inside the viewport.
 - Trends matrix cramped on mobile — only ~3 month columns fit before horizontal scroll (`minmax(72px,…)` cols + a `38vw` label column), and each cell's `absolute w-8` up/down arrow (up to 24px) overlaps the £/% text. Rethink cell density, arrow placement, and how many months fit at phone width.
 
 ## Data
