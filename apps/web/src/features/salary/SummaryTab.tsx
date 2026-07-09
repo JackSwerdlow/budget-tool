@@ -38,7 +38,7 @@ export function SummaryTab({
     <>
       <section className="rounded-lg border border-hairline bg-panel p-5">
         <h2 className="mb-4 font-serif text-base font-medium text-ink">Gross Pay</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {GROSS_FIELDS.map((field) => (
             <PoundInput
               key={field}
@@ -53,7 +53,7 @@ export function SummaryTab({
             onChange={(v) => setConfigFields((p) => ({ ...p, bonus_pence: v }))} />
           <PoundInput label="Untaxed income (this month)" value={configFields.untaxed_income_pence}
             onChange={(v) => setConfigFields((p) => ({ ...p, untaxed_income_pence: v }))} />
-          <div className="sm:col-span-3">
+          <div className="col-span-2 sm:col-span-3">
             <label className={labelClass}>Note</label>
             <input className={inputClass} value={note} onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. April pay rise + 2026/27 tax year" />
