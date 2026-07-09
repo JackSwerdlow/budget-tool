@@ -122,7 +122,10 @@ matrix month-header) opens that month in the Month view:
   is a **per-row** heatmap (which months were heaviest for that row), with an inline signed
   `±%` vs the previous month; near-flat rows are muted; groups expand to categories — a group
   with only one visible category (e.g. after filtering) can't expand, so its row shows that
-  category's name and colour instead of the group's.
+  category's name and colour instead of the group's. On a phone (coarse pointer) the label and
+  month columns narrow so more months fit before the horizontal scroll, and the change arrow
+  renders inline with the `±%` (rather than the desktop's big left-edge glyph) so it can't
+  overlap the cell's £/% text.
 
 **Items** (`features/OverviewItems.tsx`, `core/items.ts`) is cross-time item analytics over the
 persisted list-item rows ("how much on milk?"): a searchable table of every item ever bought

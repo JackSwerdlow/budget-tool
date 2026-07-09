@@ -21,14 +21,6 @@
 
 - Unpaid-days-off effective rate — display-only effective daily/hourly rate for days actually worked; must never affect tax/NI/SL. Data model supports it.
 
-## Mobile
-
-> Phone-width / touch fixes to the shared `apps/web` build. Each is gated behind the existing
-> seams — Tailwind `sm:`, the `<480px` compact chart frame, or `pointerType === 'touch'` — so the
-> desktop-width web view is unchanged; verify them in a ~360px browser viewport (DevTools device mode).
-
-- Trends matrix cramped on mobile — only ~3 month columns fit before horizontal scroll (`minmax(72px,…)` cols + a `38vw` label column), and each cell's `absolute w-8` up/down arrow (up to 24px) overlaps the £/% text. Rethink cell density, arrow placement, and how many months fit at phone width.
-
 ## Data
 
 - Improve the data export — the shipped CSV/JSON export (Manage → Export) is a first pass kept as-is for now; revisit its format, columns, and scope after real use.

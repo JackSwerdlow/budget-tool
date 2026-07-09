@@ -7,6 +7,7 @@ import {
   type MatrixCell,
 } from '@budget/core';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 
 // §6.0 heat ramp (less -> more spend, per row).
 const RAMP = [
@@ -74,6 +75,11 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
   onOpenMonth: (ym: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  // On a phone (coarse pointer) the cells are tight: narrow the label column, shrink the month
+  // columns so more than ~3 fit before scrolling, and render the change arrow inline with the %
+  // instead of as a big absolute glyph that overlapped the £/% text.
+  const compact = coarsePointer();
 
   const currentYm = todayISO().slice(0, 7);
 
@@ -154,7 +160,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
               // min() narrows the label column on phones (38vw) without touching desktop
               // (10.5rem always wins from ~442px up); label cells are sticky so the row
               // names survive the horizontal scroll.
-              style={{ gridTemplateColumns: `11.5px calc(min(10.5rem, 38vw) - 11.5px) repeat(${months.length}, minmax(72px, 1fr))` }}
+              style={{ gridTemplateColumns: `11.5px calc(min(10.5rem, ${compact ? 32 : 38}vw) - 11.5px) repeat(${months.length}, minmax(${compact ? 58 : 72}px, 1fr))` }}
             >
               <div className="sticky left-0 z-10 col-span-2 flex h-9 items-center justify-center bg-panel px-2 text-[11px] uppercase tracking-wide text-ink-faint border-r-[1.75px] border-hairline">
                 Group
@@ -180,10 +186,10 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
                 const topBorder = row.strong && (prevIsSubcat || i === 0);
                 const bottomBorder = row.strong ? true : (!nextIsGroup && !isLast);
                 return (
-                  <Row key={row.key} row={row} months={months} onToggle={() => row.groupId && toggle(row.groupId)} topBorder={topBorder} bottomBorder={bottomBorder} monthHasSpend={monthHasSpend} />
+                  <Row key={row.key} row={row} months={months} onToggle={() => row.groupId && toggle(row.groupId)} topBorder={topBorder} bottomBorder={bottomBorder} monthHasSpend={monthHasSpend} compact={compact} />
                 );
               })}
-              <TotalRow months={months} monthTotals={monthTotals} prevMonthTotal={prevMonthTotal} />
+              <TotalRow months={months} monthTotals={monthTotals} prevMonthTotal={prevMonthTotal} compact={compact} />
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-faint">
@@ -195,7 +201,7 @@ export function TrendsMatrix({ data, hiddenCategoryIds, months, totalsByMonth, d
   );
 }
 
-function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend }: { row: RenderRow; months: string[]; onToggle: () => void; topBorder: boolean; bottomBorder: boolean; monthHasSpend: boolean[] }) {
+function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend, compact }: { row: RenderRow; months: string[]; onToggle: () => void; topBorder: boolean; bottomBorder: boolean; monthHasSpend: boolean[]; compact: boolean }) {
   const [hovered, setHovered] = useState(false);
   const isClickable = row.expandable || !row.strong;
 
@@ -274,7 +280,7 @@ function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend }: 
                 style={{ right: '1.75px', backgroundColor: heatColor(cell.heat, 0.8) }}
               />
             )}
-            <CellContent cell={cell} strong={row.strong} hovered={hovered} pctOverride={j === 0 ? pctChange(row.prevMonthPence, cell.amountPence) : undefined} monthHasSpend={monthHasSpend[j]} />
+            <CellContent cell={cell} strong={row.strong} hovered={hovered} pctOverride={j === 0 ? pctChange(row.prevMonthPence, cell.amountPence) : undefined} monthHasSpend={monthHasSpend[j]} compact={compact} />
           </div>
         );
       })}
@@ -287,7 +293,7 @@ function pctChange(prevPence: number, currentPence: number): number | null {
   return Math.round((currentPence - prevPence) / prevPence * 100);
 }
 
-function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null; monthHasSpend: boolean }) {
+function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend, compact }: { cell: MatrixCell; strong: boolean; hovered: boolean; pctOverride?: number | null; monthHasSpend: boolean; compact: boolean }) {
   // Infinity = previous month was zero (can't divide); treat as "new" entry rather than a numeric %.
   // pctOverride is supplied for the first visible column where buildMatrix has no prior cell to compare.
   const pct = pctOverride !== undefined ? pctOverride : cell.pctVsPrevMonth ?? (cell.amountPence > 0 ? Infinity : monthHasSpend ? 0 : null);
@@ -300,19 +306,45 @@ function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { ce
 
   if (pct === null) return priceSpan;
 
-  if (pct === Infinity) return (
-    <>
+  // Compact (phone): arrow sits inline with the %/"new" line, so it can't overlap the cell text
+  // in a narrow column. Desktop keeps the big magnitude-scaled arrow at the cell's left edge.
+  if (pct === Infinity) {
+    if (compact) return (
       <div className="flex flex-col items-center gap-0.5">
         {priceSpan}
-        <span className="leading-none font-semibold" style={{ fontSize: 12 }}>new</span>
+        <span className="flex items-center gap-0.5 leading-none font-semibold" style={{ fontSize: 11 }}>
+          <span style={{ color: '#1a7a3c' }}>↑</span>new
+        </span>
       </div>
-      <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">
-        <span className="leading-none font-semibold" style={{ fontSize: 24, color: '#1a7a3c' }}>↑</span>
-      </div>
-    </>
-  );
+    );
+    return (
+      <>
+        <div className="flex flex-col items-center gap-0.5">
+          {priceSpan}
+          <span className="leading-none font-semibold" style={{ fontSize: 12 }}>new</span>
+        </div>
+        <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">
+          <span className="leading-none font-semibold" style={{ fontSize: 24, color: '#1a7a3c' }}>↑</span>
+        </div>
+      </>
+    );
+  }
 
   const up = pct > 0;
+  const pctLabel = pct === 0 ? '+0%' : `${up ? '+' : ''}${pct}%`;
+
+  if (compact) return (
+    <div className="flex flex-col items-center gap-0.5">
+      {priceSpan}
+      <span className="flex items-center gap-0.5 leading-none font-semibold" style={{ fontSize: 11 }}>
+        <span className={pct === 0 ? 'text-ink' : ''} style={{ color: pct === 0 ? undefined : up ? '#1a7a3c' : '#a8432f' }}>
+          {pct === 0 ? '→' : up ? '↑' : '↓'}
+        </span>
+        {pctLabel}
+      </span>
+    </div>
+  );
+
   const symbol = pct === 0
     ? <span className="leading-none font-bold text-ink" style={{ fontSize: 8 }}>→</span>
     : <span className="leading-none font-semibold" style={{ fontSize: Math.min(24, 8 + Math.abs(pct) * 0.16), color: up ? '#1a7a3c' : '#a8432f' }}>{up ? '↑' : '↓'}</span>;
@@ -321,16 +353,14 @@ function CellContent({ cell, strong, hovered, pctOverride, monthHasSpend }: { ce
     <>
       <div className="flex flex-col items-center gap-0.5">
         {priceSpan}
-        <span className={`leading-none font-semibold`} style={{ fontSize: 12 }}>
-          {pct === 0 ? '+0%' : `${up ? '+' : ''}${pct}%`}
-        </span>
+        <span className={`leading-none font-semibold`} style={{ fontSize: 12 }}>{pctLabel}</span>
       </div>
       <div className="absolute left-[-1px] w-8 inset-y-0 flex items-center justify-center">{symbol}</div>
     </>
   );
 }
 
-function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; monthTotals: number[]; prevMonthTotal: number }) {
+function TotalRow({ months, monthTotals, prevMonthTotal, compact }: { months: string[]; monthTotals: number[]; prevMonthTotal: number; compact: boolean }) {
   const colBorder = 'border-r-[1.75px] border-black';
   const nonZeroTotals = monthTotals.filter((t) => t > 0);
   const minTotal = nonZeroTotals.length > 0 ? Math.min(...nonZeroTotals) : 0;
@@ -356,11 +386,19 @@ function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; m
           </span>
         );
 
+        const up = pct !== null && pct !== Infinity && pct > 0;
         let cellContent: React.ReactNode;
         if (pct === null) {
           cellContent = priceSpan;
         } else if (pct === Infinity) {
-          cellContent = (
+          cellContent = compact ? (
+            <div className="flex flex-col items-center gap-0.5">
+              {priceSpan}
+              <span className="flex items-center gap-0.5 leading-none font-semibold opacity-70" style={{ fontSize: 11 }}>
+                <span style={{ color: '#1a7a3c' }}>↑</span>new
+              </span>
+            </div>
+          ) : (
             <>
               <div className="flex flex-col items-center gap-0.5">
                 {priceSpan}
@@ -371,8 +409,19 @@ function TotalRow({ months, monthTotals, prevMonthTotal }: { months: string[]; m
               </div>
             </>
           );
+        } else if (compact) {
+          cellContent = (
+            <div className="flex flex-col items-center gap-0.5">
+              {priceSpan}
+              <span className={`flex items-center gap-0.5 leading-none font-semibold ${pct === 0 ? 'opacity-50' : ''}`} style={{ fontSize: 11 }}>
+                <span className={pct === 0 ? 'text-ink' : ''} style={{ color: pct === 0 ? undefined : up ? '#1a7a3c' : '#a8432f' }}>
+                  {pct === 0 ? '→' : up ? '↑' : '↓'}
+                </span>
+                {pct === 0 ? '0%' : `${up ? '+' : ''}${pct}%`}
+              </span>
+            </div>
+          );
         } else {
-          const up = pct > 0;
           const symbol = pct === 0
             ? <span className="leading-none font-bold text-ink" style={{ fontSize: 8 }}>→</span>
             : <span className="leading-none font-semibold" style={{ fontSize: Math.min(24, 8 + Math.abs(pct) * 0.16), color: up ? '#1a7a3c' : '#a8432f' }}>{up ? '↑' : '↓'}</span>;
