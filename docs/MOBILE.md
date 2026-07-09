@@ -15,9 +15,11 @@ Tauri targets; there is no third transport. The DB lives in the app's per-user c
 device and **persists across app updates** (same-signature installs).
 
 The UI is the shared responsive build: under Tailwind's `sm` breakpoint the top tabs become a
-fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), and chart
-breakdowns are tap-to-reveal (outside-tap/scroll dismisses) — all in `apps/web`, so desktop and
-web pick the same code up automatically at their widths.
+fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), chart
+breakdowns are tap-to-reveal (outside-tap/scroll dismisses), and the Overview control bar (view
+toggle / View filter / Categories) is `sticky` to the top so it stays reachable without
+scrolling up — all in `apps/web`, so desktop and web pick the same code up automatically at
+their widths.
 
 Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
 `window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper

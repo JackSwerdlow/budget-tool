@@ -31,7 +31,6 @@
 - Sankey touch behaviour — (a) a node/ribbon tap fires both the drill-in (`onClick`) and the hover box (`onPointerDown`), so tapping a group expands it *and* pops the tooltip; split so touch reveals the breakdown without also expanding (pairs with the tap-tooltip fix above). (b) compact two-line labels drift out of alignment with their nodes at phone width.
 - Salary tables cramped on mobile — `RateStrip` / `BreakdownTable` are 7-column `w-full` tables whose money columns overlap at ~360px. Trading-212-style: at base width show one range at a time (toggle Yearly / Monthly / Weekly / …); keep the full table from `sm` up.
 - Swipe between sub-tabs — left/right swipe to move across Overview's Month/Trends/Items (and Add's Single/List/Monthly). Touch-only gesture; new interaction.
-- Pinned view/category control on mobile — the Segmented view toggle + View buttons + Categories filter scroll away with the page (only the tab bar is fixed). Make that control bar sticky at base width. Small-scope cousin of the *Sidebar nav + persistent summary figures* entry under Style / IA — decide whether it's a standalone sticky header or the first slice of that.
 - Trends matrix cramped on mobile — only ~3 month columns fit before horizontal scroll (`minmax(72px,…)` cols + a `38vw` label column), and each cell's `absolute w-8` up/down arrow (up to 24px) overlaps the £/% text. Rethink cell density, arrow placement, and how many months fit at phone width.
 
 ## Data
@@ -41,7 +40,7 @@
 
 ## Style / IA
 
-- Sidebar nav + persistent summary figures — replace the top tabs with a left sidebar that also surfaces key balances/figures at all times. (See the *Pinned view/category control on mobile* entry under Mobile — a small-scope phone slice of this.)
+- Sidebar nav + persistent summary figures — replace the top tabs with a left sidebar that also surfaces key balances/figures at all times. (The mobile control bar is now sticky; this larger idea — a persistent sidebar surfacing balances — is still open.)
 
 ## Desktop
 

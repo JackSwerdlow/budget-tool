@@ -160,7 +160,11 @@ export function App() {
           <Panel>{loading ? 'Loading the ledger…' : 'No data.'}</Panel>
         ) : tab === 'overview' ? (
           <div>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            {/* On a phone this control bar pins to the top so the view toggle / View filter /
+                Categories stay reachable without scrolling back up; the -mx/px pair bleeds the
+                paper background over the container's gutter. Static from sm up (desktop keeps
+                the plain header row). */}
+            <div className="sticky top-0 z-10 -mx-3 mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-hairline bg-paper px-3 py-2 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
               <div className="flex flex-wrap items-center gap-3">
                 <Segmented
                   value={overviewView}
