@@ -51,7 +51,7 @@ export function SummaryTab({
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <PoundInput label="Bonus (monthly)" value={configFields.bonus_pence}
             onChange={(v) => setConfigFields((p) => ({ ...p, bonus_pence: v }))} />
-          <PoundInput label="Untaxed income (this month)" value={configFields.untaxed_income_pence}
+          <PoundInput label="Tax-free (this month)" value={configFields.untaxed_income_pence}
             onChange={(v) => setConfigFields((p) => ({ ...p, untaxed_income_pence: v }))} />
           <div className="col-span-2 sm:col-span-3">
             <label className={labelClass}>Note</label>
