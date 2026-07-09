@@ -4,6 +4,7 @@ import { createView } from './api';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { useEscape } from './lib/useEscape';
+import { useSwipeNav } from './lib/useSwipeNav';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
@@ -28,6 +29,14 @@ const TABS: { id: Tab; label: string }[] = [
 // Mirrors the cap enforced by both data layers (repo.ts / queries.ts) and Manage → Views.
 const MAX_VIEWS = 4;
 
+// Sub-tab order for touch swipe navigation (see useSwipeNav). Clamped at the ends.
+const OVERVIEW_VIEWS = ['month', 'trends', 'items'] as const;
+const ADD_VIEWS = ['single', 'list', 'monthly'] as const;
+function stepView<const T extends readonly string[]>(views: T, current: T[number], dir: 1 | -1): T[number] {
+  const i = views.indexOf(current);
+  return views[Math.min(views.length - 1, Math.max(0, i + dir))];
+}
+
 export function App() {
   const { data, error, loading, refresh } = useData();
   const [tab, setTab] = useState<Tab>('overview');
@@ -40,6 +49,16 @@ export function App() {
   const [showFilter, setShowFilter] = useState(false);
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [viewName, setViewName] = useState('');
+
+  // Touch swipe left/right moves between the Overview and Add sub-tabs (see useSwipeNav).
+  const overviewSwipe = useSwipeNav(
+    () => setOverviewView((v) => stepView(OVERVIEW_VIEWS, v, -1)),
+    () => setOverviewView((v) => stepView(OVERVIEW_VIEWS, v, 1)),
+  );
+  const addSwipe = useSwipeNav(
+    () => setAddView((v) => stepView(ADD_VIEWS, v, -1)),
+    () => setAddView((v) => stepView(ADD_VIEWS, v, 1)),
+  );
 
   // A button is "active" when the live filter exactly matches its target set — not tracked
   // state, so it naturally clears once the Categories checklist diverges from the preset.
@@ -264,22 +283,24 @@ export function App() {
                 <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
               </div>
             )}
-            {overviewView === 'month' ? (
-              <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
-            ) : overviewView === 'trends' ? (
-              <OverviewTrends
-                data={data}
-                hiddenCategoryIds={hiddenCategoryIds}
-                displayStart={trendsDisplayStart}
-                displayEnd={trendsDisplayEnd}
-                onOpenMonth={(m) => {
-                  setYm(m);
-                  setOverviewView('month');
-                }}
-              />
-            ) : (
-              <OverviewItems data={data} hiddenCategoryIds={hiddenCategoryIds} />
-            )}
+            <div {...overviewSwipe}>
+              {overviewView === 'month' ? (
+                <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
+              ) : overviewView === 'trends' ? (
+                <OverviewTrends
+                  data={data}
+                  hiddenCategoryIds={hiddenCategoryIds}
+                  displayStart={trendsDisplayStart}
+                  displayEnd={trendsDisplayEnd}
+                  onOpenMonth={(m) => {
+                    setYm(m);
+                    setOverviewView('month');
+                  }}
+                />
+              ) : (
+                <OverviewItems data={data} hiddenCategoryIds={hiddenCategoryIds} />
+              )}
+            </div>
           </div>
         ) : tab === 'salary' ? (
           <Salary data={data} ym={ym} onYmChange={setYm} />
@@ -296,13 +317,15 @@ export function App() {
                 ]}
               />
             </div>
-            {addView === 'single' ? (
-              <AddSingle data={data} />
-            ) : addView === 'list' ? (
-              <AddList data={data} />
-            ) : (
-              <AddMonthly data={data} />
-            )}
+            <div {...addSwipe}>
+              {addView === 'single' ? (
+                <AddSingle data={data} />
+              ) : addView === 'list' ? (
+                <AddList data={data} />
+              ) : (
+                <AddMonthly data={data} />
+              )}
+            </div>
           </div>
         ) : (
           <Manage data={data} ym={ym} onYmChange={setYm} />

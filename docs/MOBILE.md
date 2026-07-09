@@ -24,8 +24,11 @@ their widths.
 Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
 `window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper
 (`apps/web/src/lib/pointer.ts`, a `(pointer: coarse)` query). This keeps a narrow desktop window
-on the mouse path and lets DevTools device mode exercise the touch path. Example: a coarse pointer
-suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard.
+on the mouse path and lets DevTools device mode exercise the touch path. Examples: a coarse pointer
+suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard;
+a horizontal **swipe** moves between the Overview (Month/Trends/Items) and Add (Single/List/Monthly)
+sub-tabs (`lib/useSwipeNav.ts`, touch-only, and it stands aside when a horizontally scrollable
+element — the matrix, the tables — should take the swipe instead).
 
 ## Android-specific pieces (the short list)
 
