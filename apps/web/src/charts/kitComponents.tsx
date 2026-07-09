@@ -63,27 +63,44 @@ export function SvgBreakdownBox({ x, y, title, big, sub, subClass, rows }: {
   );
 }
 
-// Touch "inspect strip": a persistent single-line header above a chart (see MOBILE.md). Idle it
-// shows the chart's headline; while a finger presses & scrubs the chart it updates live to the
-// point under the finger — so the breakdown never covers the chart the way a follow-finger box
-// does. Mouse keeps the in-chart hover boxes; callers render this only for a coarse pointer.
-export function ChartInspectStrip({ title, value, delta, deltaClass = 'text-ink-faint', active }: {
+export type StripRow = { key: number | string; color: string; name: string; value: string };
+
+// Touch "inspect strip": a compact header above a chart (see MOBILE.md). Idle it shows the
+// chart's headline on one line; while a finger presses & scrubs the chart, the headline updates
+// live and the per-group breakdown appears below it — so the breakdown never covers the chart the
+// way a follow-finger box does (it grows downward, which doesn't disturb horizontal scrubbing).
+// Mouse keeps the in-chart hover boxes; callers render this only for a coarse pointer.
+export function ChartInspectStrip({ title, value, delta, deltaClass = 'text-ink-faint', active, rows }: {
   title: string;
   value: string;
   delta?: string;
   deltaClass?: string;
   active: boolean;
+  rows?: StripRow[];
 }) {
   return (
     <div
-      className={`mb-3 flex items-baseline gap-2 rounded-md border px-3 py-2 transition-colors ${
+      className={`mb-2 rounded-md border px-2.5 py-1.5 transition-colors ${
         active ? 'border-hairline bg-raised/60' : 'border-transparent bg-raised/25'
       }`}
       aria-live="polite"
     >
-      <span className="truncate text-xs uppercase tracking-wide text-ink-faint">{title}</span>
-      <span className="ml-auto shrink-0 font-serif text-base tabular-nums text-ink">{value}</span>
-      {delta && <span className={`shrink-0 text-xs tabular-nums ${deltaClass}`}>{delta}</span>}
+      <div className="flex items-baseline gap-2">
+        <span className="truncate text-[11px] uppercase tracking-wide text-ink-faint">{title}</span>
+        <span className="ml-auto shrink-0 text-sm font-medium tabular-nums text-ink">{value}</span>
+        {delta && <span className={`shrink-0 text-[11px] tabular-nums ${deltaClass}`}>{delta}</span>}
+      </div>
+      {active && rows && rows.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-hairline/60 pt-1">
+          {rows.map((r) => (
+            <span key={r.key} className="flex items-center gap-1 text-[11px] text-ink-muted">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ backgroundColor: r.color }} />
+              {r.name}
+              <span className="tabular-nums text-ink">{r.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

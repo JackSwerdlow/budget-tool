@@ -240,6 +240,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           value={formatGBP(hoveredPt ? hoveredPt.value : current)}
           delta={hoveredPt && delta !== null && delta !== 0 ? `${delta > 0 ? '+' : ''}${formatGBP(delta)}` : undefined}
           deltaClass={delta !== null && delta > 0 ? 'text-accent' : 'text-ink-faint'}
+          rows={hoverByGroup.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.value) }))}
         />
       )}
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
