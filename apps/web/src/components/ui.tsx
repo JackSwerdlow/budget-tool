@@ -76,22 +76,23 @@ export function EditableText({ value, onCommit, className = '' }: { value: strin
 export function MonthPicker({ ym, onChange }: { ym: string; onChange: (ym: string) => void }) {
   const currentYm = todayISO().slice(0, 7);
   return (
-    <div className="inline-flex items-center gap-2">
+    <div className="inline-flex items-center gap-1.5 sm:gap-2">
       <div className="inline-flex items-center rounded-lg border border-hairline bg-raised">
         <button
           type="button"
           aria-label="Previous month"
           onClick={() => onChange(previousMonth(ym))}
-          className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
+          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
         >
           ‹
         </button>
-        <span className="min-w-[8.5rem] text-center font-serif text-sm text-ink">{monthLabel(ym)}</span>
+        {/* Narrower on a phone so it fits beside the view tabs; full width from sm up. */}
+        <span className="min-w-[5rem] text-center font-serif text-sm text-ink sm:min-w-[8.5rem]">{monthLabel(ym)}</span>
         <button
           type="button"
           aria-label="Next month"
           onClick={() => onChange(nextMonth(ym))}
-          className="px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
+          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
         >
           ›
         </button>
