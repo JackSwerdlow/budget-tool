@@ -19,6 +19,12 @@ fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px contai
 breakdowns are tap-to-reveal (outside-tap/scroll dismisses) — all in `apps/web`, so desktop and
 web pick the same code up automatically at their widths.
 
+Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
+`window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper
+(`apps/web/src/lib/pointer.ts`, a `(pointer: coarse)` query). This keeps a narrow desktop window
+on the mouse path and lets DevTools device mode exercise the touch path. Example: a coarse pointer
+suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard.
+
 ## Android-specific pieces (the short list)
 
 - **`gen/android/`** (committed, per Tauri convention) — the Gradle project `tauri android init`

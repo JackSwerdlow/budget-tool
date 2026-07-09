@@ -3,6 +3,7 @@ import { evalSum, formatGBP, type Entry, type LedgerData } from '@budget/core';
 import { createEntry, deleteEntry } from '../api';
 import { useData } from '../data';
 import { todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 import { CategoryGrid } from '../components/CategoryGrid';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -83,7 +84,9 @@ export function AddSingle({ data }: { data: LedgerData }) {
               <input
                 id="amount"
                 ref={amountRef}
-                autoFocus
+                // Focus on mount for a mouse desktop (keyboard-first entry), but not on touch —
+                // an autofocus there summons the phone keyboard the instant the Add tab opens.
+                autoFocus={!coarsePointer()}
                 inputMode="decimal"
                 value={amountText}
                 onChange={(e) => setAmountText(e.target.value)}
