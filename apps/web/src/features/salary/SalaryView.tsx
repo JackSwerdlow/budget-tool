@@ -10,17 +10,62 @@ const cell = (v: number | null) => (v == null ? '—' : formatGBP(v));
 const th = 'pb-2 text-right text-xs font-normal uppercase tracking-wide text-ink-faint';
 const td = 'py-1.5 text-right tabular-nums';
 
+// The salary tables carry six period columns (Yearly/Monthly/…), which collide on a phone. Under
+// sm a period toggle picks one column to show; from sm up the whole table shows. `periodVis`
+// hides the non-selected period cells on mobile only (display:none so they leave the row).
+const periodVis = (selected: string, key: string) => `${selected === key ? '' : 'hidden'} sm:table-cell`;
+
+function PeriodToggle<T extends string>({ value, onChange, options }: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { id: T; label: string }[];
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap gap-1 sm:hidden">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          aria-pressed={o.id === value}
+          className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+            o.id === value ? 'bg-panel font-medium text-ink shadow-sm ring-1 ring-hairline' : 'bg-raised text-ink-muted hover:text-ink'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const RATE_PERIODS = [
+  ['yearly', 'Yearly'], ['monthly', 'Monthly'], ['weekly', 'Weekly'],
+  ['daily', 'Daily'], ['hourly', 'Hourly'], ['pctGross', '% Gross'],
+] as const;
+type RatePeriod = (typeof RATE_PERIODS)[number][0];
+
+const BREAKDOWN_PERIODS = [
+  ['forecast', 'Yearly'], ['monthly', 'Monthly'], ['weekly', 'Weekly'],
+  ['daily', 'Daily'], ['hourly', 'Hourly'], ['ytd', 'YTD'],
+] as const;
+type BreakdownPeriod = (typeof BREAKDOWN_PERIODS)[number][0];
+
 export function RateStrip({ rows }: { rows: SalaryView['rateStrip'] }) {
+  const [period, setPeriod] = useState<RatePeriod>('monthly');
+  const value = (r: SalaryView['rateStrip'][number], key: RatePeriod) =>
+    key === 'pctGross' ? pct(r.pctGross) : formatGBP(r[key]);
   return (
     <section className="rounded-lg border border-hairline bg-panel p-5">
       <h2 className="mb-4 font-serif text-base font-medium text-ink">Rate</h2>
+      <PeriodToggle value={period} onChange={setPeriod} options={RATE_PERIODS.map(([id, label]) => ({ id, label }))} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-hairline">
               <th className={`${th} text-left`}>&nbsp;</th>
-              {['Yearly', 'Monthly', 'Weekly', 'Daily', 'Hourly', '% Gross'].map((h) => (
-                <th key={h} className={th}>{h}</th>
+              {RATE_PERIODS.map(([key, label]) => (
+                <th key={key} className={`${th} ${periodVis(period, key)}`}>{label}</th>
               ))}
             </tr>
           </thead>
@@ -28,12 +73,9 @@ export function RateStrip({ rows }: { rows: SalaryView['rateStrip'] }) {
             {rows.map((r) => (
               <tr key={r.key} className="border-b border-hairline text-ink">
                 <td className="py-1.5 pr-4">{r.label}</td>
-                <td className={td}>{formatGBP(r.yearly)}</td>
-                <td className={td}>{formatGBP(r.monthly)}</td>
-                <td className={td}>{formatGBP(r.weekly)}</td>
-                <td className={td}>{formatGBP(r.daily)}</td>
-                <td className={td}>{formatGBP(r.hourly)}</td>
-                <td className={td}>{pct(r.pctGross)}</td>
+                {RATE_PERIODS.map(([key]) => (
+                  <td key={key} className={`${td} ${periodVis(period, key)}`}>{value(r, key)}</td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -43,10 +85,11 @@ export function RateStrip({ rows }: { rows: SalaryView['rateStrip'] }) {
   );
 }
 
-function Row({ line, open, toggle }: {
+function Row({ line, open, toggle, period }: {
   line: BreakdownLine;
   open: Record<string, boolean>;
   toggle: (k: string) => void;
+  period: BreakdownPeriod;
 }) {
   const hasChildren = !!line.children?.length;
   const isOpen = open[line.key] ?? false; // collapsed by default
@@ -81,38 +124,42 @@ function Row({ line, open, toggle }: {
             <span className={hasChildren ? 'group-hover:text-accent' : ''}>{line.label}</span>
           </span>
         </td>
-        <td className={td}>{cell(line.cell.forecast)}</td>
-        <td className={td}>{cell(line.cell.monthly)}</td>
-        <td className={td}>{cell(line.cell.weekly)}</td>
-        <td className={td}>{cell(line.cell.daily)}</td>
-        <td className={td}>{cell(line.cell.hourly)}</td>
-        <td className={td}>{cell(line.cell.ytd)}</td>
+        {BREAKDOWN_PERIODS.map(([key]) => (
+          <td key={key} className={`${td} ${periodVis(period, key)}`}>{cell(line.cell[key])}</td>
+        ))}
       </tr>
       {hasChildren && isOpen && line.children!.map((c) => (
-        <Row key={c.key} line={c} open={open} toggle={toggle} />
+        <Row key={c.key} line={c} open={open} toggle={toggle} period={period} />
       ))}
     </>
   );
 }
 
+// The full-table header keeps the "(fcast)" hint the compact toggle drops for space.
+const BREAKDOWN_HEADERS: Record<BreakdownPeriod, string> = {
+  forecast: 'Yearly (fcast)', monthly: 'Monthly', weekly: 'Weekly', daily: 'Daily', hourly: 'Hourly', ytd: 'YTD',
+};
+
 export function BreakdownTable({ lines }: { lines: BreakdownLine[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [period, setPeriod] = useState<BreakdownPeriod>('monthly');
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !(o[k] ?? false) }));
   return (
     <section className="rounded-lg border border-hairline bg-panel p-5">
       <h2 className="mb-4 font-serif text-base font-medium text-ink">Breakdown</h2>
+      <PeriodToggle value={period} onChange={setPeriod} options={BREAKDOWN_PERIODS.map(([id, label]) => ({ id, label }))} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-hairline">
               <th className={`${th} text-left`}>&nbsp;</th>
-              {['Yearly (fcast)', 'Monthly', 'Weekly', 'Daily', 'Hourly', 'YTD'].map((h) => (
-                <th key={h} className={th}>{h}</th>
+              {BREAKDOWN_PERIODS.map(([key]) => (
+                <th key={key} className={`${th} ${periodVis(period, key)}`}>{BREAKDOWN_HEADERS[key]}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => <Row key={l.key} line={l} open={open} toggle={toggle} />)}
+            {lines.map((l) => <Row key={l.key} line={l} open={open} toggle={toggle} period={period} />)}
           </tbody>
         </table>
       </div>

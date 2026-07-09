@@ -29,7 +29,6 @@
 
 - Chart tap-tooltip covers the chart — on touch the breakdown box (`CursorBreakdownBox` / `useCursorPos` in the chart kit) is revealed by a tap and drawn *over* the chart at the tap point, hiding most of it. Reveal on press-and-hold and render it in a fixed slot above/below the chart instead. Shared kit change → affects every Overview/Trends chart; desktop mouse-hover stays as-is.
 - Sankey touch behaviour — (a) a node/ribbon tap fires both the drill-in (`onClick`) and the hover box (`onPointerDown`), so tapping a group expands it *and* pops the tooltip; split so touch reveals the breakdown without also expanding (pairs with the tap-tooltip fix above). (b) compact two-line labels drift out of alignment with their nodes at phone width.
-- Salary tables cramped on mobile — `RateStrip` / `BreakdownTable` are 7-column `w-full` tables whose money columns overlap at ~360px. Trading-212-style: at base width show one range at a time (toggle Yearly / Monthly / Weekly / …); keep the full table from `sm` up.
 - Trends matrix cramped on mobile — only ~3 month columns fit before horizontal scroll (`minmax(72px,…)` cols + a `38vw` label column), and each cell's `absolute w-8` up/down arrow (up to 24px) overlaps the £/% text. Rethink cell density, arrow placement, and how many months fit at phone width.
 
 ## Data

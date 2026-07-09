@@ -120,7 +120,9 @@ None of these affect the standard sub-£100k rUK case the app is built around.
 The standing picture for the selected month: a current-rate strip, the expandable payslip
 breakdown (gross → deductions → net), small stat figures, and a pension panel (with the
 forecast pension pot). A key-figures box surfaces the headline numbers, including
-**Remaining student debt** (from the tracker below).
+**Remaining student debt** (from the tracker below). The rate strip and breakdown each carry six
+period columns (Yearly/Monthly/Weekly/Daily/Hourly/…); under `sm` those collide, so a period
+toggle shows one column at a time (Monthly by default) and the full table returns from `sm` up.
 
 ## Lifetime
 
