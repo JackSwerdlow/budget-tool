@@ -190,3 +190,29 @@ test('VIR payoff projection holds the forward rate from a full year at the lates
   expect(vir.payoff).not.toBeNull();
   expect(vir.payoff!.remainingInterestPence).toBeGreaterThan(flat.payoff!.remainingInterestPence);
 });
+
+// EMPLOYMENT GAP: a £0-gross month earns nothing, so no payroll repayment is deducted — but
+// daily-apportioned interest keeps accruing on the balance (statutory Plan 2 behaviour).
+test('during an employment gap (£0 gross) interest accrues but no payroll repayment is made', () => {
+  const configs = [
+    cfg(2026, 4, { sl_balance_pence: 4_500_000, sl_interest_rate_pct: 0 }), // anchor while employed
+    cfg(2026, 5, { gross_yearly_pence: 0, sl_interest_rate_pct: 7.3 }),     // not employed from May
+  ];
+  const r = computeStudentLoan(configs, { year: 2026, month: 5 });
+  const afterApril = 4_500_000 - PAYROLL;               // April (employed) still repays
+  const interest = Math.round(afterApril * 7.3 / 100 * 31 / 365);
+  expect(r.totalInterestPence).toBe(interest);
+  expect(r.remainingBalancePence).toBe(afterApril + interest); // May: +interest, no repayment
+  expect(r.totalPaidTowardBalancePence).toBe(PAYROLL);         // only April's payment
+});
+
+// A balance can be anchored on a not-employed month (e.g. going back to record a starting
+// balance during a period with no salary).
+test('a balance anchor can be set on a £0-gross (not-employed) month', () => {
+  const r = computeStudentLoan(
+    [cfg(2026, 4, { gross_yearly_pence: 0, sl_balance_pence: 4_500_000, sl_interest_rate_pct: 0 })],
+    { year: 2026, month: 4 },
+  );
+  expect(r.remainingBalancePence).toBe(4_500_000); // no interest, no repayment
+  expect(r.totalPaidTowardBalancePence).toBe(0);
+});

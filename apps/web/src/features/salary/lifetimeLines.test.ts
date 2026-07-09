@@ -15,6 +15,7 @@ const base: LifetimeTotals = {
   additionalPence: 0,
   niPence: 15000,
   studentLoanPaidPence: 8000,
+  untaxedIncomePence: 0,
   netTakeHomePence: 209000,
   employerPensionPence: 22000,
   pensionPotPence: 40000,

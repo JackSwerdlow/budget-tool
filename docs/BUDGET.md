@@ -64,7 +64,10 @@ recorded income (true by construction for months saved via the Salary tab; it fe
 `getAllSalaryConfigs` and reruns `calcSalary` client-side), the month reads as a payslip-to-
 ledger flow: **Gross pay** (left) splits into the deduction stubs (Pension / Income tax /
 National Ins. / Student loan, a quiet warm-neutral ramp; zero-value ones dropped) and **Net
-pay** (middle), which fans out into the month's groups (right, donut colours/order). A month
+pay** (middle), which fans out into the month's groups (right, donut colours/order). One-off
+**untaxed income** (gifts) rides alongside as a second green left-column source feeding Net pay,
+so Gross pay stays true payroll earnings (a £0-gross gift month reads simply as Untaxed → Net pay
+→ groups). A month
 whose income doesn't reconcile (hand-edited, or no config) falls back to a two-column Net pay →
 groups flow rather than drawing a join that doesn't add up. Income − spend shows as a green
 **Left over** band; a month that spent past its income instead gets a red **From savings**

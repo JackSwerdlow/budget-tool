@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calcSalary, type SalaryConfig } from '@budget/core';
-import { EMPTY_CONFIG_FIELDS, previewYtd } from './salaryState';
+import { configToFields, EMPTY_CONFIG_FIELDS, fieldsToConfig, parsePounds, previewYtd } from './salaryState';
 
 describe('EMPTY_CONFIG_FIELDS — statutory defaults match payslip-validated TY 2026/27 values', () => {
   // A first-ever month pre-fills these; wrong defaults silently produce wrong figures.
@@ -21,6 +21,51 @@ describe('EMPTY_CONFIG_FIELDS — statutory defaults match payslip-validated TY 
   it('student-loan parameters', () => {
     expect(EMPTY_CONFIG_FIELDS.sl_threshold_yearly_pence).toBe('29385.00');
     expect(EMPTY_CONFIG_FIELDS.sl_rate_pct).toBe('9');
+  });
+});
+
+describe('employment gap (£0 gross) and untaxed income fields', () => {
+  it('parsePounds accepts £0 (an employment-gap marker) but rejects blank/invalid', () => {
+    expect(parsePounds('0')).toBe(0);
+    expect(parsePounds('0.00')).toBe(0);
+    expect(parsePounds('')).toBeNull();
+    expect(parsePounds('abc')).toBeNull();
+  });
+
+  // EMPTY_CONFIG_FIELDS leaves the (required) pension %s blank; fill them so fieldsToConfig
+  // returns a config rather than null.
+  const validFields = { ...EMPTY_CONFIG_FIELDS, employee_pension_pct: '5', employer_pension_pct: '3' };
+
+  it('untaxed income round-trips through fieldsToConfig / configToFields', () => {
+    const cfg = fieldsToConfig(2026, 8, 0, '', { ...validFields, untaxed_income_pence: '150' });
+    expect(cfg).not.toBeNull();
+    expect(cfg!.gross_yearly_pence).toBe(0);          // £0 gross is valid
+    expect(cfg!.untaxed_income_pence).toBe(15_000);   // £150 → pence, no ×12
+    expect(configToFields(cfg!).untaxed_income_pence).toBe('150.00');
+  });
+
+  it('a blank untaxed field means zero, not NaN', () => {
+    const cfg = fieldsToConfig(2026, 8, 3_000_000, '', validFields);
+    expect(cfg!.untaxed_income_pence).toBe(0);
+  });
+
+  // Regression: the not-employed flow. A blank form (EMPTY_CONFIG_FIELDS leaves pension %s empty)
+  // at £0 gross must still produce a saveable config — otherwise Save stays disabled and you
+  // can't record an unemployed month (e.g. to anchor a student-loan balance there).
+  it('£0 gross with blank pension %s (default form) yields a saveable config, not null', () => {
+    const cfg = fieldsToConfig(2025, 9, 0, '', EMPTY_CONFIG_FIELDS);
+    expect(cfg).not.toBeNull();
+    expect(cfg!.gross_yearly_pence).toBe(0);
+    expect(cfg!.employee_pension_pct).toBe(0); // blank → 0 for a not-employed month
+    expect(cfg!.employer_pension_pct).toBe(0);
+    expect(cfg!.work_weeks_per_year).toBeGreaterThan(0); // divisor stays non-zero (no NaN rates)
+    // And it still computes a valid all-zero breakdown (so the Save button enables).
+    expect(calcSalary(cfg!).netMonthlyPence).toBe(0);
+  });
+
+  // But a real salary with blank required fields must STILL be rejected (guard didn't over-relax).
+  it('non-zero gross with blank pension %s is still rejected', () => {
+    expect(fieldsToConfig(2025, 9, 3_000_000, '', EMPTY_CONFIG_FIELDS)).toBeNull();
   });
 });
 

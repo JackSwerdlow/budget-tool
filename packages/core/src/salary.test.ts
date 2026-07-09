@@ -753,3 +753,51 @@ describe('calcSalary — view: breakdown cells are whole pence (no float display
     }
   });
 });
+
+describe('calcSalary — employment gap (£0 gross) and untaxed income', () => {
+  const findLine = (v: import('./types').SalaryView, key: string): import('./types').BreakdownLine | undefined => {
+    const walk = (ls: import('./types').BreakdownLine[]): import('./types').BreakdownLine | undefined => {
+      for (const l of ls) { if (l.key === key) return l; const c = l.children && walk(l.children); if (c) return c; }
+    };
+    return walk(v.breakdown);
+  };
+
+  it('£0 gross → every payroll figure is zero and net pay is £0', () => {
+    const r = calcSalary({ ...BASE, gross_yearly_pence: 0 });
+    expect(r.netMonthlyPence).toBe(0);
+    // toBeCloseTo tolerates the harmless signed zero some deductions produce (formatGBP(-0) is "£0.00").
+    expect(findLine(r.view, 'incomeTax')!.cell.monthly).toBeCloseTo(0);
+    expect(findLine(r.view, 'ni')!.cell.monthly).toBeCloseTo(0);
+    expect(findLine(r.view, 'employeePension')!.cell.monthly).toBeCloseTo(0);
+    expect(findLine(r.view, 'netIncome')!.cell.monthly).toBeCloseTo(0);
+    expect(findLine(r.view, 'untaxedIncome')).toBeUndefined();
+  });
+
+  it('untaxed income adds to net without touching tax / NI / SL', () => {
+    const without = calcSalary(BASE);
+    const gift = 10_000; // £100
+    const withGift = calcSalary({ ...BASE, untaxed_income_pence: gift });
+
+    for (const key of ['incomeTax', 'ni', 'sl', 'employeePension', 'deductions']) {
+      expect(findLine(withGift.view, key)?.cell.monthly).toBe(findLine(without.view, key)?.cell.monthly);
+    }
+    // Net rises by exactly the gift, and so does the ledger figure.
+    expect(findLine(withGift.view, 'netIncome')!.cell.monthly)
+      .toBe(findLine(without.view, 'netIncome')!.cell.monthly + gift);
+    expect(withGift.netMonthlyPence).toBe(without.netMonthlyPence + gift);
+    // A dedicated visible line carries the gift; gross + deductions + untaxed = net (monthly).
+    const untaxed = findLine(withGift.view, 'untaxedIncome')!;
+    expect(untaxed.cell.monthly).toBe(gift);
+    const gross = findLine(withGift.view, 'grossIncome')!.cell.monthly;
+    const ded = findLine(withGift.view, 'deductions')!.cell.monthly;
+    expect(gross + ded + gift).toBe(findLine(withGift.view, 'netIncome')!.cell.monthly);
+  });
+
+  it('£0 gross + untaxed income → net pay is exactly the untaxed amount', () => {
+    const gift = 15_000; // £150 birthday gift while not employed
+    const r = calcSalary({ ...BASE, gross_yearly_pence: 0, untaxed_income_pence: gift });
+    expect(r.netMonthlyPence).toBe(gift);
+    expect(findLine(r.view, 'untaxedIncome')!.cell.monthly).toBe(gift);
+    expect(findLine(r.view, 'netIncome')!.cell.monthly).toBe(gift);
+  });
+});

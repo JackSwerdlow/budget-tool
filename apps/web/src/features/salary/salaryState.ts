@@ -46,9 +46,11 @@ export function poundsToDisplay(pence: number): string {
   return (pence / 100).toFixed(2);
 }
 
+// £0 is a valid gross: it marks the month (and, via inheritance, the months after it) as an
+// employment gap — the engine contributes zeros for it. Only blank/invalid input is null.
 export function parsePounds(s: string): number | null {
   const n = parseFloat(s.replace(/,/g, ''));
-  return Number.isFinite(n) && n > 0 ? n : null;
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 export function deriveFromYearly(
@@ -110,6 +112,7 @@ export const EMPTY_CONFIG_FIELDS = {
   sl_vir_lower_income_pence: '29385.00',
   sl_vir_upper_income_pence: '52885.00',
   extra_payment_pence: '',
+  untaxed_income_pence: '',
 };
 
 export type ConfigFields = typeof EMPTY_CONFIG_FIELDS;
@@ -142,6 +145,7 @@ export function configToFields(cfg: import('@budget/core').SalaryConfig): Config
     sl_vir_lower_income_pence: cfg.sl_vir_lower_income_pence != null ? poundsToDisplay(cfg.sl_vir_lower_income_pence) : EMPTY_CONFIG_FIELDS.sl_vir_lower_income_pence,
     sl_vir_upper_income_pence: cfg.sl_vir_upper_income_pence != null ? poundsToDisplay(cfg.sl_vir_upper_income_pence) : EMPTY_CONFIG_FIELDS.sl_vir_upper_income_pence,
     extra_payment_pence: cfg.extra_payment_pence && cfg.extra_payment_pence > 0 ? poundsToDisplay(cfg.extra_payment_pence) : '',
+    untaxed_income_pence: cfg.untaxed_income_pence && cfg.untaxed_income_pence > 0 ? poundsToDisplay(cfg.untaxed_income_pence) : '',
   };
 }
 
@@ -179,6 +183,7 @@ export function fieldsToConfig(year: number, month: number, grossPounds: number,
     sl_vir_lower_income_pence: fields.sl_vir_lower_income_pence ? Math.round(parseFloat(String(fields.sl_vir_lower_income_pence)) * 100) : null,
     sl_vir_upper_income_pence: fields.sl_vir_upper_income_pence ? Math.round(parseFloat(String(fields.sl_vir_upper_income_pence)) * 100) : null,
     extra_payment_pence: fields.extra_payment_pence ? Math.max(0, Math.round(parseFloat(String(fields.extra_payment_pence)) * 100)) : 0,
+    untaxed_income_pence: fields.untaxed_income_pence ? Math.max(0, Math.round(parseFloat(String(fields.untaxed_income_pence)) * 100)) : 0,
   };
 
   const required: (keyof import('@budget/core').SalaryConfig)[] = [
@@ -190,7 +195,21 @@ export function fieldsToConfig(year: number, month: number, grossPounds: number,
     'sl_threshold_yearly_pence', 'sl_rate_pct',
   ];
   for (const k of required) {
-    if (!Number.isFinite(cfg[k] as number)) return null;
+    if (!Number.isFinite(cfg[k] as number)) {
+      // A £0-gross (not-employed) month has no payroll, so its PAYE parameters are irrelevant —
+      // every deduction is gross × rate = 0. Default any blank parameter to 0 so the month is
+      // still saveable (e.g. to anchor a student-loan balance during unemployment) rather than
+      // forcing the user to fill in pension %s etc. they don't have.
+      if (grossPounds === 0) { (cfg as unknown as Record<string, number>)[k] = 0; continue; }
+      return null;
+    }
+  }
+  // Time fields are divisors in the per-period rate strip; a £0 month defaulted them from a blank
+  // to 0, which would render NaN — restore sane non-zero values (the rates are meaningless anyway).
+  if (grossPounds === 0) {
+    if (!cfg.work_weeks_per_year) cfg.work_weeks_per_year = 52;
+    if (!cfg.work_days_per_week) cfg.work_days_per_week = 5;
+    if (!cfg.hours_per_week) cfg.hours_per_week = 37;
   }
   if (cfg.sl_vir_enabled) {
     const vir = [cfg.sl_vir_max_rate_pct, cfg.sl_vir_lower_income_pence, cfg.sl_vir_upper_income_pence];

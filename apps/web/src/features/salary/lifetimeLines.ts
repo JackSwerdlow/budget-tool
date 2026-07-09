@@ -35,7 +35,14 @@ export function lifetimeLines(t: LifetimeTotals): LifetimeLine[] {
     { key: 'ni', label: 'National insurance', pence: -t.niPence, depth: 1, tone: 'deduction', parent: 'deductions' },
     { key: 'studentLoanPaid', label: 'Student loan paid', pence: -t.studentLoanPaidPence, depth: 1, tone: 'deduction', parent: 'deductions' },
 
-    { key: 'netTakeHome', label: 'Net take-home', pence: t.netTakeHomePence, depth: 0, tone: 'net' },
+    // One-off untaxed income (gifts etc.) is inside net take-home; split it out when present.
+    { key: 'netTakeHome', label: 'Net take-home', pence: t.netTakeHomePence, depth: 0, tone: 'net', group: t.untaxedIncomePence > 0 },
+    ...(t.untaxedIncomePence > 0
+      ? [
+          { key: 'payrollNet', label: 'From payroll', pence: t.netTakeHomePence - t.untaxedIncomePence, depth: 1 as const, tone: 'net' as const, parent: 'netTakeHome' },
+          { key: 'untaxedIncome', label: 'Untaxed income', pence: t.untaxedIncomePence, depth: 1 as const, tone: 'normal' as const, parent: 'netTakeHome' },
+        ]
+      : []),
 
     { key: 'pensionPot', label: 'Pension pot', pence: t.pensionPotPence, depth: 0, tone: 'normal', group: true },
     { key: 'employerContributed', label: 'Employer contributed', pence: t.employerPensionPence, depth: 1, tone: 'normal', parent: 'pensionPot' },

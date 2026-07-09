@@ -18,7 +18,8 @@ const toYtdRow = (c: SalaryConfig): YTDConfigRow => ({
 const zero: LifetimeTotals = {
   monthsCount: 0, grossPence: 0, basePayPence: 0, bonusPence: 0, employeePensionPence: 0,
   incomeTaxPence: 0, allowanceUsedPence: 0, basicPence: 0, higherPence: 0, additionalPence: 0,
-  niPence: 0, studentLoanPaidPence: 0, netTakeHomePence: 0, employerPensionPence: 0, pensionPotPence: 0,
+  niPence: 0, studentLoanPaidPence: 0, untaxedIncomePence: 0, netTakeHomePence: 0,
+  employerPensionPence: 0, pensionPotPence: 0,
 };
 
 function findCell(view: SalaryView, key: string) {
@@ -67,8 +68,14 @@ export function computeLifetime(
     }).view;
 
     const ytdOf = (k: string) => findCell(view, k)?.cell.ytd ?? 0;
-    // months actually counted this TY:
-    const months = idx(end.year, end.month) - idx(start.year, start.month) + 1;
+    // Months actually EARNED this TY: a month whose resolved config has £0 gross is an
+    // employment gap (see SALARY.md) — it contributes zeros above and shouldn't count here.
+    let months = 0;
+    for (let i = idx(start.year, start.month); i <= idx(end.year, end.month); i++) {
+      let resolved = sorted[0];
+      for (const c of sorted) { if (idx(c.year, c.month) <= i) resolved = c; else break; }
+      if (resolved.gross_yearly_pence > 0) months += 1;
+    }
 
     out.monthsCount          += months;
     out.grossPence           += ytd.grossYTDPence;
@@ -86,5 +93,12 @@ export function computeLifetime(
     out.allowanceUsedPence   += ytdOf('allowanceUsed');
     out.netTakeHomePence     += ytdOf('netIncome');
   }
+  // One-off untaxed income (gifts etc.) applies only in explicitly saved months — every element
+  // of `configs` IS an explicit row, so sum them directly (the YTD walk never sees one-offs).
+  for (const c of sorted) {
+    if (idx(c.year, c.month) > idx(through.year, through.month)) break;
+    out.untaxedIncomePence += Math.max(0, c.untaxed_income_pence ?? 0);
+  }
+  out.netTakeHomePence += out.untaxedIncomePence;
   return out;
 }

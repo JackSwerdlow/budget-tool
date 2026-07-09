@@ -110,6 +110,39 @@ test('projects the brought-forward salary into a future tax year', () => {
   expect(atNov27.grossPence).toBe(atMar27.grossPence + ty2027.grossYTDPence);
 });
 
+// EMPLOYMENT GAP: a £0-gross month (and every month inheriting it until the next saved salary)
+// is "not employed" — it contributes zeros and must NOT be counted in monthsCount.
+test('an employment gap (£0 gross) is excluded from monthsCount but the year still spans', () => {
+  const a = base(2026, 4, 3_000_000);   // employed Apr 2026
+  const gap = base(2026, 8, 0);         // not employed from Aug 2026
+  const back = base(2026, 11, 3_000_000); // re-employed Nov 2026
+  const life = computeLifetime([a, gap, back], { year: 2027, month: 3 });
+
+  // Apr–Jul (£30k) + Aug–Oct (£0 gap) + Nov–Mar (£30k) = 9 employed months of 12.
+  expect(life.monthsCount).toBe(9);
+  // Gross equals a 9-employed-month version with no gap (the gap months earn nothing).
+  const noGap = computeLifetime([base(2026, 4, 3_000_000)], { year: 2026, month: 12 }); // Apr–Dec = 9 months
+  expect(life.grossPence).toBe(noGap.grossPence);
+});
+
+// UNTAXED INCOME: one-off gift money sums over the explicitly saved months only, lifting net
+// take-home by exactly that sum while never touching gross/tax.
+test('untaxed income sums over explicit months and lifts net take-home by that sum', () => {
+  const plain = [base(2026, 4, 3_000_000), base(2026, 7, 3_000_000)];
+  const withGifts = [
+    { ...base(2026, 4, 3_000_000), untaxed_income_pence: 10_000 }, // £100 in April
+    { ...base(2026, 7, 3_000_000), untaxed_income_pence: 5_000 },  // £50 in July
+  ];
+  const through = { year: 2027, month: 3 };
+  const a = computeLifetime(plain, through);
+  const b = computeLifetime(withGifts, through);
+
+  expect(a.untaxedIncomePence).toBe(0);
+  expect(b.untaxedIncomePence).toBe(15_000);
+  expect(b.netTakeHomePence).toBe(a.netTakeHomePence + 15_000);
+  expect(b.grossPence).toBe(a.grossPence); // untaxed never enters gross
+});
+
 // helper: income-tax YTD column from calcSalary for a given (cfg, employmentStart, ytd, y, m)
 function calcSalaryTaxYTD(
   cfg: SalaryConfig, start: { year: number; month: number },

@@ -129,6 +129,10 @@ export type SalaryConfig = {
   sl_vir_upper_income_pence?: number | null;
   bonus_pence?: number;
   extra_payment_pence?: number;
+  // One-off untaxed income for THIS month only (gifts etc.) — never taxed, never NI'd, not
+  // student-loan earnings. Like extra_payment_pence it applies only in explicitly saved months;
+  // callers resolving an inherited config must zero it.
+  untaxed_income_pence?: number;
 };
 
 export type SalaryFigures = {
@@ -261,7 +265,7 @@ export type StudentLoanResult = {
 // magnitudes (pence) — deductions are reported as positive amounts, not signed. Sourced from
 // per-tax-year cumulative slices.
 export type LifetimeTotals = {
-  monthsCount: number;
+  monthsCount: number;            // months with salary actually earned (gross > 0)
   grossPence: number;
   basePayPence: number;
   bonusPence: number;
@@ -273,7 +277,8 @@ export type LifetimeTotals = {
   additionalPence: number;
   niPence: number;
   studentLoanPaidPence: number;   // Σ payroll deductions (payslip fact)
-  netTakeHomePence: number;
+  untaxedIncomePence: number;     // Σ one-off untaxed income over explicitly saved months
+  netTakeHomePence: number;       // payroll net + untaxed income
   employerPensionPence: number;
   pensionPotPence: number;        // employer + employee
 };

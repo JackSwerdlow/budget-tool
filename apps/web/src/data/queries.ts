@@ -7,6 +7,7 @@ export type InvokeFn = (cmd: string, args?: Record<string, unknown>) => Promise<
 
 type SalaryConfigRow = Omit<SalaryConfig, 'sl_enabled' | 'sl_vir_enabled'> & {
   sl_enabled: number; sl_vir_enabled: number; bonus_pence: number; extra_payment_pence: number;
+  untaxed_income_pence: number;
 };
 const rowToConfig = (row: SalaryConfigRow): SalaryConfig =>
   ({ ...row, sl_enabled: row.sl_enabled === 1, sl_vir_enabled: row.sl_vir_enabled === 1 });
@@ -351,9 +352,9 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
            sl_enabled, sl_threshold_yearly_pence, sl_rate_pct,
            sl_balance_pence, sl_interest_rate_pct,
            sl_vir_enabled, sl_vir_max_rate_pct, sl_vir_lower_income_pence, sl_vir_upper_income_pence,
-           bonus_pence, extra_payment_pence
+           bonus_pence, extra_payment_pence, untaxed_income_pence
          ) VALUES (
-           $1,$2,$3,$4, $5,$6,$7, $8,$9, $10,$11,$12, $13,$14,$15, $16,$17,$18,$19, $20,$21,$22, $23,$24, $25,$26,$27,$28, $29,$30
+           $1,$2,$3,$4, $5,$6,$7, $8,$9, $10,$11,$12, $13,$14,$15, $16,$17,$18,$19, $20,$21,$22, $23,$24, $25,$26,$27,$28, $29,$30,$31
          )
          ON CONFLICT(year, month) DO UPDATE SET
            gross_yearly_pence=excluded.gross_yearly_pence, note=excluded.note,
@@ -373,7 +374,8 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
            sl_vir_lower_income_pence=excluded.sl_vir_lower_income_pence,
            sl_vir_upper_income_pence=excluded.sl_vir_upper_income_pence,
            bonus_pence=excluded.bonus_pence,
-           extra_payment_pence=excluded.extra_payment_pence`,
+           extra_payment_pence=excluded.extra_payment_pence,
+           untaxed_income_pence=excluded.untaxed_income_pence`,
         [
           cfg.year, cfg.month, cfg.gross_yearly_pence, cfg.note,
           cfg.hours_per_week, cfg.work_weeks_per_year, cfg.work_days_per_week,
@@ -385,7 +387,7 @@ export function makeSqlPort(exec: SqlExecutor, invoke: InvokeFn): DataPort {
           cfg.sl_balance_pence ?? null, cfg.sl_interest_rate_pct ?? null,
           cfg.sl_vir_enabled ? 1 : 0, cfg.sl_vir_max_rate_pct ?? null,
           cfg.sl_vir_lower_income_pence ?? null, cfg.sl_vir_upper_income_pence ?? null,
-          cfg.bonus_pence ?? 0, cfg.extra_payment_pence ?? 0,
+          cfg.bonus_pence ?? 0, cfg.extra_payment_pence ?? 0, cfg.untaxed_income_pence ?? 0,
         ],
       );
 

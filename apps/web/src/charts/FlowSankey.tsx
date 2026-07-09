@@ -118,16 +118,18 @@ function fanOut(sources: Placed[], targets: Placed[], scale: number, leftoverKey
 }
 
 // The gross stage's inputs for a month: the salary engine's payslip split, or null when no
-// config covers the month. Values are integer pence and reconcile exactly (net = gross − Σ
-// deductions) by construction in calcSalary.
-function salaryStage(configs: SalaryConfig[], ym: string): { deductions: { key: string; value: number }[]; net: number } | null {
+// config covers the month. Values are integer pence and reconcile exactly (net = gross +
+// untaxed − Σ deductions) by construction in calcSalary. One-off untaxed income belongs only
+// to its explicitly saved month, so it's zeroed when the resolved config is inherited.
+function salaryStage(configs: SalaryConfig[], ym: string): { deductions: { key: string; value: number }[]; net: number; untaxed: number } | null {
   const { year, month } = ymToYearMonth(ym);
   const at = configs
     .filter((c) => c.year < year || (c.year === year && c.month <= month))
     .sort((a, b) => a.year - b.year || a.month - b.month)
     .at(-1);
   if (!at) return null;
-  const cfg = { ...at, year, month };
+  const isExact = at.year === year && at.month === month;
+  const cfg = { ...at, year, month, untaxed_income_pence: isExact ? at.untaxed_income_pence ?? 0 : 0 };
   try {
     const breakdown = calcSalary(cfg, previewEmploymentStart(configs, cfg) ?? { year, month }, previewYtd(configs, cfg));
     const lines = breakdown.view.breakdown.find((l) => l.key === 'deductions')?.children ?? [];
@@ -136,6 +138,7 @@ function salaryStage(configs: SalaryConfig[], ym: string): { deductions: { key: 
         .map((l) => ({ key: l.key, value: -l.cell.monthly }))
         .filter((d) => d.value > 0),
       net: breakdown.netMonthlyPence,
+      untaxed: Math.max(0, cfg.untaxed_income_pence),
     };
   } catch {
     return null;
@@ -197,7 +200,10 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   // income month falls back rather than drawing a flow that doesn't reconcile.
   const salary = salaryStage(configs, ym);
   const hasGrossStage = salary !== null && inc > 0 && salary.net === inc;
-  const gross = hasGrossStage ? salary.deductions.reduce((s, d) => s + d.value, salary.net) : 0;
+  // Payroll gross excludes one-off untaxed income (gifts aren't earnings); untaxed enters as its
+  // own left-column source feeding Net pay, so gross + untaxed = Σdeductions + net exactly.
+  const untaxedIn = hasGrossStage ? salary.untaxed : 0;
+  const gross = hasGrossStage ? salary.deductions.reduce((s, d) => s + d.value, salary.net - untaxedIn) : 0;
 
   const midNodes: FlowNode[] = [];
   if (hasGrossStage) {
@@ -217,7 +223,12 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     );
   }
 
-  const grossNodes: FlowNode[] = hasGrossStage ? [{ key: 'gross', name: 'Gross pay', color: 'var(--color-ink-muted)', value: gross }] : [];
+  const grossNodes: FlowNode[] = hasGrossStage
+    ? [
+        ...(gross > 0 ? [{ key: 'gross', name: 'Gross pay', color: 'var(--color-ink-muted)', value: gross }] : []),
+        ...(untaxedIn > 0 ? [{ key: 'untaxed', name: 'Untaxed', color: 'var(--color-under)', value: untaxedIn }] : []),
+      ]
+    : [];
 
   // One money→pixel scale across every column, sized by the tallest column's total.
   const midTotal = midNodes.reduce((s, n) => s + n.value, 0);

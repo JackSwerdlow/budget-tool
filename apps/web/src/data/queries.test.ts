@@ -287,6 +287,27 @@ test('salary: extra_payment_pence round-trips', async () => {
   expect(def.config?.extra_payment_pence).toBe(50_000);
 });
 
+test('salary: a £0-gross employment-gap month saves and round-trips', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig({ ...SALARY_CFG, gross_yearly_pence: 0 }, 0);
+  const got = await port.getSalaryConfig(2026, 6);
+  expect(got.config?.gross_yearly_pence).toBe(0);
+  expect(got.inheritedFrom).toBeNull();
+  // The gap inherits forward like any config.
+  expect((await port.getSalaryConfig(2026, 8)).config?.gross_yearly_pence).toBe(0);
+});
+
+test('salary: untaxed_income_pence round-trips and is written to net income', async () => {
+  const { port } = freshPort();
+  await port.saveSalaryConfig({ ...SALARY_CFG, gross_yearly_pence: 0, untaxed_income_pence: 15_000 }, 15_000);
+  const got = await port.getSalaryConfig(2026, 6);
+  expect(got.config?.untaxed_income_pence).toBe(15_000);
+  expect((await port.fetchBootstrap()).income).toContainEqual({ year: 2026, month: 6, amount_pence: 15_000 });
+  // Like extra_payment, the raw inherited response still carries the saved row's value; the
+  // one-off "this month only" semantics are enforced client-side (Salary.tsx blanks it on
+  // inherit) and in core (Lifetime sums explicit rows only).
+});
+
 test('salary: student-loan VIR fields round-trip, and default off/null when omitted', async () => {
   const { port } = freshPort();
   await port.saveSalaryConfig({

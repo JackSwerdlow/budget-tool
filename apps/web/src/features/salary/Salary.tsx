@@ -61,6 +61,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
         if (resp.inheritedFrom) {
           fields.sl_balance_pence = '';
           fields.extra_payment_pence = '';
+          fields.untaxed_income_pence = ''; // one-off — never inherits forward
         }
         setConfigFields(fields);
         const yearlyPounds = resp.config.gross_yearly_pence / 100;

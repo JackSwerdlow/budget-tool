@@ -26,6 +26,25 @@ Loading a month resolves inheritance (`repo.ts:getSalaryConfig`, and `core/salar
 
 The response carries `inheritedFrom` (which month's values are shown).
 
+**Employment gaps (£0 gross).** A saved config with **£0 gross** marks a *not-employed* period: it
+inherits forward like any other config, but the engine contributes **zeros** for every month it
+covers (`calcSalary` returns an all-zero breakdown; no PAYE/NI/SL/pension). It's the explicit
+"employment stops here" state — a gap between two salaried periods is filled by whichever saved
+config precedes it, so to represent a real break you **save a £0 month** where it starts and a
+normal salary again where work resumes (a P45-style continuation: re-employment in a later month
+anchors YTD afresh per the rules below). Zero-gross months are **excluded from Lifetime's
+`monthsCount`** (months actually earned) but still span the tax-year walk. Student-loan **interest
+keeps accruing** across a gap; there's just no payroll repayment (earnings are below threshold).
+The Summary shows a muted "not employed" hint when gross is £0.
+
+**Untaxed income (gifts).** A separate **one-off** amount (birthday money, gifts) that is added to
+**net pay only** — it never touches gross, tax, NI, pension or student-loan earnings. Like the
+extra student-loan payment it applies **only in the explicitly saved month** (it does *not* inherit
+forward; an inherited month blanks it). It flows into `monthly_income` (so Net Balance reflects it)
+and appears as its own **Untaxed Income** line in the breakdown and a split under Lifetime's net
+take-home. Combined with £0 gross this lets a not-employed person (e.g. a child) still record money
+to offset spending.
+
 **Continuous employment (the YTD anchor).** Cumulative PAYE accumulates from an
 `employmentStart` anchor, resolved in core by `salaryWalk.resolveEmploymentStart` over **all**
 saved configs (`taxYear(y,m) = m>=4 ? y : y-1`):
@@ -147,10 +166,12 @@ crosshair and swaps the strip below to that month's balance and its change vs th
 
 ## Config
 
-All tax/pension/NI/SL parameters, always editable in place: the five gross fields, pension %s,
-income-tax bands & rates, NI thresholds & rates, and the student-loan settings (including the
-variable-interest-rate toggle with its max rate + income thresholds) — plus the "Set balance"
-anchor and the optional extra monthly payment. A first-ever month pre-fills the
+All tax/pension/NI/SL parameters, always editable in place: the five gross fields (which accept
+**£0** — an employment gap; see "Data model & inheritance"), the monthly **bonus** and the one-off
+**untaxed income** box (both on the Summary form), pension %s, income-tax bands & rates, NI
+thresholds & rates, and the student-loan settings (including the variable-interest-rate toggle with
+its max rate + income thresholds) — plus the "Set balance" anchor and the optional extra monthly
+payment. A first-ever month pre-fills the
 statutory tax/NI/SL parameters (allowance, bands, rates, thresholds) and the time fields with
 current UK values as a convenience (`EMPTY_CONFIG_FIELDS` in `salaryState.ts`, kept matching the
 payslip-validated set); gross pay, pension %s and the student-loan balance/interest start blank,

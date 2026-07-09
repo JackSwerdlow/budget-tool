@@ -89,6 +89,10 @@ export function calcSalary(
   const bonusY = cfg.bonus_pence ?? 0;
   const bonusM = bonusY/12
 
+  // One-off untaxed income (gifts etc.) — this month only. Added to net AFTER all payroll
+  // maths; it must never enter gross, adjusted net, NI or student-loan earnings.
+  const untaxedM = Math.max(0, cfg.untaxed_income_pence ?? 0);
+
   // Employer pension (salary only — bonus excluded)
   const employerPensionM = Math.round(grossM * cfg.employer_pension_pct / 100);
   const employerPensionY = employerPensionM*12;
@@ -311,8 +315,14 @@ export function calcSalary(
       ] },
     { key: 'deductions', label: 'Deductions', depth: 0, isDeduction: true, isNet: false,
       cell: flatCell(deductionsFC, deductionsMth, deductionsYTD), children: deductionChildren },
+    // One-off untaxed income joins the visible sum (gross + deductions + untaxed = net) so the
+    // monthly column reconciles; YTD is null — the engine can't see other months' one-offs.
+    ...(untaxedM > 0
+      ? [{ key: 'untaxedIncome', label: 'Untaxed Income', depth: 0, isDeduction: false, isNet: false,
+          cell: flatCell(untaxedM, untaxedM, null) } as BreakdownLine]
+      : []),
     { key: 'netIncome', label: 'Net Income', depth: 0, isDeduction: false, isNet: true,
-      cell: rated(netFC, netPayMonthly, netYTD),
+      cell: rated(netFC + untaxedM, netPayMonthly + untaxedM, netYTD),
       children: [
         { key: 'adjustedNet', label: 'Adjusted Net Income', depth: 1, isDeduction: false, isNet: false,
           cell: flatCell(forecastAdjNet, adjustedNetMonthly, adjNetYTDmag) },
@@ -390,5 +400,5 @@ export function calcSalary(
     row('inclComp', 'Net Pay incl. Compensation', inclCompY, cfg, { summary: true }, inclCompMonthly),
   ];
 
-  return { rows, netMonthlyPence: netPayMonthly, view };
+  return { rows, netMonthlyPence: netPayMonthly + untaxedM, view };
 }

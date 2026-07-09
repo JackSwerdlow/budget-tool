@@ -913,6 +913,7 @@ const salaryConfig = {
   sl_vir_upper_income_pence: null,
   bonus_pence: 0,
   extra_payment_pence: 0,
+  untaxed_income_pence: 0,
 };
 
 // TY 2025/26 anchor: declares the £45,000 student-loan opening balance.

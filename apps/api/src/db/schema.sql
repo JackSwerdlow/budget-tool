@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS salary_config (
   sl_vir_upper_income_pence        INTEGER,
   bonus_pence                      INTEGER NOT NULL DEFAULT 0,
   extra_payment_pence              INTEGER NOT NULL DEFAULT 0,
+  untaxed_income_pence             INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (year, month)
 );
 

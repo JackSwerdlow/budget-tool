@@ -422,6 +422,34 @@ describe('salary config', () => {
     expect(data.config.extra_payment_pence).toBe(50_000);
   });
 
+  it('PUT accepts a £0-gross employment-gap month (gross and net may be zero)', async () => {
+    const app = freshApp();
+    const res = await app.request('/api/salary-config/2026/8', put({ ...SALARY_BODY, gross_yearly_pence: 0, net_monthly_pence: 0 }));
+    expect(res.status).toBe(200);
+
+    const get = await app.request('/api/salary-config/2026/8');
+    const data = await body<{ config: { gross_yearly_pence: number }; inheritedFrom: null }>(get);
+    expect(data.config.gross_yearly_pence).toBe(0);
+    expect(data.inheritedFrom).toBeNull();
+  });
+
+  it('PUT round-trips untaxed_income_pence and writes it into net income', async () => {
+    const app = freshApp();
+    // Not employed but gifted £150 this month.
+    await app.request('/api/salary-config/2026/8', put({
+      ...SALARY_BODY, gross_yearly_pence: 0, net_monthly_pence: 15_000, untaxed_income_pence: 15_000,
+    }));
+
+    const get = await app.request('/api/salary-config/2026/8');
+    const data = await body<{ config: { untaxed_income_pence: number } }>(get);
+    expect(data.config.untaxed_income_pence).toBe(15_000);
+
+    const boot = await body<{ income: Array<{ year: number; month: number; amount_pence: number }> }>(
+      await app.request('/api/bootstrap'),
+    );
+    expect(boot.income.find((r) => r.year === 2026 && r.month === 8)!.amount_pence).toBe(15_000);
+  });
+
   it('PUT round-trips the student-loan VIR fields; omitted → off/null', async () => {
     const app = freshApp();
     await app.request('/api/salary-config/2026/6', put({

@@ -549,8 +549,10 @@ export function createApp(db: DatabaseSync): Hono {
     const slRate = Number(body.sl_rate_pct);
 
     if (
-      !isPence(gross) || gross === 0 ||
-      !isPence(netMonthlyPence) || netMonthlyPence === 0 ||
+      // £0 gross is a valid config: it marks an employment gap (not-employed month) — the
+      // engine contributes zeros for it and inheritance carries it forward like any config.
+      !isPence(gross) ||
+      !isPence(netMonthlyPence) ||
       !isPositive(hoursPerWeek) || !isPositive(workWeeks) || !isPositive(workDays) ||
       !isRealPct(empPct) || !isRealPct(erPct) ||
       !isPence(personalAllowance) || !isPence(basicBand) || !isPence(addThreshold) ||
@@ -593,6 +595,7 @@ export function createApp(db: DatabaseSync): Hono {
       sl_vir_lower_income_pence: slVirLower, sl_vir_upper_income_pence: slVirUpper,
       bonus_pence: body.bonus_pence == null ? 0 : Number(body.bonus_pence),
       extra_payment_pence: body.extra_payment_pence == null ? 0 : Number(body.extra_payment_pence),
+      untaxed_income_pence: body.untaxed_income_pence == null ? 0 : Number(body.untaxed_income_pence),
     };
 
     const saved = upsertSalaryConfig(db, cfg);
