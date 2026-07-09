@@ -5,6 +5,7 @@ import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { useEscape } from './lib/useEscape';
 import { useSwipeNav } from './lib/useSwipeNav';
+import { useHideOnScrollUp } from './lib/useHideOnScrollUp';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
@@ -59,6 +60,8 @@ export function App() {
     () => setAddView((v) => stepView(ADD_VIEWS, v, -1)),
     () => setAddView((v) => stepView(ADD_VIEWS, v, 1)),
   );
+  // Mobile: hide the sticky control bar when scrolling up toward the top, reveal it scrolling down.
+  const barHidden = useHideOnScrollUp();
 
   // A button is "active" when the live filter exactly matches its target set — not tracked
   // state, so it naturally clears once the Categories checklist diverges from the preset.
@@ -183,7 +186,7 @@ export function App() {
                 Categories stay reachable without scrolling back up; the -mx/px pair bleeds the
                 paper background over the container's gutter. Static from sm up (desktop keeps
                 the plain header row). */}
-            <div className="sticky top-0 z-10 -mx-3 mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-hairline bg-paper px-3 py-2 sm:static sm:mx-0 sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+            <div className={`sticky top-0 z-10 -mx-3 mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-hairline bg-paper px-3 py-2 transition-transform duration-200 sm:static sm:mx-0 sm:translate-y-0 sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 ${barHidden && !showFilter ? 'max-sm:-translate-y-full' : ''}`}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-3">
                 <Segmented
                   value={overviewView}

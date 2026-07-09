@@ -16,8 +16,10 @@ device and **persists across app updates** (same-signature installs).
 
 The UI is the shared responsive build: under Tailwind's `sm` breakpoint the top tabs become a
 fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), and the
-Overview control bar (view toggle / View filter / Categories) is `sticky` to the top so it stays
-reachable without scrolling up — all in `apps/web`, so desktop and web pick the same code up
+Overview control bar (view toggle / View filter / Categories) is `sticky` to the top and
+auto-hides with scroll direction (revealed scrolling down away from the top, hidden scrolling up
+toward it — `lib/useHideOnScrollUp.ts`; the Categories checklist opens attached to the bar, and
+the bar stays put while it's open) — all in `apps/web`, so desktop and web pick the same code up
 automatically at their widths.
 
 **Touch chart tooltips** are moving from the follow-cursor box (which covered the chart under
