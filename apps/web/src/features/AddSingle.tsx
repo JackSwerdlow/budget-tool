@@ -102,7 +102,8 @@ export function AddSingle({ data }: { data: LedgerData }) {
             </div>
           </div>
           <p className="mt-1 text-xs text-ink-faint">
-            Type a sum like <code className="rounded bg-raised px-1 py-0.5 font-mono">8+8+8+5</code> — it totals as you go.
+            Type a sum like <code className="rounded bg-raised px-1 py-0.5 font-mono">(8*5)/3 + 5</code> — brackets,
+            +, -, *, / all work, and it totals as you go.
           </p>
         </div>
 
