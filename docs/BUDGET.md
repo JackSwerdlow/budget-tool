@@ -131,11 +131,12 @@ persisted list-item rows ("how much on milk?"): a searchable table of every item
 header is sortable (click cycles desc ▼ → asc ▲ → none; "none" falls back to total-spend
 order); the view starts with **Total** sorted desc. Under `sm` only **Item · Last unit ·
 Total** show (six money columns would starve the item name on a phone); the rest — bought,
-drift, your-share — return from `sm` up and stay reachable via the row detail. Top 15 by
-default ("Show all" expands; searching always searches everything). Clicking a row opens the
-item's unit-price history: a
-stepped kit-frame chart, one dot per purchase, hover for the date/qty/price. Uses the same
-shared category filter as Month/Trends; analysis only — the ledger itself is untouched.
+drift, your-share — return from `sm` up. Top 15 by default ("Show all" expands; searching
+always searches everything). Clicking a row expands it **in place**, directly under that row: on
+a phone the columns hidden from the table (bought / drift / your-share) plus, at all widths, the
+item's unit-price history — a stepped kit-frame chart, one dot per purchase, hover for the
+date/qty/price. Uses the same shared category filter as Month/Trends; analysis only — the ledger
+itself is untouched.
 
 All the kit-frame charts share a **dynamic money y-axis** (`kit.moneyScale`, tested): the
 gridline step is the smallest "nice" value (1/2/5 × a power of ten) keeping the chart to ≤6

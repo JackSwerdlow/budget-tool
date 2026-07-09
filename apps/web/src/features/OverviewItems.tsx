@@ -1,4 +1,4 @@
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { formatGBP, itemSummaries, type ItemSummary, type LedgerData } from '@budget/core';
 import { moneyScale, useChartFrame, useDismissOnOutsideTap } from '../charts/kit';
 import { MoneyGrid, SvgBreakdownBox } from '../charts/kitComponents';
@@ -52,7 +52,6 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
         return sort.dir === 'desc' ? -cmp : cmp;
       });
   const shown = showAll || term !== '' ? sorted : sorted.slice(0, TOP_N);
-  const selected = selectedName !== null ? summaries.find((s) => s.name.toLowerCase() === selectedName) ?? null : null;
 
   const cat = (id: number) => data.categories.find((c) => c.id === id);
 
@@ -111,38 +110,58 @@ export function OverviewItems({ data, hiddenCategoryIds }: { data: LedgerData; h
           ))}
         </div>
         {shown.map((s) => {
-          const active = selected?.name === s.name;
+          const active = selectedName === s.name.toLowerCase();
           const drift = s.firstUnitPricePence > 0
             ? Math.round(((s.lastUnitPricePence - s.firstUnitPricePence) / s.firstUnitPricePence) * 100)
             : null;
+          const driftClass = drift === null || drift === 0 ? 'text-ink-faint' : drift > 0 ? 'text-over' : 'text-under';
+          const driftLabel = drift === null || drift === 0 ? '—' : `${drift > 0 ? '+' : ''}${drift}%`;
           const lastCat = cat(s.purchases[s.purchases.length - 1].categoryId);
           return (
-            <button
-              key={s.name.toLowerCase()}
-              type="button"
-              onClick={() => setSelectedName(active ? null : s.name.toLowerCase())}
-              aria-expanded={active}
-              className={`grid w-full grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline px-3 py-1.5 text-left text-sm transition-colors last:border-b-0 hover:bg-raised/40 ${active ? 'bg-raised/60' : ''}`}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: lastCat?.color }} />
-                <span className={`truncate ${active ? 'font-semibold text-accent' : 'text-ink'}`}>{s.name}</span>
-              </span>
-              <span className="hidden text-right tabular-nums text-ink-muted sm:block">×{s.timesBought}</span>
-              <span className="text-right tabular-nums text-ink">{formatGBP(s.lastUnitPricePence)}</span>
-              <span className={`hidden text-right tabular-nums text-xs sm:block ${drift === null || drift === 0 ? 'text-ink-faint' : drift > 0 ? 'text-over' : 'text-under'}`}>
-                {drift === null || drift === 0 ? '—' : `${drift > 0 ? '+' : ''}${drift}%`}
-              </span>
-              <span className="text-right tabular-nums text-ink">{formatGBP(s.totalPence)}</span>
-              <span className="hidden text-right tabular-nums text-ink-muted sm:block">{formatGBP(s.totalMyPence)}</span>
-            </button>
+            <Fragment key={s.name.toLowerCase()}>
+              <button
+                type="button"
+                onClick={() => setSelectedName(active ? null : s.name.toLowerCase())}
+                aria-expanded={active}
+                className={`grid w-full grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[1fr_5rem_6rem_5.5rem_6rem_6rem] items-center gap-2 border-b border-hairline px-3 py-1.5 text-left text-sm transition-colors hover:bg-raised/40 ${active ? 'bg-raised/60' : ''}`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: lastCat?.color }} />
+                  <span className={`truncate ${active ? 'font-semibold text-accent' : 'text-ink'}`}>{s.name}</span>
+                </span>
+                <span className="hidden text-right tabular-nums text-ink-muted sm:block">×{s.timesBought}</span>
+                <span className="text-right tabular-nums text-ink">{formatGBP(s.lastUnitPricePence)}</span>
+                <span className={`hidden text-right tabular-nums text-xs sm:block ${driftClass}`}>{driftLabel}</span>
+                <span className="text-right tabular-nums text-ink">{formatGBP(s.totalPence)}</span>
+                <span className="hidden text-right tabular-nums text-ink-muted sm:block">{formatGBP(s.totalMyPence)}</span>
+              </button>
+              {/* Expand in place directly under the row: the mobile-hidden columns, then the
+                  unit-price history — rather than a single detail panel at the list's bottom. */}
+              {active && (
+                <div className="border-b border-hairline bg-raised/30 px-3 py-3">
+                  <dl className="mb-3 grid grid-cols-3 gap-2 text-xs sm:hidden">
+                    <div>
+                      <dt className="text-ink-faint">Bought</dt>
+                      <dd className="tabular-nums text-ink">×{s.timesBought}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-ink-faint">Drift</dt>
+                      <dd className={`tabular-nums ${driftClass}`}>{driftLabel}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-ink-faint">Your share</dt>
+                      <dd className="tabular-nums text-ink">{formatGBP(s.totalMyPence)}</dd>
+                    </div>
+                  </dl>
+                  <ItemDetail summary={s} />
+                </div>
+              )}
+            </Fragment>
           );
         })}
         {shown.length === 0 && <p className="px-3 py-4 text-sm text-ink-muted">No items match this search.</p>}
         </div>
       </div>
-
-      {selected && <ItemDetail summary={selected} />}
     </div>
   );
 }
