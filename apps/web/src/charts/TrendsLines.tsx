@@ -126,6 +126,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
         </div>
       </div>
       <svg
+        data-noswipe
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         className="w-full"
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}

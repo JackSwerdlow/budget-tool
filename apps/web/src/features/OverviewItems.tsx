@@ -192,7 +192,7 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
           {formatGBP(summary.firstUnitPricePence)} first · {formatGBP(summary.lastUnitPricePence)} latest
         </span>
       </div>
-      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Unit price of ${summary.name} over time`}>
+      <svg data-noswipe viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Unit price of ${summary.name} over time`}>
         <MoneyGrid scale={scale} frame={frame} />
         {pts.map((p, i) => (
           (i % labelStep === 0 || i === pts.length - 1) && (

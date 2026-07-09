@@ -243,7 +243,7 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           rows={hoverByGroup.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.value) }))}
         />
       )}
-      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
+      <svg data-noswipe viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
         <MoneyGrid scale={scale} frame={frame} />
 
         {/* x-axis day ticks + labels */}

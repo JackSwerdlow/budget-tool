@@ -33,8 +33,10 @@ Behaviours that differ by **input device** (rather than width) branch on the poi
 on the mouse path and lets DevTools device mode exercise the touch path. Examples: a coarse pointer
 suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard;
 a horizontal **swipe** moves between the Overview (Month/Trends/Items) and Add (Single/List/Monthly)
-sub-tabs (`lib/useSwipeNav.ts`, touch-only, and it stands aside when a horizontally scrollable
-element — the matrix, the tables — should take the swipe instead).
+sub-tabs (`lib/useSwipeNav.ts`, pointer events gated to touch, so it also works in DevTools device
+mode). It stands aside when the swipe began on something that consumes a horizontal drag itself —
+a horizontally scrollable element (the matrix, the tables) or a chart scrub surface (marked
+`data-noswipe`, since press-&-scrub is also a horizontal drag).
 
 ## Android-specific pieces (the short list)
 
