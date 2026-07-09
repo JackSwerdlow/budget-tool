@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { arc, pie } from 'd3-shape';
 import { categoryTotals, formatGBP, type LedgerData } from '@budget/core';
+import { coarsePointer } from '../lib/pointer';
 import { useCursorPos, useDismissOnOutsideTap } from './kit';
-import { CursorBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, CursorBreakdownBox } from './kitComponents';
 
 type Slice = { id: number; name: string; color: string; value: number };
 
@@ -64,8 +65,33 @@ export function GroupingDonut({
   const collapse = () => setExpanded(null);
   const hoveredSlice = hoveredId !== null ? slices.find((s) => s.id === hoveredId) ?? null : null;
 
+  // Touch: read the hovered slice off the strip above (not the follow-cursor box); mouse keeps
+  // the box. When a group slice is hovered (not drilled), the strip carries its category make-up.
+  const coarse = coarsePointer();
+  const stripRows = (() => {
+    if (drilled || hoveredId === null) return [];
+    const group = data.groups.find((g) => g.id === hoveredId);
+    if (!group) return [];
+    return data.categories
+      .filter((c) => c.group_id === group.id && !hiddenCategoryIds.has(c.id))
+      .map((c) => ({ id: c.id, name: c.name, color: c.color, value: catTotals.get(c.id) ?? 0 }))
+      .filter((c) => c.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .map((c) => ({ key: c.id, color: c.color, name: c.name, value: formatGBP(c.value) }));
+  })();
+
   return (
-    <div ref={wrapRef} className="relative flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
+    <div ref={wrapRef} className="relative">
+      {coarse && (
+        <ChartInspectStrip
+          active={hoveredSlice !== null}
+          title={hoveredSlice ? hoveredSlice.name : drilled ? expandedGroup?.name ?? 'Spend' : 'Spend by group'}
+          value={formatGBP(hoveredSlice ? hoveredSlice.value : total)}
+          delta={hoveredSlice ? `${Math.round((hoveredSlice.value / total) * 100)}%` : undefined}
+          rows={stripRows}
+        />
+      )}
+      <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
       <svg viewBox="-104 -104 208 208" className="w-44 shrink-0" role="img" aria-label="Spend by group">
         {arcs.map((a) => (
           <path
@@ -137,10 +163,12 @@ export function GroupingDonut({
         </ul>
       </div>
 
+      </div>
+
       {/* Hovering a group (slice or legend row) shows its category make-up — the same
          column-aligned box as the vs-last-month bars. Drilled mode already IS the
-         category level, so no box there. */}
-      {!drilled && hoveredId !== null && pos !== null && (() => {
+         category level, so no box there. Mouse only; touch uses the strip above. */}
+      {!coarse && !drilled && hoveredId !== null && pos !== null && (() => {
         const group = data.groups.find((g) => g.id === hoveredId);
         if (!group) return null;
         const cats = data.categories

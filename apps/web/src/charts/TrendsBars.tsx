@@ -2,8 +2,9 @@ import { useRef, useState } from 'react';
 import { formatGBP, income, previousMonth, type LedgerData } from '@budget/core';
 import { LineToggle } from '../components/LineToggle';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 // Per-month stacked bars over the same range as the category×month matrix — the running
 // chart's visual language (group colours/stack order, pill toggles, hover breakdown box)
@@ -26,6 +27,8 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
   useDismissOnOutsideTap(hoveredIdx !== null, wrapRef, () => setHoveredIdx(null));
+  // Touch reads the tapped month off the strip above; mouse keeps the in-chart box.
+  const coarse = coarsePointer();
 
   const currentYm = todayISO().slice(0, 7);
 
@@ -148,6 +151,15 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
           </span>
         </div>
       </div>
+      {coarse && (
+        <ChartInspectStrip
+          active={hovered !== null}
+          title={hovered ? monthLabel(hovered.ym) : 'Spend by month'}
+          value={formatGBP(hovered ? hovered.total : rangeTotal)}
+          delta={hovered && hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)}` : undefined}
+          rows={hovered ? hovered.rows.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.value) })) : []}
+        />
+      )}
       <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
         <MoneyGrid scale={scale} frame={frame} />
 
@@ -227,8 +239,9 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
         })}
 
         {/* hover tooltip — same column-aligned box as the running chart, month-granular;
-           deltas here can go either way, so + is green and − red (matching the matrix) */}
-        {hovered && (() => {
+           deltas here can go either way, so + is green and − red (matching the matrix).
+           Mouse only; touch uses the strip above. */}
+        {!coarse && hovered && (() => {
           const bx = barX(hovered.i);
           const boxX = bx + barW / 2 > CHART_W / 2 ? bx - BOX_W - 10 : bx + barW + 10;
           const topY = y(hovered.total);

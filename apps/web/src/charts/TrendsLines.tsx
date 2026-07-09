@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { formatGBP, previousMonth, type LedgerData } from '@budget/core';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
 
 type Series = { id: number; name: string; color: string; values: number[] };
 
@@ -22,6 +23,10 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
   useDismissOnOutsideTap(hoveredIdx !== null, wrapRef, () => setHoveredIdx(null));
+  // Touch shows the scrubbed month in the strip above (not the in-chart box); a drag that moved
+  // is a scrub, not a drill, so `moved` suppresses the tap-to-drill click after a scrub.
+  const coarse = coarsePointer();
+  const moved = useRef(false);
 
   const currentYm = todayISO().slice(0, 7);
   if (months.length === 0) return null;
@@ -125,11 +130,21 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
           ))}
         </div>
       </div>
+      {coarse && (
+        <ChartInspectStrip
+          active={hovered !== null}
+          title={hovered ? `${monthLabel(hovered.ym)}${drilled ? ` · ${drillGroup!.name}` : ''}` : drilled ? drillGroup!.name : 'Category trend'}
+          value={hovered ? formatGBP(hovered.total) : '—'}
+          delta={hovered && hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)}` : undefined}
+          rows={hovered ? hovered.rows.map((r) => ({ key: r.s.id, color: r.s.color, name: r.s.name, value: formatGBP(r.value) })) : []}
+        />
+      )}
       <svg
         data-noswipe
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         className="w-full"
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}
+        onPointerUp={(e) => { if (e.pointerType === 'touch') setHoveredIdx(null); }}
         role="img"
         aria-label={`${drilled ? `${drillGroup!.name} categories` : 'Group'} spend trend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}
       >
@@ -160,7 +175,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
             height={INNER_H}
             fill="transparent"
             onPointerEnter={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
-            onPointerDown={() => setHoveredIdx(i)}
+            onPointerDown={() => { moved.current = false; setHoveredIdx(i); }}
           />
         ))}
 
@@ -196,16 +211,18 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
               aria-label={drilled ? undefined : `Show ${s.name}'s categories`}
               onPointerEnter={(e) => { if (e.pointerType !== 'touch') setEmphasisId(s.id); }}
               onPointerLeave={(e) => { if (e.pointerType !== 'touch') setEmphasisId(null); }}
+              onPointerDown={() => { moved.current = false; }}
               onPointerMove={(e) => {
                 // The fat stroke sits above the month columns, so it keeps the month
                 // tooltip alive itself: map the pointer back through the viewBox scale.
+                moved.current = true;
                 const r = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
                 if (!r) return;
                 const vx = ((e.clientX - r.left) / r.width) * CHART_W;
                 const i = Math.floor((vx - PAD_LEFT) / band);
                 setHoveredIdx(Math.max(0, Math.min(months.length - 1, i)));
               }}
-              onClick={() => { if (!drilled) setDrillGroupId(s.id); }}
+              onClick={() => { if (moved.current) return; if (!drilled) setDrillGroupId(s.id); }}
             />
             {hovered && (
               <circle
@@ -221,7 +238,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
           </g>
         ))}
 
-        {hovered && (() => {
+        {!coarse && hovered && (() => {
           const boxX = cx(hovered.i) > CHART_W / 2 ? cx(hovered.i) - BOX_W - 12 : cx(hovered.i) + 12;
           const boxY = Math.max(PAD_TOP + 4, Math.min(y(hovered.total) - boxH / 2, CHART_H - PAD_BOTTOM - boxH));
           return (

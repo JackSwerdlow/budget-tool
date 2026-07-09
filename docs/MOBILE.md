@@ -22,12 +22,14 @@ toward it — `lib/useHideOnScrollUp.ts`; the Categories checklist opens attache
 the bar stays put while it's open) — all in `apps/web`, so desktop and web pick the same code up
 automatically at their widths.
 
-**Touch chart tooltips** are moving from the follow-cursor box (which covered the chart under
-the finger) to a persistent **inspect strip** above the chart (`ChartInspectStrip` in the chart
-kit): idle it shows the headline, and a press-&-scrub updates it live to the point under the
-finger, lifting to dismiss. It renders only for a coarse pointer; the mouse keeps the in-chart
-hover boxes untouched. Adopted on the Running-total chart first; the other charts still use the
-tap-to-reveal box until the pattern is rolled out to them.
+**Touch chart tooltips** use a persistent **inspect strip** above the chart (`ChartInspectStrip`
+in the chart kit) instead of the follow-cursor box that covered the chart under the finger: idle
+it shows the headline, and interacting updates it live with the per-group breakdown below. It
+renders only for a coarse pointer; the mouse keeps the in-chart hover boxes untouched. Two
+interaction shapes: **scrub** charts (running total, category-trend lines, item unit-price) reveal
+on press, follow the finger, and dismiss on lift — with a moved-guard so a scrub isn't also read
+as a tap (drill); **tap** charts (grouping donut, vs-last-month bars, money-flow sankey) show the
+tapped element's breakdown until an outside tap or scroll dismisses it.
 
 Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
 `window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper

@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { formatGBP, itemSummaries, type ItemSummary, type LedgerData } from '@budget/core';
+import { coarsePointer } from '../lib/pointer';
 import { moneyScale, useChartFrame, useDismissOnOutsideTap } from '../charts/kit';
 import { MoneyGrid, SvgBreakdownBox } from '../charts/kitComponents';
 import { monthShort } from '../lib/dates';
@@ -173,6 +174,8 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
   useDismissOnOutsideTap(hoverIdx !== null, wrapRef, () => setHoverIdx(null));
+  // Touch shows the scrubbed purchase in the subtitle line (not the in-chart box); lift dismisses.
+  const coarse = coarsePointer();
   const pts = summary.purchases;
 
   if (pts.length < 2) {
@@ -207,9 +210,15 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
     <div ref={wrapRef} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h4 className="font-serif text-sm text-ink">{summary.name} — unit price over purchases</h4>
-        <span className="text-xs text-ink-faint">
-          {formatGBP(summary.firstUnitPricePence)} first · {formatGBP(summary.lastUnitPricePence)} latest
-        </span>
+        {coarse && hovered ? (
+          <span className="text-xs tabular-nums text-ink">
+            {hovered.date} · {formatGBP(hovered.unitPricePence)}/unit · {hovered.quantity}× · {formatGBP(hovered.pricePence)}
+          </span>
+        ) : (
+          <span className="text-xs text-ink-faint">
+            {formatGBP(summary.firstUnitPricePence)} first · {formatGBP(summary.lastUnitPricePence)} latest
+          </span>
+        )}
       </div>
       <svg data-noswipe viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Unit price of ${summary.name} over time`}>
         <MoneyGrid scale={scale} frame={frame} />
@@ -232,7 +241,7 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
             strokeWidth={hoverIdx === i ? 1.5 : 0}
           />
         ))}
-        {hovered && hoverIdx !== null && (() => {
+        {!coarse && hovered && hoverIdx !== null && (() => {
           const hx = x(hoverIdx);
           const boxX = hx > CHART_W / 2 ? hx - 178 - 10 : hx + 10;
           const hy = y(hovered.unitPricePence);
@@ -261,6 +270,7 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
           onPointerMove={seek}
           onPointerDown={seek}
           onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoverIdx(null); }}
+          onPointerUp={(e) => { if (e.pointerType === 'touch') setHoverIdx(null); }}
         />
       </svg>
     </div>
