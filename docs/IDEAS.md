@@ -27,7 +27,6 @@
 > seams — Tailwind `sm:`, the `<480px` compact chart frame, or `pointerType === 'touch'` — so the
 > desktop-width web view is unchanged; verify them in a ~360px browser viewport (DevTools device mode).
 
-- Sankey touch behaviour — (a) a node/ribbon tap fires both the drill-in (`onClick`) and the hover box (`onPointerDown`), so tapping a group expands it *and* pops the tooltip; split so touch reveals the breakdown without also expanding (pairs with the tap-tooltip fix above). (b) compact two-line labels drift out of alignment with their nodes at phone width.
 - Trends matrix cramped on mobile — only ~3 month columns fit before horizontal scroll (`minmax(72px,…)` cols + a `38vw` label column), and each cell's `absolute w-8` up/down arrow (up to 24px) overlaps the £/% text. Rethink cell density, arrow placement, and how many months fit at phone width.
 
 ## Data

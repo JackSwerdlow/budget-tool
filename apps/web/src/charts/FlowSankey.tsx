@@ -3,8 +3,9 @@ import { calcSalary, categoryTotals, formatGBP, income, type LedgerData, type Sa
 import { getAllSalaryConfigs } from '../api';
 import { previewEmploymentStart, previewYtd, ymToYearMonth } from '../features/salary/salaryState';
 import { monthLabel, todayISO } from '../lib/dates';
+import { coarsePointer } from '../lib/pointer';
 import { CHART_W, ellipsize, useChartFrame, useCursorPos, useDismissOnOutsideTap } from './kit';
-import { CursorBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, CursorBreakdownBox } from './kitComponents';
 
 // Money flow — a sankey for the viewed month. When the salary engine's net pay for the month
 // exactly matches the recorded income (true by construction for months saved via the Salary
@@ -151,8 +152,14 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   const [configs, setConfigs] = useState<SalaryConfig[]>([]);
   const { wrapRef, pos, moveTo, clear } = useCursorPos();
   const { ref: frameRef, frame } = useChartFrame();
-  const geom = frame.W < 480 ? SANKEY_GEOM.compact : SANKEY_GEOM.desktop;
+  const compact = frame.W < 480;
+  const geom = compact ? SANKEY_GEOM.compact : SANKEY_GEOM.desktop;
   const { W, L_GUTTER, R_GUTTER, MONEY_PX, NAME_MAX } = geom;
+  // Touch: read a tapped node off the strip above (not the follow-cursor box). On a phone the
+  // node labels also drop their inline value (name only, single line) so they stop drifting out
+  // of alignment — the value is one tap away in the strip.
+  const coarse = coarsePointer();
+  const labelValues = !compact;
   const X_LEFT = L_GUTTER;
   const X_RIGHT = W - R_GUTTER - NODE_W;
   const X_MID = Math.round((X_LEFT + X_RIGHT) / 2);
@@ -289,8 +296,10 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
 
   const drilled = expanded !== null;
   const onNodeClick = (n: FlowNode) => {
-    if (drilled) setExpanded(null);
-    else if (n.groupId !== undefined) setExpanded(n.groupId);
+    // Drilling re-renders the sankey, so clear any inspect state so the strip doesn't linger on a
+    // node that no longer exists — this is what stops a tap both drilling AND showing a tooltip.
+    if (drilled) { setExpanded(null); setHovered(null); clear(); }
+    else if (n.groupId !== undefined) { setExpanded(n.groupId); setHovered(null); clear(); }
   };
 
   // The left column stacks name over value (a narrow gutter); mid/right labels are single-line.
@@ -321,6 +330,22 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     rightClass: 'w-9 text-[10px] text-ink-faint',
   });
 
+  // Touch inspect strip: the tapped node's headline, plus a breakdown for the nodes whose box
+  // showed one (a group's categories, Net pay's destinations, Gross pay's deductions).
+  const hoveredNode = hovered ? [...grossPlaced, ...midPlaced, ...spendPlaced].find((n) => n.key === hovered) ?? null : null;
+  const stripRows = (() => {
+    if (hovered === 'income') return spendPlaced.map((n) => ({ key: n.key, color: n.color, name: n.name, value: formatGBP(n.value) }));
+    if (hovered === 'gross') return midPlaced.filter((n) => n.key !== 'savings').map((n) => ({ key: n.key, color: n.color, name: n.name, value: formatGBP(n.value) }));
+    if (hoveredGroup !== null && !drilled) {
+      return groupCats(hoveredGroup.id)
+        .map((c) => ({ id: c.id, name: c.name, color: c.color, value: catTotals.get(c.id) ?? 0 }))
+        .filter((c) => c.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .map((c) => ({ key: c.id, color: c.color, name: c.name, value: formatGBP(c.value) }));
+    }
+    return [];
+  })();
+
   return (
     <div ref={frameRef}>
     <div ref={wrapRef} className="relative">
@@ -335,6 +360,15 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
         </div>
         {filterActive && <span className="text-[11px] text-ink-faint">all money — ignores the category filter</span>}
       </div>
+
+      {coarse && (
+        <ChartInspectStrip
+          active={hovered !== null}
+          title={hoveredNode ? hoveredNode.name : 'Money flow'}
+          value={formatGBP(hoveredNode ? hoveredNode.value : inc > 0 ? inc : spend)}
+          rows={stripRows}
+        />
+      )}
 
       <svg
         viewBox={`0 0 ${W} ${svgH}`}
@@ -367,7 +401,8 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
         )}
 
         {columns.map((col) => {
-          const ys = labelYs(col.placed, svgH - (col.twoLine ? 14 : 4), col.twoLine ? 27 : 13);
+          const effTwoLine = col.twoLine && labelValues;
+          const ys = labelYs(col.placed, svgH - (effTwoLine ? 14 : 4), effTwoLine ? 27 : 13);
           return col.placed.map((n, i) => (
             <g
               key={n.key}
@@ -382,7 +417,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
               <rect x={col.x} y={n.y} width={NODE_W} height={Math.max(n.h, 1.5)} rx={2} fill={n.color} stroke="var(--color-panel)" strokeWidth={1}>
                 <title>{n.name}</title>
               </rect>
-              {col.twoLine ? (
+              {effTwoLine ? (
                 <>
                   <text x={col.labelX} y={ys[i] - 6} textAnchor={col.anchor} className={`fill-ink text-[11px] ${hovered === n.key ? 'font-semibold' : ''}`}>
                     {n.name}
@@ -394,9 +429,11 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
               ) : (
                 <text x={col.labelX} y={ys[i]} textAnchor={col.anchor} style={col.halo ? halo : undefined}>
                   <tspan className={`fill-ink text-[11px] ${hovered === n.key ? 'font-semibold' : ''}`}>{ellipsize(n.name, NAME_MAX)}</tspan>
-                  <tspan className="fill-ink-faint text-[10px] tabular-nums" dx={6}>
-                    {formatGBP(n.value)}
-                  </tspan>
+                  {labelValues && (
+                    <tspan className="fill-ink-faint text-[10px] tabular-nums" dx={6}>
+                      {formatGBP(n.value)}
+                    </tspan>
+                  )}
                 </text>
               )}
             </g>
@@ -406,7 +443,7 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
 
       {/* Hover boxes, matching the donut/bars idiom: a group shows its category make-up,
          Net pay shows where it all went, Gross pay shows the payslip split. */}
-      {hoveredGroup !== null && pos !== null && !drilled && (() => {
+      {!coarse && hoveredGroup !== null && pos !== null && !drilled && (() => {
         const cats = groupCats(hoveredGroup.id)
           .map((c) => ({ key: c.id, name: c.name, color: c.color, value: catTotals.get(c.id) ?? 0 }))
           .sort((a, b) => b.value - a.value);
@@ -414,10 +451,10 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
         if (groupTotal === 0) return null;
         return <CursorBreakdownBox wrapRef={wrapRef} pos={pos} title={hoveredGroup.name} rows={cats.map((c) => boxRow(c, groupTotal))} />;
       })()}
-      {hovered === 'income' && pos !== null && (
+      {!coarse && hovered === 'income' && pos !== null && (
         <CursorBreakdownBox wrapRef={wrapRef} pos={pos} title="Net pay" rows={spendPlaced.map((n) => boxRow(n, inc))} />
       )}
-      {hovered === 'gross' && pos !== null && (
+      {!coarse && hovered === 'gross' && pos !== null && (
         <CursorBreakdownBox
           wrapRef={wrapRef}
           pos={pos}
