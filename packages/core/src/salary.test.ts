@@ -19,8 +19,8 @@ import type { SalaryConfig } from './types';
  * (exact band). The payslip wins; see the payslip-validated tests below.
  *
  * Payslip-validated test suites for April, May, and June 2026 (TY 2026/27) appear below
- * in the "calcSalary — payslip:" describe blocks. Derivations and payslip figures are in
- * memory/salary-ty2627-payslip-design.md.
+ * in the "calcSalary — payslip:" describe blocks; each JACK_APR26 / JACK_TY26 config field
+ * and YTD input is annotated inline with its payslip line item (that is the derivation).
  *
  * Pension / NI / student-loan figures follow the payslip convention the engine uses: the
  * deduction is computed on the MONTHLY figure, rounded, then annualised (× 12) — what a

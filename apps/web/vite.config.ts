@@ -14,7 +14,9 @@ export default defineConfig(({ command }) => ({
     host: tauriDevHost || '0.0.0.0',
     port: 5001,
     hmr: tauriDevHost ? { protocol: 'ws', host: tauriDevHost, port: 5002 } : undefined,
-    allowedHosts: ['5001-lab14102.labs.decoded.com'],
+    // No allowedHosts on purpose — kept env-agnostic. Vite permits IP-literal hosts by
+    // default, so reach the dev server via the machine's network IP (http://<ip>:5001),
+    // not a hostname. Don't hard-code a machine-specific host here.
     proxy: {
       // Dev only: forward /api to the Hono server. Keep the /api prefix (no rewrite).
       '/api': {

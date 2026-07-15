@@ -81,6 +81,11 @@ Rather than a naive "this month × 12" projection, the year figure is a **foreca
 year-to-date actuals + the rest of the year at the current rate. Pension uses the
 **employer-pension YTD** so the pension-pot forecast is real, not an interim annualisation.
 
+For the income-tax rows specifically, the breakdown's **Monthly** column is the cumulative PAYE
+actually deducted that month (what feeds net pay / the ledger) while **Yearly** is the
+full-year-equivalent liability at this salary (the cumulative routine evaluated at period 12) — so
+for the tax rows `Monthly × 12 ≠ Yearly` **by design**.
+
 > **Provenance & ground truth.** UK PAYE has two official HMRC methods: the **manual tax tables**
 > (a hand-calculation approximation that rounds band limits to whole pounds) and the
 > **exact-percentage method** (the precise cumulative formula computerised payroll runs). They use
