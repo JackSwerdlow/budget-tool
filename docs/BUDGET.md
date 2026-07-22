@@ -80,8 +80,10 @@ ribbon to an identical node), so L2's right column has room to label the rest.
 
 One-off **untaxed income** (gifts) rides alongside Gross pay as a second green source feeding Net
 pay, so Gross stays true payroll earnings (a £0-gross gift month reads simply as Untaxed → Net pay →
-Spent). A month whose income doesn't reconcile (hand-edited, or no config) has no payslip, so its
-chain **starts at Net pay** with nothing above to climb back to. Income − spend shows as a green
+Spent). The payslip stage draws for a month with its **own saved config** (whose stored income is
+the engine's net by construction, kept fresh by the cascade in Salary onSave); an inherited or
+forecast month — a future month on the flat default income — has no payslip that ties to its income,
+so its chain **starts at Net pay** with nothing above to climb back to. Income − spend shows as a green
 **Left over** band; a month that overspent gets a red **From savings** source beside Net pay filling
 the difference (it has no share of the root — it's a source, so the Gross-pay hover shows it as a
 **+%**). At L0 the middle and sink columns are top-aligned (Spent hangs from Net pay's top edge) so

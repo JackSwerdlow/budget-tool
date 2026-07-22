@@ -7,13 +7,13 @@ import { coarsePointer } from '../lib/pointer';
 import { CHART_W, ellipsize, useChartFrame, useCursorPos, useDismissOnOutsideTap } from './kit';
 import { ChartInspectStrip, CursorBreakdownBox } from './kitComponents';
 
-// Money flow — a sankey for the viewed month. It draws only when the salary engine's net pay for
-// the month exactly matches the recorded income (true by construction for months saved via the
-// Salary tab); a month whose income doesn't reconcile has no payslip, so its chain simply starts at
-// Net pay (TOP = 1) with nothing above to climb back to. A month that overspent gets a red "From
-// savings" source beside Net pay filling the difference; one that didn't gets a green "Left over"
-// band. Like Net Balance, this is real money: it ignores the category filter (hidden spend would
-// otherwise masquerade as left over).
+// Money flow — a sankey for the viewed month. The payslip (Gross-pay) stage draws for a month with
+// its own saved salary config, where the stored income is the engine's net by construction; a month
+// without one (inherited, or a forecast future month on the flat default income) has no payslip
+// that ties to its income, so its chain simply starts at Net pay (TOP = 1) with nothing above to
+// climb back to. A month that overspent gets a red "From savings" source beside Net pay filling the
+// difference; one that didn't gets a green "Left over" band. Like Net Balance, this is real money:
+// it ignores the category filter (hidden spend would otherwise masquerade as left over).
 //
 // **The chart is a chain of levels, one step at a time.** Each level's root is the level above's
 // middle column, and its right column becomes the next level's middle — so going deeper is
@@ -360,10 +360,19 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     ...(leftOver > 0 ? [{ key: 'leftover', name: 'Left over', color: 'var(--color-under)', value: leftOver }] : []),
   ];
 
-  // The gross stage joins only when the engine's net IS the recorded income — a hand-edited
-  // income month falls back rather than drawing a flow that doesn't reconcile.
+  // The gross stage draws only for a month with its **own saved config**: saving keeps that
+  // month's income bit-identical to the engine's net (and the cascade in Salary onSave keeps it
+  // fresh when an earlier month is edited), so gross → deductions → net is guaranteed to balance.
+  // An inherited or default-income month (a forecast future month on the flat default) has no
+  // payslip that ties to its income, so it falls back to the Net-pay-rooted flow. This replaced a
+  // `net === inc` money-equality — always true now for saved months, so the config check says the
+  // same thing without comparing pence for exact equality.
   const salary = useMemo(() => salaryStage(configs, ym), [configs, ym]);
-  const hasGrossStage = salary !== null && inc > 0 && salary.net === inc;
+  const ownConfig = useMemo(() => {
+    const { year, month } = ymToYearMonth(ym);
+    return configs.some((c) => c.year === year && c.month === month);
+  }, [configs, ym]);
+  const hasGrossStage = salary !== null && inc > 0 && ownConfig;
   // Payroll gross excludes one-off untaxed income (gifts aren't earnings); untaxed enters as its
   // own left-column source feeding Net pay, so gross + untaxed = Σdeductions + net exactly.
   const untaxedIn = hasGrossStage ? salary.untaxed : 0;
