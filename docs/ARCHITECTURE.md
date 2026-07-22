@@ -39,7 +39,8 @@ Grotesk on paper tones).
 - **Desktop** — the Tauri shell that packages the web app as an offline installable.
   → [DESKTOP.md](DESKTOP.md)
 - **Mobile** — the same Tauri shell built for Android (bottom tab bar under `sm`, compact chart
-  frames, press-and-hold chart scrubbing; sideloaded signed APK). → [MOBILE.md](MOBILE.md)
+  frames, press-and-hold chart scrubbing, swipeable sub-tab panels that each scroll themselves
+  under a pinned control bar; sideloaded signed APK). → [MOBILE.md](MOBILE.md)
 
 ## How it's built
 

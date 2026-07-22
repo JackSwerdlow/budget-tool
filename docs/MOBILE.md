@@ -15,12 +15,18 @@ Tauri targets; there is no third transport. The DB lives in the app's per-user c
 device and **persists across app updates** (same-signature installs).
 
 The UI is the shared responsive build: under Tailwind's `sm` breakpoint the top tabs become a
-fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), and the
-Overview control bar (view toggle / View filter / Categories) is `sticky` to the top and
-auto-hides with scroll direction (revealed scrolling down away from the top, hidden scrolling up
-toward it — `lib/useHideOnScrollUp.ts`; the Categories checklist opens attached to the bar, and
-the bar stays put while it's open) — all in `apps/web`, so desktop and web pick the same code up
-automatically at their widths.
+fixed bottom tab bar, charts switch to a compact 390-wide viewBox (<480px container), and the page
+title condenses to a single row (smaller title, no tagline, the two dates stacked to its height)
+which — with the Overview control bar under it — is **pinned**: on a phone those sit in a
+fixed-height region and the panels below them scroll (see the pager section). The Categories
+checklist opens attached to the bar. All of it lives in `apps/web`, so desktop and web pick the
+same code up automatically at their widths.
+
+Nothing up there hides on scroll, and that's deliberate. An earlier version collapsed the title
+with scroll direction and it visibly oscillated: the header sits above a panel that scrolls, so
+hiding it made the panel taller, which clamped `scrollTop`, which read as a direction change,
+which showed it again. Any scroll-driven layout change that alters the height of the scroller can
+feed back like that — the fix is not to damp it but to keep the height constant.
 
 **The touch-gesture layer.** Zoom is disabled app-wide (`apps/web/index.html`) because any page
 zoom offsets the pointer→chart mapping the scrub depends on — rotate to landscape to see a chart
@@ -62,14 +68,29 @@ Behaviours that differ by **input device** (rather than width) branch on the poi
 (`apps/web/src/lib/pointer.ts`, a `(pointer: coarse)` query). This keeps a narrow desktop window
 on the mouse path and lets DevTools device mode exercise the touch path. Examples: a coarse pointer
 suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard;
-a horizontal **swipe** moves between the Overview (Month/Trends/Items) and Add (Single/List/Monthly)
-sub-tabs (`lib/useSwipeNav.ts`, pointer events gated to touch, so it also works in DevTools device
-mode). It fires on **pointermove**, the moment the drag is unambiguously horizontal, rather than
-waiting for a pointerup that on a device often never arrives — a real swipe drifts vertically, the
-browser starts scrolling, and a scrolling browser sends `pointercancel` instead. It stands aside
-when the swipe began on a horizontally scrollable element (the matrix, the tables). Charts no
-longer opt out via `data-noswipe`: with the scrub behind a press-and-hold, a quick flick across a
-chart is unambiguously a swipe.
+**Overview's sub-tabs are a swipeable pager** (`components/SubTabPager.tsx`, Embla): the panel
+tracks your thumb, snaps back on a short drag and advances on a long one. It replaced a hand-rolled
+detector that only ever fired over the charts — the one place whose `touch-action` reserved
+horizontal drags — and flipped tab instantly with nothing following the finger.
+
+Three things make it coexist with everything else. Its `dragThreshold` (16px, Android's paging
+touch slop) sits **above** the scrub's 10px arming slop, so the pager cannot have begun moving when
+a hold arms a scrub — there is nothing to put back; `pointermove` then returns `false` while
+`isScrubArmed()`, handing the gesture over for the rest of the touch (the web form of Android's
+`requestDisallowInterceptTouchEvent`). `pointerdown` returns `false` when the drag starts on a real
+horizontal scroller (the matrix, the wide tables) so those scroll instead, and for mouse events, so
+desktop keeps text selection. From `sm` up Embla deactivates itself via its own `breakpoints` and
+the CSS drops every panel but the selected one, so desktop is a plain page again.
+
+**Panels are their own scroll containers** rather than sharing the page scroll — how native pagers
+do it (iOS HIG / Material). Each sub-tab keeps its own scroll position for free, and dragging
+between panels of different heights can't make the page lurch. That makes the shell a fixed-height
+column under `sm`, with the condensed title row and the control bar pinned above it (see above for
+why they don't collapse). The footer is desktop-only, since in a fixed column it would sit above
+the bottom tab bar instead of scrolling away.
+
+The **Add** tab still uses the older `lib/useSwipeNav.ts` detector; its three forms hold state that
+mounting all of them at once would change, so it moves to the pager only once the pattern is proven.
 
 ## Android-specific pieces (the short list)
 

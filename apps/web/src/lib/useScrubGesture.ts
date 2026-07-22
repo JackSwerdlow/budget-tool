@@ -23,8 +23,20 @@ export const SCRUB_SURFACE = 'touch-pan-y select-none';
 
 // Long enough not to fire on a tap or a flick, short enough not to feel stuck.
 const HOLD_MS = 340;
-// Drift allowed during the hold before it's read as a scroll/swipe instead.
+// Drift allowed during the hold before it's read as a scroll/swipe instead. The sub-tab pager's
+// own drag threshold is deliberately set above this (see App.tsx), so the pager cannot have
+// started moving by the time a scrub arms — there is nothing to snap back.
 const HOLD_SLOP_PX = 10;
+
+// Whether *any* chart currently holds an armed scrub. A module-level flag rather than context
+// because there is only ever one touch to arbitrate, and the reader is the sub-tab pager, which
+// has no relationship to the chart that armed it. The pager checks this on pointermove to hand the
+// gesture over for the rest of the touch — the web equivalent of Android's
+// requestDisallowInterceptTouchEvent.
+let armedCount = 0;
+export function isScrubArmed(): boolean {
+  return armedCount > 0;
+}
 
 export type ScrubHandlers = {
   onPointerDown: (e: ReactPointerEvent) => void;
@@ -65,11 +77,14 @@ export function useScrubGesture(
   // been held still to get here, so no scroll is in flight to fight with.
   useEffect(() => {
     if (!armed) return;
+    armedCount += 1;
     const el = surfaceRef.current;
-    if (!el) return;
     const block = (e: Event) => e.preventDefault();
-    el.addEventListener('touchmove', block, { passive: false });
-    return () => el.removeEventListener('touchmove', block);
+    el?.addEventListener('touchmove', block, { passive: false });
+    return () => {
+      armedCount -= 1;
+      el?.removeEventListener('touchmove', block);
+    };
   }, [armed, surfaceRef]);
 
   useEffect(() => cancelHold, []);

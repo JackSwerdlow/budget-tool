@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { nextMonth, previousMonth } from '@budget/core';
 import { createView } from './api';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { useEscape } from './lib/useEscape';
 import { useSwipeNav } from './lib/useSwipeNav';
-import { useHideOnScrollUp } from './lib/useHideOnScrollUp';
 import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
+import { SubTabPager } from './components/SubTabPager';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
 import { AddMonthly } from './features/AddMonthly';
@@ -51,17 +51,13 @@ export function App() {
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [viewName, setViewName] = useState('');
 
-  // Touch swipe left/right moves between the Overview and Add sub-tabs (see useSwipeNav).
-  const overviewSwipe = useSwipeNav(
-    () => setOverviewView((v) => stepView(OVERVIEW_VIEWS, v, -1)),
-    () => setOverviewView((v) => stepView(OVERVIEW_VIEWS, v, 1)),
-  );
+  // Overview's sub-tabs are a swipeable pager (SubTabPager); Add still uses the older detector
+  // until the pattern is proven there — its forms hold state that mounting all three would change.
+  const onOverviewIndexChange = useCallback((i: number) => setOverviewView(OVERVIEW_VIEWS[i]), []);
   const addSwipe = useSwipeNav(
     () => setAddView((v) => stepView(ADD_VIEWS, v, -1)),
     () => setAddView((v) => stepView(ADD_VIEWS, v, 1)),
   );
-  // Mobile: hide the sticky control bar when scrolling up toward the top, reveal it scrolling down.
-  const barHidden = useHideOnScrollUp();
 
   // A button is "active" when the live filter exactly matches its target set — not tracked
   // state, so it naturally clears once the Categories checklist diverges from the preset.
@@ -133,16 +129,24 @@ export function App() {
   }, [tab, overviewView]);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-5xl flex-col px-3 sm:px-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-y-2 border-b border-hairline pb-4 pt-6 sm:pt-8">
+    // On a phone this is a fixed-height column: header and control bar sit still and the panel
+    // area below scrolls internally (see SubTabPager). From sm up it goes back to an ordinary
+    // page that scrolls as a whole.
+    <div className="mx-auto flex h-full max-w-5xl flex-col px-3 sm:h-auto sm:min-h-full sm:px-6">
+      {/* Deliberately NOT collapse-on-scroll. This sits in the fixed region above a panel that
+          scrolls, so hiding it made the panel taller, which clamped scrollTop, which read as a
+          direction change, which showed it again — a feedback loop that bounced the bar. Pinning
+          it removes the loop at the source. It's compact enough on a phone to afford the space:
+          a smaller title, no tagline, and the two dates stacked to fit the title's own height. */}
+      <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-y-2 max-sm:items-center max-sm:pb-1 max-sm:pt-2 sm:border-b sm:border-hairline sm:pb-4 sm:pt-8">
         <div>
-          <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Budget Tool</h1>
-          <p className="mt-1 text-sm text-ink-muted">An app to track monthly spending and trends</p>
+          <h1 className="font-serif text-xl font-semibold tracking-tight text-ink sm:text-3xl">Budget Tool</h1>
+          <p className="mt-1 hidden text-sm text-ink-muted sm:block">An app to track monthly spending and trends</p>
         </div>
-        <div className="text-right">
-          <div className="font-serif text-sm text-ink-faint">{fullDate(todayISO())}</div>
+        <div className="text-right leading-tight">
+          <div className="font-serif text-[11px] text-ink-faint sm:text-sm">{fullDate(todayISO())}</div>
           {lastEntryDate && (
-            <div className="mt-0.5 text-xs text-ink-faint">last entry · {fullDate(lastEntryDate)}</div>
+            <div className="text-[11px] text-ink-faint sm:mt-0.5 sm:text-xs">last entry · {fullDate(lastEntryDate)}</div>
           )}
         </div>
       </header>
@@ -170,7 +174,17 @@ export function App() {
         })}
       </nav>
 
-      <main className="flex-1 py-8">
+      {/* On a phone Overview hands scrolling to its pager panels (each keeps its own position);
+          every other tab scrolls here instead. Desktop scrolls the page as a whole. */}
+      <main
+        className={`flex min-h-0 flex-1 flex-col py-8 ${
+          tab === 'overview'
+            // No padding of its own on a phone: the control bar butts up under the title row, and
+            // the panels carry their own inset so it scrolls away with the content.
+            ? 'max-sm:overflow-hidden max-sm:py-0'
+            : 'max-sm:overflow-y-auto max-sm:py-4'
+        }`}
+      >
         {error ? (
           <Panel>
             <p className="text-over">Could not reach the API: {error}</p>
@@ -181,22 +195,36 @@ export function App() {
         ) : !data ? (
           <Panel>{loading ? 'Loading the ledger…' : 'No data.'}</Panel>
         ) : tab === 'overview' ? (
-          <div>
-            {/* On a phone this control bar pins to the top so the view toggle / View filter /
-                Categories stay reachable without scrolling back up; the -mx/px pair bleeds the
-                paper background over the container's gutter. Static from sm up (desktop keeps
-                the plain header row). */}
-            <div className={`sticky top-0 z-10 -mx-3 mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-hairline bg-paper px-3 py-2 transition-transform duration-200 sm:static sm:mx-0 sm:translate-y-0 sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 ${barHidden && !showFilter ? 'max-sm:-translate-y-full' : ''}`}>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-3">
-                <Segmented
-                  value={overviewView}
-                  onChange={setOverviewView}
-                  options={[
-                    { id: 'month', label: 'Month' },
-                    { id: 'trends', label: 'Trends' },
-                    { id: 'items', label: 'Items' },
-                  ]}
-                />
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* The control bar stays put while the panels scroll under it, so the sub-tabs are
+                always reachable — only the title above it collapses (Material pins the tab row of
+                a collapsing toolbar for the same reason). The -mx/px pair bleeds the paper
+                background over the container's gutter. Plain header row from sm up. */}
+            {/* On a phone the pinned region ends exactly on this bar's bottom border — no margin
+                under it. The panels below start their scroll right at the line. */}
+            <div className="-mx-3 shrink-0 border-b border-hairline bg-paper px-3 max-sm:pb-1.5 max-sm:pt-1 sm:mx-0 sm:mb-6 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+              {/* Row one is a two-slot flex row that cannot wrap: sub-tabs left, month control
+                  hard against the right. Previously everything shared one `flex-wrap` row, so the
+                  left group filled it at ~360px and pushed the month picker onto a second line. */}
+              <div className="flex items-center justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 shrink">
+                  <Segmented
+                    value={overviewView}
+                    onChange={setOverviewView}
+                    options={[
+                      { id: 'month', label: 'Month' },
+                      { id: 'trends', label: 'Trends' },
+                      { id: 'items', label: 'Items' },
+                    ]}
+                  />
+                </div>
+                {overviewView === 'month' && (
+                  <div className="shrink-0">
+                    <MonthPicker ym={ym} onChange={setYm} />
+                  </div>
+                )}
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-2 sm:gap-3">
                 {data.views.length > 0 && (
                   <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
                     <button
@@ -268,31 +296,29 @@ export function App() {
                       save as View
                     </button>
                   ))}
+                {overviewView === 'trends' && (
+                  <TrendsRangePicker
+                    displayStart={trendsDisplayStart}
+                    displayEnd={trendsDisplayEnd}
+                    isCustomRange={trendsIsCustomRange}
+                    onRangeStart={setTrendsRangeStart}
+                    onRangeEnd={setTrendsRangeEnd}
+                    onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
+                  />
+                )}
               </div>
-              {overviewView === 'month' && <MonthPicker ym={ym} onChange={setYm} />}
-              {overviewView === 'trends' && (
-                <TrendsRangePicker
-                  displayStart={trendsDisplayStart}
-                  displayEnd={trendsDisplayEnd}
-                  isCustomRange={trendsIsCustomRange}
-                  onRangeStart={setTrendsRangeStart}
-                  onRangeEnd={setTrendsRangeEnd}
-                  onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
-                />
-              )}
-              {/* Inside the sticky bar (as a full-width row) so it opens attached to the controls
-                  rather than at the page's top when scrolled down. */}
+              {/* Inside the control bar so it opens attached to the controls it filters. */}
               {showFilter && (
                 <div className="mt-1 w-full">
                   <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
                 </div>
               )}
             </div>
-            <div {...overviewSwipe}>
-              {overviewView === 'month' ? (
-                <OverviewMonth data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />
-              ) : overviewView === 'trends' ? (
+            <SubTabPager index={OVERVIEW_VIEWS.indexOf(overviewView)} onIndexChange={onOverviewIndexChange}>
+              {[
+                <OverviewMonth key="month" data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />,
                 <OverviewTrends
+                  key="trends"
                   data={data}
                   hiddenCategoryIds={hiddenCategoryIds}
                   displayStart={trendsDisplayStart}
@@ -301,11 +327,10 @@ export function App() {
                     setYm(m);
                     setOverviewView('month');
                   }}
-                />
-              ) : (
-                <OverviewItems data={data} hiddenCategoryIds={hiddenCategoryIds} />
-              )}
-            </div>
+                />,
+                <OverviewItems key="items" data={data} hiddenCategoryIds={hiddenCategoryIds} />,
+              ]}
+            </SubTabPager>
           </div>
         ) : tab === 'salary' ? (
           <Salary data={data} ym={ym} onYmChange={setYm} />
@@ -337,7 +362,9 @@ export function App() {
         )}
       </main>
 
-      <footer className="mb-16 flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint sm:mb-0">
+      {/* Hidden on a phone: the shell is a fixed-height column there, so a footer would sit
+          permanently above the bottom tab bar rather than scrolling away with the content. */}
+      <footer className="mb-16 hidden flex-wrap items-center justify-between gap-2 border-t border-hairline py-4 text-xs text-ink-faint sm:mb-0 sm:flex">
         <span>Budget Tool - <a href="https://github.com/JackSwerdlow/budget-tool">GitHub</a> - <a href="https://gam-jam-review.vercel.app/">GamJam Review Page</a></span>
         <span className="hidden items-center gap-2 sm:flex">
           <Kbd>a</Kbd> add
