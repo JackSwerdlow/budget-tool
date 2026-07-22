@@ -22,14 +22,40 @@ toward it — `lib/useHideOnScrollUp.ts`; the Categories checklist opens attache
 the bar stays put while it's open) — all in `apps/web`, so desktop and web pick the same code up
 automatically at their widths.
 
+**The touch-gesture layer.** Zoom is disabled app-wide (`apps/web/index.html`) because any page
+zoom offsets the pointer→chart mapping the scrub depends on — rotate to landscape to see a chart
+bigger. Every scrub surface carries `SCRUB_SURFACE` (`lib/useScrubGesture.ts`): `touch-pan-y`,
+which leaves vertical page scroll to the browser but claims horizontal drags for the app, plus
+`select-none` so a long press can't start text selection.
+
+**Chart scrubbing** is press-and-hold, Trading-212 style (`useScrubGesture`): a quick tap does
+nothing, a ~340ms hold *arms* the scrub, and only then does dragging move the crosshair. Arming is
+what makes it safe to take the drag off the page — while armed the hook holds a pointer capture
+(so moves survive the finger leaving the chart) and preventDefaults `touchmove` (so the page can't
+scroll out from under it), and it stops move events propagating so the sub-tab swipe can't fire
+mid-scrub. Position is read as a **fraction of the chart's width**, so the whole chart is one
+continuous track rather than a row of hit targets. Releasing snaps back to the idle default.
+
 **Touch chart tooltips** use a persistent **inspect strip** above the chart (`ChartInspectStrip`
-in the chart kit) instead of the follow-cursor box that covered the chart under the finger: idle
-it shows the headline, and interacting updates it live with the per-group breakdown below. It
-renders only for a coarse pointer; the mouse keeps the in-chart hover boxes untouched. Two
-interaction shapes: **scrub** charts (running total, category-trend lines, item unit-price) reveal
-on press, follow the finger, and dismiss on lift — with a moved-guard so a scrub isn't also read
-as a tap (drill); **tap** charts (grouping donut, vs-last-month bars, money-flow sankey) show the
-tapped element's breakdown until an outside tap or scroll dismisses it.
+in the chart kit) instead of the follow-cursor box that covered the chart under the finger. It
+idles on the chart's **most recent point, breakdown included** — so arming the scrub changes its
+numbers but never its height — and renders only for a coarse pointer; the mouse keeps the in-chart
+hover boxes untouched. The strip is scoped to the charts where scrubbing adds something: **running
+total**, **category-trend lines**, **spend-by-month bars** (which also keep every bar solid on
+touch, dimming being a mouse-only emphasis, and grow a crosshair instead) and **item unit-price**.
+The **grouping donut** and **vs-last-month** are tap-only — no strip, no touch tooltip — because
+tapping a slice or row already drills to that same breakdown. A tap that follows a scrub is
+suppressed for 300ms so the release can't also drill or navigate.
+
+**Nothing in the strip may move while scrubbing** — dragging across a month should change the
+glyphs and nothing else, or it can't be read at speed. That constrains the layout, and the rules
+are worth keeping if you touch it: charts pass **every** series on every frame (a dash where
+there's no spend) so the row set and the strip's height are constant; figures are `tabular-nums`
+and right-aligned so £99 → £100 grows leftwards; the total and its delta are **stacked**, each
+pinned to its own row's edges, because side by side the delta's width dictated where the total
+could start; and the breakdown is a fixed 2-column grid rather than `flex-wrap`, so a longer name
+can't reflow a row. The delta carries a label naming what it's measured against ("vs last month"),
+since a bare signed figure under a total is ambiguous.
 
 Behaviours that differ by **input device** (rather than width) branch on the pointer, not on
 `window.isTauri` — per-event via `e.pointerType`, or mount-time via the `coarsePointer()` helper
@@ -38,9 +64,12 @@ on the mouse path and lets DevTools device mode exercise the touch path. Example
 suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard;
 a horizontal **swipe** moves between the Overview (Month/Trends/Items) and Add (Single/List/Monthly)
 sub-tabs (`lib/useSwipeNav.ts`, pointer events gated to touch, so it also works in DevTools device
-mode). It stands aside when the swipe began on something that consumes a horizontal drag itself —
-a horizontally scrollable element (the matrix, the tables) or a chart scrub surface (marked
-`data-noswipe`, since press-&-scrub is also a horizontal drag).
+mode). It fires on **pointermove**, the moment the drag is unambiguously horizontal, rather than
+waiting for a pointerup that on a device often never arrives — a real swipe drifts vertically, the
+browser starts scrolling, and a scrolling browser sends `pointercancel` instead. It stands aside
+when the swipe began on a horizontally scrollable element (the matrix, the tables). Charts no
+longer opt out via `data-noswipe`: with the scrub behind a press-and-hold, a quick flick across a
+chart is unambiguously a swipe.
 
 ## Android-specific pieces (the short list)
 
@@ -57,27 +86,38 @@ a horizontally scrollable element (the matrix, the tables) or a chart scrub surf
   system picker filters by MIME, not extension, so a `.db` filter is advisory there.
   `window.alert` / `window.confirm` render natively in the Android WebView — no shims needed.
 
-## Toolchain (this machine)
+## Toolchain
 
-Installed under **`/opt/android-sdk`** (the `/home` disk is small); env lives in `~/.zshenv`:
-`JAVA_HOME` (OpenJDK 21), `ANDROID_HOME`, `NDK_HOME` (r28.2), `GRADLE_USER_HOME` and
-`ANDROID_AVD_HOME` (both relocated under `/opt/android-sdk`), plus PATH entries for
-`platform-tools` / `cmdline-tools` / `emulator`. Rust targets: `aarch64-linux-android` (phones),
-`x86_64-linux-android` (emulator) — plus armv7/i686 which `tauri android init` auto-installed.
-rusqlite's `bundled` SQLite cross-compiles under the NDK with no special flags.
+What an Android build needs, wherever you're building it (install locations and shell-env plumbing
+are per-machine — `tauri android build` only cares that these resolve):
+
+- **`JAVA_HOME`** — a JDK 21.
+- **`ANDROID_HOME`** — an Android SDK with `platform-tools`, `cmdline-tools` and (for the
+  emulator) `emulator` on `PATH`.
+- **`NDK_HOME`** — the NDK (r28.2 is what the committed Gradle project was generated against).
+- **Rust targets** — `aarch64-linux-android` for phones, `x86_64-linux-android` for the emulator;
+  `tauri android init` also installs armv7/i686.
+
+rusqlite's `bundled` SQLite cross-compiles under the NDK with no special flags. If you relocate
+`GRADLE_USER_HOME` / `ANDROID_AVD_HOME` (worth doing when the home disk is small), export those
+too. A checkout with **no** Android toolchain still builds the web and desktop targets fine — the
+Android scripts are the only thing that needs any of this.
 
 ## Dev & test loop
 
 - `npm run tauri:android:dev` — dev build against the Vite server (the CLI `adb reverse`s
   port 5001; `TAURI_DEV_HOST` in `apps/web/vite.config.ts` covers devices that need the public
   address; plain web dev is untouched when it's unset).
-- **Emulator**: AVD `budget` (Pixel 7, API 36, x86_64) at `/opt/android-sdk/avd`. Headless loop:
-  `sg kvm -c "emulator -avd budget -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"`,
-  wait for `sys.boot_completed`, then `adb exec-out screencap -p` to look and
-  `adb shell input tap/swipe/text` to drive. Debug builds install as
-  `com.budgettool.desktop.debug` alongside the release app.
-- Most mobile-layout work doesn't need the emulator at all — a ~360px browser viewport against
-  `npm run dev` is the fast path; the emulator is for the Tauri-only seams (DB, dialogs, insets).
+- **Emulator**: any x86_64 AVD (a Pixel 7 / API 36 image is what this was developed against).
+  Headless loop: `emulator -avd <name> -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect`
+  (wrap in `sg kvm -c "…"` on Linux hosts where KVM needs the group), wait for
+  `sys.boot_completed`, then `adb exec-out screencap -p` to look and `adb shell input
+  tap/swipe/text` to drive. Debug builds install as `com.budgettool.desktop.debug` alongside the
+  release app.
+- Most mobile work doesn't need the emulator or a build at all: `npm run dev` binds `0.0.0.0`, so
+  a **real phone on the same network** can open `http://<your-machine-ip>:5001/` and exercise the
+  actual touch stack — the fastest way to test gestures. A ~360px desktop browser viewport covers
+  layout. The emulator/APK is for the Tauri-only seams (DB, dialogs, insets).
 
 ## Release (sideloading — no Play Store)
 

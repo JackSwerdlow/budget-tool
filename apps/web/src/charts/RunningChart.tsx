@@ -1,4 +1,4 @@
-import { useState, type PointerEvent } from 'react';
+import { useRef, useState, type PointerEvent } from 'react';
 import { area, curveStepAfter, line } from 'd3-shape';
 import {
   formatGBP,
@@ -11,8 +11,9 @@ import {
 import { LineToggle } from '../components/LineToggle';
 import { dayOfMonth, daysInMonth, monthAbbr, todayISO } from '../lib/dates';
 import { coarsePointer } from '../lib/pointer';
+import { SCRUB_SURFACE, useScrubGesture } from '../lib/useScrubGesture';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, STRIP_EMPTY, SvgBreakdownBox } from './kitComponents';
 
 type Pt = { day: number; value: number };
 type StackPt = { day: number; byGroup: Map<number, number>; total: number };
@@ -32,6 +33,7 @@ function dayTicks(days: number): number[] {
 
 export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData; ym: string; hiddenCategoryIds: Set<number> }) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   // Width-aware frame, destructured under the frame constants' old names so the chart body
   // reads the same as every fixed-frame chart.
   const { ref: wrapRef, frame } = useChartFrame();
@@ -154,19 +156,30 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     denseByDay[d] = carry;
   }
 
-  const handlePointer = (e: PointerEvent<SVGRectElement>) => {
-    const svgEl = e.currentTarget.closest('svg')!;
-    const rect = svgEl.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * CHART_W;
-    const rawDay = ((svgX - PAD_LEFT) / INNER_W) * days;
-    setHoveredDay(Math.max(1, Math.min(Math.round(rawDay), maxHoverDay)));
+  // A horizontal position (0–1 across the chart, or a mouse event) → the day under it.
+  const dayAtFraction = (fraction: number) => {
+    const rawDay = ((fraction * CHART_W - PAD_LEFT) / INNER_W) * days;
+    return Math.max(1, Math.min(Math.round(rawDay), maxHoverDay));
   };
+  const handlePointer = (e: PointerEvent<SVGRectElement>) => {
+    const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
+    setHoveredDay(dayAtFraction((e.clientX - rect.left) / rect.width));
+  };
+  // Touch: press-and-hold to arm, then drag across the full chart width (see useScrubGesture).
+  const scrub = useScrubGesture(
+    svgRef,
+    (fraction) => setHoveredDay(dayAtFraction(fraction)),
+    () => setHoveredDay(null),
+  );
 
   const hoveredPt = hoveredDay !== null ? { day: hoveredDay, value: denseByDay[hoveredDay] } : null;
   // Day 1's baseline is £0, so its delta is simply that day's cumulative.
   const delta = hoveredDay !== null
     ? denseByDay[hoveredDay] - (hoveredDay > 1 ? denseByDay[hoveredDay - 1] : 0)
     : null;
+  // The strip idles on the latest point (today, or month-end for a past month) rather than a bare
+  // headline, so arming the scrub changes its numbers but never its height.
+  const stripDay = hoveredDay ?? maxHoverDay;
 
   // Per-group make-up of the hovered day's cumulative (carry-forward, same as denseByDay),
   // with each group's own day delta — the deltas sum exactly to the top +delta figure.
@@ -178,21 +191,20 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
     }
     return m;
   };
-  const hoverByGroup = hoveredDay !== null
-    ? (() => {
-        const m = byGroupAt(hoveredDay);
-        const prev = hoveredDay > 1 ? byGroupAt(hoveredDay - 1) : new Map<number, number>();
-        return stackGroups
-          .map((g) => ({
-            id: g.id,
-            name: g.name,
-            color: g.color,
-            value: m.get(g.id) ?? 0,
-            delta: (m.get(g.id) ?? 0) - (prev.get(g.id) ?? 0),
-          }))
-          .filter((r) => r.value > 0);
-      })()
-    : [];
+  // Every stacked group, spend or not — the strip needs a constant row set (see
+  // ChartInspectStrip); the mouse box filters the empties back out below.
+  const groupRowsAt = (day: number) => {
+    const m = byGroupAt(day);
+    const prev = day > 1 ? byGroupAt(day - 1) : new Map<number, number>();
+    return stackGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      value: m.get(g.id) ?? 0,
+      delta: (m.get(g.id) ?? 0) - (prev.get(g.id) ?? 0),
+    }));
+  };
+  const hoverByGroup = hoveredDay !== null ? groupRowsAt(hoveredDay).filter((r) => r.value > 0) : [];
   const boxH = boxHeight(hoverByGroup.length);
 
   const monthName = monthAbbr(ym);
@@ -233,17 +245,35 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           </span>
         </div>
       </div>
-      {coarse && (
-        <ChartInspectStrip
-          active={hoveredPt !== null}
-          title={hoveredPt ? `${hoveredPt.day} ${monthName}` : 'Running total'}
-          value={formatGBP(hoveredPt ? hoveredPt.value : current)}
-          delta={hoveredPt && delta !== null && delta !== 0 ? `${delta > 0 ? '+' : ''}${formatGBP(delta)}` : undefined}
-          deltaClass={delta !== null && delta > 0 ? 'text-accent' : 'text-ink-faint'}
-          rows={hoverByGroup.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.value) }))}
-        />
-      )}
-      <svg data-noswipe viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
+      {coarse && (() => {
+        const stripDelta = denseByDay[stripDay] - (stripDay > 1 ? denseByDay[stripDay - 1] : 0);
+        return (
+          <ChartInspectStrip
+            active={scrub.armed}
+            title={`${stripDay} ${monthName}`}
+            value={formatGBP(denseByDay[stripDay])}
+            delta={stripDelta !== 0 ? `${stripDelta > 0 ? '+' : ''}${formatGBP(stripDelta)}` : STRIP_EMPTY}
+            // The cumulative's day-on-day step is just that day's own spend — clearer said
+            // that way round than as "vs the previous day".
+            deltaLabel="spent that day"
+            deltaClass={stripDelta > 0 ? 'text-accent' : 'text-ink-faint'}
+            rows={groupRowsAt(stripDay).map((r) => ({
+              key: r.id,
+              color: r.color,
+              name: r.name,
+              value: r.value > 0 ? formatGBP(r.value) : STRIP_EMPTY,
+            }))}
+          />
+        );
+      })()}
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+        className={`w-full ${SCRUB_SURFACE}`}
+        {...scrub.handlers}
+        role="img"
+        aria-label={`Running total this month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}
+      >
         <MoneyGrid scale={scale} frame={frame} />
 
         {/* x-axis day ticks + labels */}
@@ -369,16 +399,14 @@ export function RunningChart({ data, ym, hiddenCategoryIds }: { data: LedgerData
           );
         })()}
 
-        {/* invisible overlay — must be last to sit on top. Pointer events so a tap reveals
-           the breakdown on touch (outside-tap/scroll dismisses; see kit). */}
+        {/* invisible overlay — must be last to sit on top. Mouse only: touch goes through the
+           svg's scrub handlers instead, so a tap can't reveal anything by itself. */}
         <rect
           x={PAD_LEFT} y={PAD_TOP}
           width={INNER_W} height={INNER_H}
           fill="transparent"
-          onPointerMove={handlePointer}
-          onPointerDown={handlePointer}
+          onPointerMove={(e) => { if (e.pointerType !== 'touch') handlePointer(e); }}
           onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredDay(null); }}
-          onPointerUp={(e) => { if (e.pointerType === 'touch') setHoveredDay(null); }}
         />
       </svg>
     </div>

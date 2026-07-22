@@ -24,11 +24,11 @@
 ## Mobile — round 2 (device testing on the 0.2.2 APK)
 
 > Issues found running the signed 0.2.2 APK on a real phone; they refine the mobile pass already
-> shipped (sticky bar, chart inspect strip, swipe, sankey). **Cross-cutting root cause for the
-> gesture bugs (scrub, swipe, sankey):** the app sets no `touch-action` / `user-select` discipline,
-> so the browser claims drags for scrolling (firing `pointercancel`, never `pointerup`) and a
-> long-press starts text selection; pinch-zoom is also enabled. Build the touch-gesture ones as one
-> coherent layer (disable zoom, `user-select:none` + `touch-action` on charts, long-press arming).
+> shipped (sticky bar, chart inspect strip, swipe, sankey). The **shared touch-gesture layer** the
+> gesture bugs all needed now exists — zoom disabled app-wide, `touch-action`/`user-select`
+> discipline and press-and-hold arming in `apps/web/src/lib/useScrubGesture.ts` (see MOBILE.md).
+> What's left here should **adopt** that layer rather than reinvent it; the sankey in particular
+> still runs its own overlapping pointer handlers.
 
 ### Sticky control bar
 
@@ -38,13 +38,6 @@
 - **View-preset buttons wrap; want a space-budgeted row.** The All / saved-view buttons sit in a `flex-wrap` group with no width control, so long names push buttons to a second line. Want a single non-wrapping row budgeted like a segmented control: **no minimum** button width (shrink to fit text when there's room); the **selected** button always shows its full name; non-selected buttons fit to their text if they all fit, otherwise are forced to equal width (remaining width ÷ count) with text **truncated** ("Groc…"); enforce a **max** width with ellipsis. Selecting a button expands it to full text and recomputes the others' equal max width.
 - **Sticky bar in every tab (not just Overview).** Want the sub-tab (+ optional month picker) row sticky — with the one-row + stuck-detection behaviour above — on **all** tabs: Add (sub-tabs Single/List/Monthly, no month), Salary (Summary/Lifetime/Config + month; currently a non-sticky month row above a separate Segmented, `Salary.tsx:176-195`), and Manage (its sub-tabs + month where applicable — verify structure). If a tab has no month picker, show just the sub-tabs. Likely means extracting the sticky bar into a shared component/slot each tab feeds its sub-tabs + optional month picker into.
 - **Trends row: Categories vs range picker stack.** On the Trends sub-tab the Categories toggle and the month-range picker wrap onto separate lines. Want them on one row: Categories pinned left, the range picker aligned to the far **right** (justify-between).
-
-### Chart hold-and-drag (Trading-212-style scrub)
-
-- **Default strip = latest full breakdown.** The inspect strip idle shows only the headline and grows (adds the breakdown) when scrubbing, so it changes size when you lift off. Want it to default to the **most-recent point's full view** (running total: the month-end for a finished month, today for the in-progress month, with the breakdown already shown), so the strip is the same size idle and active.
-- **Scope the strip per chart.** Keep it on **Running total** and **Category trend** (lines), each defaulting to their latest point (above) + hold-drag scrub. **Remove it entirely (strip + touch tooltip) from the grouping donut and Vs-last-month** — that data is already reachable by tapping the slices/rows (donut centre + inline %); tapping still drills/expands there. On **Spend-by-month bars**, default to the most-recent month's breakdown + hold-drag across months, but do **not** grey out the other bars on mobile (desktop keeps the greying).
-- **Make the scrub actually work (the big one).** Currently press-drag keeps dropping out and needs re-pressing; the page still scrolls under the finger; a long hold starts text selection and blocks the drag. Root cause: no `touch-action` (browser takes the drag for scrolling → `pointercancel`) and no `user-select: none`. Want the Trading-212 gesture: a **quick tap does nothing**; **press-and-hold ~400–500ms "arms"** the scrub; while armed, dragging moves the crosshair/value and the page does **not** scroll (either axis); the finger is tracked by **horizontal position across the whole chart width** (not per-element); **releasing** removes the crosshair, snaps the value back to the most-recent default (in the same visual style), and re-enables scrolling.
-- **Disable pinch-zoom.** The viewport (`apps/web/index.html`) allows zoom (`width=device-width, initial-scale=1.0`, no `user-scalable=no`); any zoom offsets break the scrub's pointer→chart mapping (and it currently kills the scrub entirely). Want pinch-zoom disabled app-wide (viewport `maximum-scale=1, user-scalable=no`, and/or root `touch-action`). Not needed — rotating the phone to landscape already enlarges the charts.
 
 ### Swipe between sub-tabs
 

@@ -9,7 +9,7 @@ import {
 } from '@budget/core';
 import { coarsePointer } from '../lib/pointer';
 import { useCursorPos, useDismissOnOutsideTap } from './kit';
-import { ChartInspectStrip, CursorBreakdownBox } from './kitComponents';
+import { CursorBreakdownBox } from './kitComponents';
 
 type Row = { id: number; name: string; color: string; thisPence: number; lastFullPence: number };
 
@@ -68,7 +68,9 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
   const totalThis = groupRows.reduce((s, r) => s + r.thisPence, 0);
   const totalLast = groupRows.reduce((s, r) => s + r.lastFullPence, 0);
 
+  // Mouse-only: on touch this chart is tap-only (expand a group inline), so nothing hovers.
   const onRowHover = (e: ReactPointerEvent, id: number) => {
+    if (e.pointerType === 'touch') return;
     setHoverId(id);
     moveTo(e);
   };
@@ -84,12 +86,9 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
   const hoverRows: Row[] = hoverId === null ? [] : hoverId === 0 ? groupRows : categoryRows(hoverId);
   const hoverTitle = hoverId === null ? '' : hoverId === 0 ? 'By group' : data.groups.find((g) => g.id === hoverId)?.name ?? '';
 
-  // Touch reads the tapped row's breakdown off the strip above; mouse keeps the follow-cursor box.
+  // No inspect strip and no tooltip on touch: every row already expands in place to the same
+  // breakdown, with its % printed inline. Mouse keeps the follow-cursor box. See MOBILE.md.
   const coarse = coarsePointer();
-  const hoverThisTotal = hoverId === null || hoverId === 0 ? totalThis : groupRows.find((r) => r.id === hoverId)?.thisPence ?? 0;
-  const hoverLastTotal = hoverId === null || hoverId === 0 ? totalLast : groupRows.find((r) => r.id === hoverId)?.lastFullPence ?? 0;
-  const headlinePct = comparePct(hoverThisTotal, hoverLastTotal);
-  const headlineDeltaClass = headlinePct === null ? 'text-ink-faint' : headlinePct > 100 ? 'text-over' : headlinePct >= 75 ? 'text-warn' : 'text-under';
 
   return (
     <div ref={wrapRef} className="relative">
@@ -107,17 +106,6 @@ export function ComparisonBars({ data, ym, hiddenCategoryIds }: { data: LedgerDa
           )}
         </div>
       </div>
-
-      {coarse && groupRows.length > 0 && (
-        <ChartInspectStrip
-          active={hoverId !== null && hoverRows.length > 0}
-          title={hoverId !== null ? hoverTitle : 'Vs last month'}
-          value={formatGBP(hoverThisTotal)}
-          delta={headlinePct === null ? 'new' : `${headlinePct}%`}
-          deltaClass={headlineDeltaClass}
-          rows={hoverRows.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.thisPence) }))}
-        />
-      )}
 
       {groupRows.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">Nothing to compare yet.</p>

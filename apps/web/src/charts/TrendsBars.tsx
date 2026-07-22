@@ -3,8 +3,9 @@ import { formatGBP, income, previousMonth, type LedgerData } from '@budget/core'
 import { LineToggle } from '../components/LineToggle';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
 import { coarsePointer } from '../lib/pointer';
+import { SCRUB_SURFACE, useScrubGesture } from '../lib/useScrubGesture';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, STRIP_EMPTY, SvgBreakdownBox } from './kitComponents';
 
 // Per-month stacked bars over the same range as the category×month matrix — the running
 // chart's visual language (group colours/stack order, pill toggles, hover breakdown box)
@@ -21,9 +22,25 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [showAvg, setShowAvg] = useState(true);
   const [showIncome, setShowIncome] = useState(false);
-  // On touch, the first tap on a column reveals the breakdown and must not also navigate;
-  // a second tap on the now-hovered column clicks through as normal.
-  const suppressClick = useRef(false);
+  // A scrub ends in a pointerup on a column, which the browser may still turn into a click —
+  // this keeps that from navigating to whichever month the finger happened to stop on.
+  const openBlockedUntil = useRef(0);
+  const svgRef = useRef<SVGSVGElement>(null);
+  // Touch: press-and-hold to arm, then drag across the months (see useScrubGesture). Up here with
+  // the other hooks, ahead of the empty-data early return below; `monthAtFraction` is a hoisted
+  // declaration and only ever runs from a pointer event, long after render.
+  const scrub = useScrubGesture(
+    svgRef,
+    (fraction) => setHoveredIdx(monthAtFraction(fraction)),
+    () => {
+      openBlockedUntil.current = Date.now() + 300;
+      setHoveredIdx(null);
+    },
+  );
+  function monthAtFraction(fraction: number): number {
+    const i = Math.floor((fraction * CHART_W - PAD_LEFT) / band);
+    return Math.max(0, Math.min(months.length - 1, i));
+  }
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
   useDismissOnOutsideTap(hoveredIdx !== null, wrapRef, () => setHoveredIdx(null));
@@ -98,30 +115,36 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
   // Thin the x labels when the range is long (the matrix scrolls; this chart is fixed-width).
   const labelStep = Math.ceil(months.length / 12);
 
+  const infoAt = (i: number) => {
+    const values = monthGroupValues[i];
+    const prev = i > 0 ? monthGroupValues[i - 1] : prevGroupValues;
+    const prevTotal = i > 0 ? monthTotals[i - 1] : prevMonthTotal;
+    return {
+      i,
+      ym: months[i],
+      total: monthTotals[i],
+      delta: monthTotals[i] - prevTotal,
+      // Every stacked group, spend or not — the strip needs a constant row set (see
+      // ChartInspectStrip); the mouse box filters the empties back out below.
+      rows: stackGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        color: g.color,
+        value: values.get(g.id) ?? 0,
+        delta: (values.get(g.id) ?? 0) - (prev.get(g.id) ?? 0),
+      })),
+    };
+  };
   const hovered = hoveredIdx !== null
     ? (() => {
-        const i = hoveredIdx;
-        const values = monthGroupValues[i];
-        const prev = i > 0 ? monthGroupValues[i - 1] : prevGroupValues;
-        const prevTotal = i > 0 ? monthTotals[i - 1] : prevMonthTotal;
-        return {
-          i,
-          ym: months[i],
-          total: monthTotals[i],
-          delta: monthTotals[i] - prevTotal,
-          rows: stackGroups
-            .filter((g) => values.has(g.id))
-            .map((g) => ({
-              id: g.id,
-              name: g.name,
-              color: g.color,
-              value: values.get(g.id)!,
-              delta: (values.get(g.id) ?? 0) - (prev.get(g.id) ?? 0),
-            })),
-        };
+        const info = infoAt(hoveredIdx);
+        return { ...info, rows: info.rows.filter((r) => r.value > 0) };
       })()
     : null;
   const boxH = boxHeight(hovered?.rows.length ?? 0);
+  // The strip idles on the newest month (breakdown included) so arming the scrub changes its
+  // numbers, not its height.
+  const stripInfo = infoAt(hoveredIdx ?? months.length - 1);
 
   return (
     <div ref={wrapRef} className="flex flex-col gap-2">
@@ -153,14 +176,28 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
       </div>
       {coarse && (
         <ChartInspectStrip
-          active={hovered !== null}
-          title={hovered ? monthLabel(hovered.ym) : 'Spend by month'}
-          value={formatGBP(hovered ? hovered.total : rangeTotal)}
-          delta={hovered && hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)}` : undefined}
-          rows={hovered ? hovered.rows.map((r) => ({ key: r.id, color: r.color, name: r.name, value: formatGBP(r.value) })) : []}
+          active={scrub.armed}
+          title={monthLabel(stripInfo.ym)}
+          value={formatGBP(stripInfo.total)}
+          delta={stripInfo.delta !== 0 ? `${stripInfo.delta > 0 ? '+' : ''}${formatGBP(stripInfo.delta)}` : STRIP_EMPTY}
+          deltaLabel="vs last month"
+          deltaClass={stripInfo.delta > 0 ? 'text-over' : stripInfo.delta < 0 ? 'text-under' : 'text-ink-faint'}
+          rows={stripInfo.rows.map((r) => ({
+            key: r.id,
+            color: r.color,
+            name: r.name,
+            value: r.value > 0 ? formatGBP(r.value) : STRIP_EMPTY,
+          }))}
         />
       )}
-      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+        className={`w-full ${SCRUB_SURFACE}`}
+        {...scrub.handlers}
+        role="img"
+        aria-label={`Spend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}
+      >
         <MoneyGrid scale={scale} frame={frame} />
 
         {/* x labels (thinned on long ranges; the current month keeps the matrix's accent *) */}
@@ -177,8 +214,11 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
         {months.map((m, i) => {
           const values = monthGroupValues[i];
           let acc = 0;
+          // Dimming the other months reads as emphasis with a mouse, but under a finger mid-scrub
+          // the whole chart flickers between states — so touch keeps every bar solid and lets the
+          // crosshair/strip carry the focus instead.
           return (
-            <g key={m} className="transition-opacity" opacity={hoveredIdx !== null && hoveredIdx !== i ? 0.55 : 1}>
+            <g key={m} className="transition-opacity" opacity={!coarse && hoveredIdx !== null && hoveredIdx !== i ? 0.55 : 1}>
               {stackGroups.map((g) => {
                 const v = values.get(g.id) ?? 0;
                 if (v === 0) return null;
@@ -238,15 +278,29 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
           );
         })}
 
+        {/* Scrub crosshair — touch only, and the sole "you are here" cue now that the other
+           bars stay solid under a finger. Drawn over the bars but under the hit columns. */}
+        {coarse && hovered && (
+          <line
+            x1={barX(hovered.i) + barW / 2}
+            y1={PAD_TOP}
+            x2={barX(hovered.i) + barW / 2}
+            y2={PAD_TOP + INNER_H}
+            className="stroke-ink/25 pointer-events-none"
+            strokeWidth={1}
+          />
+        )}
+
         {/* hover tooltip — same column-aligned box as the running chart, month-granular;
-           deltas here can go either way, so + is green and − red (matching the matrix).
+           deltas here can go either way, so + is red (spent more) and − green.
            Mouse only; touch uses the strip above. */}
         {!coarse && hovered && (() => {
           const bx = barX(hovered.i);
           const boxX = bx + barW / 2 > CHART_W / 2 ? bx - BOX_W - 10 : bx + barW + 10;
           const topY = y(hovered.total);
           const boxY = Math.max(PAD_TOP + 4, Math.min(topY - boxH / 2, CHART_H - PAD_BOTTOM - boxH));
-          const deltaClass = (d: number) => (d > 0 ? 'fill-under' : d < 0 ? 'fill-accent' : 'fill-ink-faint');
+          // Spending more is bad, so an increase is red and a drop is green (see TrendsLines).
+          const deltaClass = (d: number) => (d > 0 ? 'fill-over' : d < 0 ? 'fill-under' : 'fill-ink-faint');
           return (
             <SvgBreakdownBox
               x={boxX}
@@ -282,12 +336,10 @@ export function TrendsBars({ data, months, totalsByMonth, hiddenCategoryIds, onO
             aria-label={`Open ${monthLabel(m)} in the Month view`}
             onPointerEnter={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
             onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}
-            onPointerDown={(e) => {
-              if (e.pointerType === 'touch' && hoveredIdx !== i) suppressClick.current = true;
-              setHoveredIdx(i);
-            }}
+            onPointerDown={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
             onClick={() => {
-              if (suppressClick.current) { suppressClick.current = false; return; }
+              // Touch taps go straight through now that revealing is the scrub's job.
+              if (Date.now() < openBlockedUntil.current) return;
               onOpenMonth(m);
             }}
           />

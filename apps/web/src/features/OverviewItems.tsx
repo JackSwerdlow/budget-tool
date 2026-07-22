@@ -1,6 +1,7 @@
-import { Fragment, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { formatGBP, itemSummaries, type ItemSummary, type LedgerData } from '@budget/core';
 import { coarsePointer } from '../lib/pointer';
+import { SCRUB_SURFACE, useScrubGesture } from '../lib/useScrubGesture';
 import { moneyScale, useChartFrame, useDismissOnOutsideTap } from '../charts/kit';
 import { MoneyGrid, SvgBreakdownBox } from '../charts/kitComponents';
 import { monthShort } from '../lib/dates';
@@ -173,8 +174,13 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const { ref: wrapRef, frame } = useChartFrame();
   const { W: CHART_W, H: CHART_H, PAD_LEFT, PAD_TOP, PAD_BOTTOM, INNER_W, INNER_H } = frame;
+  const svgRef = useRef<SVGSVGElement>(null);
   useDismissOnOutsideTap(hoverIdx !== null, wrapRef, () => setHoverIdx(null));
-  // Touch shows the scrubbed purchase in the subtitle line (not the in-chart box); lift dismisses.
+  // Ahead of the "bought once" early return below, as hooks must be; `idxAtFraction` is a hoisted
+  // declaration and only ever runs from a pointer event, long after render.
+  const scrub = useScrubGesture(svgRef, (f) => setHoverIdx(idxAtFraction(f)), () => setHoverIdx(null));
+  // Touch shows the scrubbed purchase in the subtitle line (not the in-chart box); press-and-hold
+  // arms the scrub and lifting dismisses it (see useScrubGesture).
   const coarse = coarsePointer();
   const pts = summary.purchases;
 
@@ -199,28 +205,47 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
   const labelStep = Math.ceil(pts.length / 10);
   const hovered = hoverIdx !== null ? pts[hoverIdx] : null;
 
+  function idxAtFraction(fraction: number): number {
+    const i = Math.round(((fraction * CHART_W - PAD_LEFT) / INNER_W) * (pts.length - 1));
+    return Math.max(0, Math.min(i, pts.length - 1));
+  }
   const seek = (e: ReactPointerEvent<SVGRectElement>) => {
     const rect = e.currentTarget.closest('svg')!.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * CHART_W;
-    const i = Math.round(((svgX - PAD_LEFT) / INNER_W) * (pts.length - 1));
-    setHoverIdx(Math.max(0, Math.min(i, pts.length - 1)));
+    setHoverIdx(idxAtFraction((e.clientX - rect.left) / rect.width));
   };
 
   return (
     <div ref={wrapRef} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h4 className="font-serif text-sm text-ink">{summary.name} — unit price over purchases</h4>
-        {coarse && hovered ? (
-          <span className="text-xs tabular-nums text-ink">
-            {hovered.date} · {formatGBP(hovered.unitPricePence)}/unit · {hovered.quantity}× · {formatGBP(hovered.pricePence)}
-          </span>
+        {coarse ? (
+          // Same readout idle and scrubbing (idle = the latest purchase), with each figure in a
+          // fixed right-aligned slot, so dragging changes digits and never nudges the line about.
+          (() => {
+            const pt = hovered ?? pts[pts.length - 1];
+            return (
+              <span className="text-xs tabular-nums text-ink">
+                {pt.date} ·{' '}
+                <span className="inline-block w-14 text-right">{formatGBP(pt.unitPricePence)}</span>/unit ·{' '}
+                <span className="inline-block w-6 text-right">{pt.quantity}</span>× ·{' '}
+                <span className="inline-block w-16 text-right">{formatGBP(pt.pricePence)}</span>
+              </span>
+            );
+          })()
         ) : (
           <span className="text-xs text-ink-faint">
             {formatGBP(summary.firstUnitPricePence)} first · {formatGBP(summary.lastUnitPricePence)} latest
           </span>
         )}
       </div>
-      <svg data-noswipe viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" role="img" aria-label={`Unit price of ${summary.name} over time`}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+        className={`w-full ${SCRUB_SURFACE}`}
+        {...scrub.handlers}
+        role="img"
+        aria-label={`Unit price of ${summary.name} over time`}
+      >
         <MoneyGrid scale={scale} frame={frame} />
         {pts.map((p, i) => (
           (i % labelStep === 0 || i === pts.length - 1) && (
@@ -267,10 +292,8 @@ function ItemDetail({ summary }: { summary: ItemSummary }) {
           width={INNER_W}
           height={INNER_H}
           fill="transparent"
-          onPointerMove={seek}
-          onPointerDown={seek}
+          onPointerMove={(e) => { if (e.pointerType !== 'touch') seek(e); }}
           onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoverIdx(null); }}
-          onPointerUp={(e) => { if (e.pointerType === 'touch') setHoverIdx(null); }}
         />
       </svg>
     </div>

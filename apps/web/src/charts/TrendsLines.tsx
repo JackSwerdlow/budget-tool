@@ -2,8 +2,9 @@ import { useRef, useState } from 'react';
 import { formatGBP, previousMonth, type LedgerData } from '@budget/core';
 import { monthLabel, monthShort, todayISO } from '../lib/dates';
 import { coarsePointer } from '../lib/pointer';
+import { SCRUB_SURFACE, useScrubGesture } from '../lib/useScrubGesture';
 import { BOX_W, boxHeight, moneyScale, useChartFrame, useDismissOnOutsideTap } from './kit';
-import { ChartInspectStrip, MoneyGrid, SvgBreakdownBox } from './kitComponents';
+import { ChartInspectStrip, MoneyGrid, STRIP_EMPTY, SvgBreakdownBox } from './kitComponents';
 
 type Series = { id: number; name: string; color: string; values: number[] };
 
@@ -27,6 +28,25 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   // is a scrub, not a drill, so `moved` suppresses the tap-to-drill click after a scrub.
   const coarse = coarsePointer();
   const moved = useRef(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+  // A scrub ends in a pointerup on a line, which the browser may still turn into a click — this
+  // keeps that from drilling into a group the finger merely passed over.
+  const drillBlockedUntil = useRef(0);
+  // Touch: press-and-hold to arm, then drag across the full chart width (see useScrubGesture).
+  // Up here with the other hooks, ahead of the empty-data early returns below; `monthAtFraction`
+  // is a hoisted declaration and only ever runs from a pointer event, long after render.
+  const scrub = useScrubGesture(
+    svgRef,
+    (fraction) => setHoveredIdx(monthAtFraction(fraction)),
+    () => {
+      drillBlockedUntil.current = Date.now() + 300;
+      setHoveredIdx(null);
+    },
+  );
+  function monthAtFraction(fraction: number): number {
+    const i = Math.floor((fraction * CHART_W - PAD_LEFT) / band);
+    return Math.max(0, Math.min(months.length - 1, i));
+  }
 
   const currentYm = todayISO().slice(0, 7);
   if (months.length === 0) return null;
@@ -74,20 +94,32 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
   const prevValue = (s: Series) =>
     drilled ? monthValue(prevYm, [s.id]) : monthValue(prevYm, visibleCats(s.id).map((c) => c.id));
 
+  // Every series, spend or not, in a stable order — the strip needs a constant row set in a
+  // constant order (see ChartInspectStrip), so this can't sort by value or drop empties; the
+  // mouse box re-sorts and filters below.
+  const infoAt = (i: number) => {
+    const rows = series
+      .map((s) => ({ s, value: s.values[i], delta: s.values[i] - (i > 0 ? s.values[i - 1] : prevValue(s)) }));
+    const total = series.reduce((sum, s) => sum + s.values[i], 0);
+    const prevTotal = series.reduce((sum, s) => sum + (i > 0 ? s.values[i - 1] : prevValue(s)), 0);
+    return { i, ym: months[i], total, delta: total - prevTotal, rows };
+  };
   const hovered = hoveredIdx !== null
     ? (() => {
-        const i = hoveredIdx;
-        const rows = series
-          .map((s) => ({ s, value: s.values[i], delta: s.values[i] - (i > 0 ? s.values[i - 1] : prevValue(s)) }))
-          .filter((r) => r.value > 0 || r.delta !== 0)
-          .sort((a, b) => b.value - a.value);
-        const total = series.reduce((sum, s) => sum + s.values[i], 0);
-        const prevTotal = series.reduce((sum, s) => sum + (i > 0 ? s.values[i - 1] : prevValue(s)), 0);
-        return { i, ym: months[i], total, delta: total - prevTotal, rows };
+        const info = infoAt(hoveredIdx);
+        // The mouse box is a transient popover, so it keeps the old "interesting rows, biggest
+        // first" shape — only the strip needs a fixed layout.
+        return { ...info, rows: info.rows.filter((r) => r.value > 0 || r.delta !== 0).sort((a, b) => b.value - a.value) };
       })()
     : null;
+  // The strip idles on the newest month (breakdown included) so arming the scrub changes its
+  // numbers, not its height.
+  const stripInfo = infoAt(hoveredIdx ?? months.length - 1);
   const boxH = boxHeight(hovered?.rows.length ?? 0);
-  const deltaClass = (d: number) => (d > 0 ? 'fill-under' : d < 0 ? 'fill-accent' : 'fill-ink-faint');
+  // Spending more is bad, so an increase is red and a drop is green. (The matrix next door keeps
+  // the opposite arrow colours on purpose — they're picked to stand out against its heat fills,
+  // not to carry this meaning.)
+  const deltaClass = (d: number) => (d > 0 ? 'fill-over' : d < 0 ? 'fill-under' : 'fill-ink-faint');
 
   const lineOpacity = (id: number) => (emphasisId === null ? 1 : emphasisId === id ? 1 : 0.25);
 
@@ -132,19 +164,26 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
       </div>
       {coarse && (
         <ChartInspectStrip
-          active={hovered !== null}
-          title={hovered ? `${monthLabel(hovered.ym)}${drilled ? ` · ${drillGroup!.name}` : ''}` : drilled ? drillGroup!.name : 'Category trend'}
-          value={hovered ? formatGBP(hovered.total) : '—'}
-          delta={hovered && hovered.delta !== 0 ? `${hovered.delta > 0 ? '+' : ''}${formatGBP(hovered.delta)}` : undefined}
-          rows={hovered ? hovered.rows.map((r) => ({ key: r.s.id, color: r.s.color, name: r.s.name, value: formatGBP(r.value) })) : []}
+          active={scrub.armed}
+          title={`${monthLabel(stripInfo.ym)}${drilled ? ` · ${drillGroup!.name}` : ''}`}
+          value={formatGBP(stripInfo.total)}
+          delta={stripInfo.delta !== 0 ? `${stripInfo.delta > 0 ? '+' : ''}${formatGBP(stripInfo.delta)}` : STRIP_EMPTY}
+          deltaLabel="vs last month"
+          deltaClass={stripInfo.delta > 0 ? 'text-over' : stripInfo.delta < 0 ? 'text-under' : 'text-ink-faint'}
+          rows={stripInfo.rows.map((r) => ({
+            key: r.s.id,
+            color: r.s.color,
+            name: r.s.name,
+            value: r.value > 0 ? formatGBP(r.value) : STRIP_EMPTY,
+          }))}
         />
       )}
       <svg
-        data-noswipe
+        ref={svgRef}
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-        className="w-full"
+        className={`w-full ${SCRUB_SURFACE}`}
+        {...scrub.handlers}
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(null); }}
-        onPointerUp={(e) => { if (e.pointerType === 'touch') setHoveredIdx(null); }}
         role="img"
         aria-label={`${drilled ? `${drillGroup!.name} categories` : 'Group'} spend trend by month${hiddenCategoryIds.size > 0 ? ', filtered' : ''}`}
       >
@@ -175,7 +214,6 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
             height={INNER_H}
             fill="transparent"
             onPointerEnter={(e) => { if (e.pointerType !== 'touch') setHoveredIdx(i); }}
-            onPointerDown={() => { moved.current = false; setHoveredIdx(i); }}
           />
         ))}
 
@@ -216,13 +254,17 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
                 // The fat stroke sits above the month columns, so it keeps the month
                 // tooltip alive itself: map the pointer back through the viewBox scale.
                 moved.current = true;
+                if (e.pointerType === 'touch') return; // touch reads the finger off the scrub
                 const r = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
                 if (!r) return;
                 const vx = ((e.clientX - r.left) / r.width) * CHART_W;
                 const i = Math.floor((vx - PAD_LEFT) / band);
                 setHoveredIdx(Math.max(0, Math.min(months.length - 1, i)));
               }}
-              onClick={() => { if (moved.current) return; if (!drilled) setDrillGroupId(s.id); }}
+              onClick={() => {
+                if (moved.current || Date.now() < drillBlockedUntil.current) return;
+                if (!drilled) setDrillGroupId(s.id);
+              }}
             />
             {hovered && (
               <circle

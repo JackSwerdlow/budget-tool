@@ -107,8 +107,11 @@ matrix month-header) opens that month in the Month view:
   needs no on-bar labels) and **Income** (off by default; a dashed step at each month's own
   resolved income, each step green while that month's bar is under it, red once over).
   Hovering a bar shows the running-chart-style breakdown box: month, total, ±delta vs the
-  previous month (green up / red down, matching the matrix arrows), then per-group rows with
-  their own deltas (the first month compares against the month before the range).
+  previous month, then per-group rows with their own deltas (the first month compares against
+  the month before the range). Both Trends readouts colour a delta by whether it's **good news
+  for spending** — an increase is red, a drop green. The matrix arrows deliberately do the
+  opposite: those colours are chosen to stay legible against its heat fills, not to carry this
+  meaning.
 - **Category trend** (`charts/TrendsLines.tsx`) — one line per group (donut colours/order)
   across the range, so rising/falling spend is readable as slope where the stacked bars
   above only show composition. Clicking a group's line or legend chip drills into that
