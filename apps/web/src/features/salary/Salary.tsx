@@ -179,9 +179,10 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
   };
 
   // The inherited-from note used to sit beside the month picker; the bar's right slot is a
-  // fixed two-slot row now, so it rides above the panel content instead.
+  // fixed two-slot row now, so it rides above the panel content instead. No margin of its own —
+  // it's a child of the panel's gapped column, like every section under it.
   const inheritedNote = inheritedFrom ? (
-    <p className="mb-4 text-xs text-ink-muted">
+    <p className="text-xs text-ink-muted">
       Showing values inherited from {monthLabel(`${inheritedFrom.year}-${String(inheritedFrom.month).padStart(2, '0')}`)}
     </p>
   ) : null;
@@ -203,7 +204,9 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
       ) : (
         <SubTabPager index={SALARY_TABS.indexOf(subtab)} onIndexChange={onSubtabIndexChange}>
           {[
-            <div key="summary">
+            // Both panels are gapped columns: their tabs render a flat run of bordered sections
+            // (SummaryTab and ConfigTab each return a fragment), so the spacing has to live here.
+            <div key="summary" className="flex flex-col gap-8">
               {inheritedNote}
               <SummaryTab
                 gross={gross}
@@ -220,7 +223,7 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
               />
             </div>,
             <LifetimeTab key="lifetime" lifetime={lifetime} studentLoan={studentLoan} ym={ym} />,
-            <div key="config">
+            <div key="config" className="flex flex-col gap-8">
               {inheritedNote}
               <ConfigTab
                 key={ym}

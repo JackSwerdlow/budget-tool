@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { nextMonth, previousMonth } from '@budget/core';
 import { createView } from './api';
 import { useData } from './data';
@@ -77,6 +77,17 @@ export function App() {
   const trendsDisplayStart = trendsRangeStart ?? trendsDefaultStart;
   const trendsDisplayEnd = trendsRangeEnd ?? trendsCurrentYm;
   const trendsIsCustomRange = trendsRangeStart !== null || trendsRangeEnd !== null;
+
+  // Months with any recorded spend, for the range calendar to fade the empty ones. Month by
+  // string slice, never `new Date` (see the ARCHITECTURE invariant). Deliberately ignores the
+  // category filter: this says where data exists at all, not what's currently shown.
+  const monthsWithSpend = useMemo(
+    () => new Set([
+      ...(data?.entries ?? []).map((e) => e.date.slice(0, 7)),
+      ...(data?.lists ?? []).map((l) => l.date.slice(0, 7)),
+    ]),
+    [data],
+  );
 
   // Escape dismisses the transient Overview panels (filter checklist, save-as-View form).
   useEscape(() => {
@@ -191,7 +202,23 @@ export function App() {
                 { id: 'trends', label: 'Trends' },
                 { id: 'items', label: 'Items' },
               ]}
-              right={overviewView === 'month' ? <MonthPicker ym={ym} onChange={setYm} /> : undefined}
+              // Both sub-tab controls share row one's right slot: the month stepper on Month, the
+              // month-range calendar on Trends (Items has no range of its own).
+              right={
+                overviewView === 'month' ? (
+                  <MonthPicker ym={ym} onChange={setYm} />
+                ) : overviewView === 'trends' ? (
+                  <TrendsRangePicker
+                    displayStart={trendsDisplayStart}
+                    displayEnd={trendsDisplayEnd}
+                    isCustomRange={trendsIsCustomRange}
+                    monthsWithSpend={monthsWithSpend}
+                    onRangeStart={setTrendsRangeStart}
+                    onRangeEnd={setTrendsRangeEnd}
+                    onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
+                  />
+                ) : undefined
+              }
               below={
                 // Inside the bar so it opens attached to the controls it filters.
                 showFilter ? (
@@ -203,86 +230,93 @@ export function App() {
               secondRow={
                 <>
                 {data.views.length > 0 && (
-                  <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
+                  // A segmented row that must not wrap — a preset pushed onto a second line moved
+                  // the panels below it. So it budgets the width it has instead: the selected
+                  // preset always shows its whole name and never gives up width, the others shrink
+                  // and truncate ("Groc…"), and every name is capped so one long one can't take
+                  // the row. "All" is a fixed label short enough to never need any of it. The cap
+                  // is the tight phone one; from sm up it's generous, since a name has no business
+                  // being clipped in a row with hundreds of spare pixels.
+                  // Hidden on a phone while the save-as-View form is open: the form is ~200px of
+                  // the row, and no preset is active in the state that offers it anyway.
+                  <div className={`min-w-0 items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5 ${saveViewOpen ? 'hidden sm:flex' : 'flex'}`}>
                     <button
                       type="button"
                       onClick={() => setHiddenCategoryIds(new Set())}
-                      className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                      className={`shrink-0 rounded-md px-3 py-1 text-xs transition-colors ${
                         isActiveFilter([]) ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
                       }`}
                     >
                       All
                     </button>
-                    {data.views.map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setHiddenCategoryIds(new Set(v.hidden_category_ids))}
-                        className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                          isActiveFilter(v.hidden_category_ids) ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
-                        }`}
-                      >
-                        {v.name}
-                      </button>
-                    ))}
+                    {data.views.map((v) => {
+                      const active = isActiveFilter(v.hidden_category_ids);
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setHiddenCategoryIds(new Set(v.hidden_category_ids))}
+                          title={v.name}
+                          className={`max-w-32 truncate rounded-md px-3 py-1 text-xs transition-colors sm:max-w-64 ${
+                            active
+                              ? 'shrink-0 bg-panel font-medium text-ink shadow-sm'
+                              : 'min-w-0 flex-auto text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          {v.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
-                <button
-                  type="button"
-                  aria-expanded={showFilter}
-                  className={`text-xs transition-colors hover:text-accent ${hiddenCategoryIds.size > 0 ? 'text-accent' : 'text-ink-muted'}`}
-                  onClick={() => setShowFilter((s) => !s)}
-                >
-                  Categories {showFilter ? '▴' : '▾'}
-                </button>
-                {hiddenCategoryIds.size > 0 &&
-                  data.views.length < MAX_VIEWS &&
-                  !data.views.some((v) => isActiveFilter(v.hidden_category_ids)) &&
-                  (saveViewOpen ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void onSaveView();
-                      }}
-                      className="flex items-center gap-1.5"
-                    >
-                      <input
-                        autoFocus
-                        value={viewName}
-                        onChange={(e) => setViewName(e.target.value)}
-                        placeholder="View name"
-                        className="w-28 rounded-md border border-hairline bg-paper px-2 py-1 text-xs text-ink outline-none focus:border-ink/40"
-                      />
-                      <button type="submit" disabled={viewName.trim() === ''} className="text-xs text-accent disabled:cursor-not-allowed disabled:opacity-40">
-                        Save
-                      </button>
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    aria-expanded={showFilter}
+                    className={`text-xs transition-colors hover:text-accent ${hiddenCategoryIds.size > 0 ? 'text-accent' : 'text-ink-muted'}`}
+                    onClick={() => setShowFilter((s) => !s)}
+                  >
+                    Categories {showFilter ? '▴' : '▾'}
+                  </button>
+                  {hiddenCategoryIds.size > 0 &&
+                    data.views.length < MAX_VIEWS &&
+                    !data.views.some((v) => isActiveFilter(v.hidden_category_ids)) &&
+                    (saveViewOpen ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void onSaveView();
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          autoFocus
+                          value={viewName}
+                          onChange={(e) => setViewName(e.target.value)}
+                          placeholder="View name"
+                          className="w-28 rounded-md border border-hairline bg-paper px-2 py-1 text-xs text-ink outline-none focus:border-ink/40"
+                        />
+                        <button type="submit" disabled={viewName.trim() === ''} className="text-xs text-accent disabled:cursor-not-allowed disabled:opacity-40">
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSaveViewOpen(false); setViewName(''); }}
+                          className="text-xs text-ink-muted hover:text-ink"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => { setSaveViewOpen(false); setViewName(''); }}
-                        className="text-xs text-ink-muted hover:text-ink"
+                        onClick={() => setSaveViewOpen(true)}
+                        className="text-xs text-ink-muted transition-colors hover:text-accent"
                       >
-                        Cancel
+                        save as View
                       </button>
-                    </form>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setSaveViewOpen(true)}
-                      className="text-xs text-ink-muted transition-colors hover:text-accent"
-                    >
-                      save as View
-                    </button>
-                  ))}
-                {overviewView === 'trends' && (
-                  <TrendsRangePicker
-                    displayStart={trendsDisplayStart}
-                    displayEnd={trendsDisplayEnd}
-                    isCustomRange={trendsIsCustomRange}
-                    onRangeStart={setTrendsRangeStart}
-                    onRangeEnd={setTrendsRangeEnd}
-                    onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
-                  />
-                )}
+                    ))}
+                </div>
                 </>
               }
             />

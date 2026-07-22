@@ -30,15 +30,6 @@
 > What's left here should **adopt** that layer rather than reinvent it; the sankey in particular
 > still runs its own overlapping pointer handlers.
 
-### Sticky control bar
-
-- **View-preset buttons wrap; want a space-budgeted row.** The All / saved-view buttons sit in a `flex-wrap` group with no width control, so long names push buttons to a second line. Want a single non-wrapping row budgeted like a segmented control: **no minimum** button width (shrink to fit text when there's room); the **selected** button always shows its full name; non-selected buttons fit to their text if they all fit, otherwise are forced to equal width (remaining width ÷ count) with text **truncated** ("Groc…"); enforce a **max** width with ellipsis. Selecting a button expands it to full text and recomputes the others' equal max width.
-- **Trends row: Categories vs range picker stack.** Both now sit in `PinnedTabBar`'s wrapped second row (row one is the non-wrapping sub-tabs + month slot), so on the Trends sub-tab the Categories toggle and the month-range picker can still fall onto separate lines. Want them on one row: Categories pinned left, the range picker aligned to the far **right** (justify-between).
-
-### Add — category buttons wrap with wrong corners
-
-- `CategoryGrid.tsx:42–50` picks each button's rounded corners from its index in the flat list (first → rounded-left, last → rounded-right, middle → square). When the row wraps (`flex-wrap`), the visual first/last of each line don't match the array first/last, so a wrapped end button keeps middle-square corners and the next row's lone button gets left-square / right-round. Want corners correct per **visual row** — simplest robust fix is **uniform rounding** (all `rounded-md`, selected `rounded-full`) so wrapping can't look broken; or make the group genuinely wrap-aware.
-
 ### Sankey — redesign as a coherent tap-only model
 
 - Currently overlapping `onPointerDown` (hover) + `onClick` (drill), no `user-select:none`, and the strip/box duality make it flaky: a long-press sometimes selects text or shows a non-persistent strip + greys sections; a single tap sometimes hovers, sometimes drills, sometimes both and mis-renders. Want a clean **tap-only** model (no press-and-hold on the sankey):

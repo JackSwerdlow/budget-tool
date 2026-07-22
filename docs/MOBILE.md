@@ -74,7 +74,11 @@ and advances on a long one. It replaced a hand-rolled detector that only ever fi
 — the one place whose `touch-action` reserved horizontal drags — and flipped tab instantly with
 nothing following the finger. One bar component, so the tabs can't drift apart: row one is a
 two-slot row that cannot wrap (sub-tabs left, the tab's own control hard right), with anything else
-in a wrapped second row.
+in a second row that cannot wrap either. Neither row may reflow, because a control dropping onto a
+line of its own moves every panel below it — so what doesn't fit is **budgeted** rather than
+wrapped. Overview's view presets are the case that forced it: the selected preset always shows its
+whole name and never gives up width, the rest shrink and truncate ("Groc…"), and every name is
+capped so one long one can't take the row.
 
 Three things make it coexist with everything else. Its `dragThreshold` (16px, Android's paging
 touch slop) sits **above** the scrub's 10px arming slop, so the pager cannot have begun moving when
@@ -92,8 +96,10 @@ column under `sm`, with the condensed title row and the control bar pinned above
 why they don't collapse). The footer is desktop-only, since in a fixed column it would sit above
 the bottom tab bar instead of scrolling away.
 
-Each tab feeds the bar what it has: Overview puts the month picker in the right slot (Month view
-only) and its view presets / Categories in the second row; Salary puts its month picker there, with
+Each tab feeds the bar what it has: Overview puts both of its sub-tab controls in the right slot —
+the month stepper on Month, the month-range calendar on Trends (see [BUDGET.md](BUDGET.md)), sized
+to match so the slot doesn't jump between them — and its view presets / Categories in the second
+row; Salary puts its month picker there, with
 the inherited-from note moved into the panel; Add has no such control, so the slot is simply
 omitted. **Manage's month picker deliberately stays inside `ManageEntries`** — it's paired with that
 screen's "all months" toggle and disappears with it, so it isn't the tab-level control the slot is

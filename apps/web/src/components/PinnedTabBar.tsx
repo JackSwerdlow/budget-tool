@@ -15,7 +15,9 @@ export function PinnedTabBar<T extends string>({ value, onChange, options, right
   options: { id: T; label: string }[];
   // Right-hand slot of row one — a month picker or similar. Omitted when a tab has no such control.
   right?: ReactNode;
-  // Secondary controls, wrapped, under row one.
+  // Secondary controls under row one. Also a non-wrapping row: a control that reflowed onto a
+  // line of its own moved the panels below it, so what fits is budgeted (see App.tsx's view
+  // presets) rather than left to wrap.
   secondRow?: ReactNode;
   // Full-width content under both rows, inside the bar (Overview's Categories checklist), so it
   // opens attached to the controls it filters.
@@ -29,7 +31,7 @@ export function PinnedTabBar<T extends string>({ value, onChange, options, right
         </div>
         {right && <div className="shrink-0">{right}</div>}
       </div>
-      {secondRow && <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-2 sm:gap-3">{secondRow}</div>}
+      {secondRow && <div className="mt-1.5 flex min-w-0 items-center gap-2 sm:mt-2 sm:gap-3">{secondRow}</div>}
       {below}
     </div>
   );

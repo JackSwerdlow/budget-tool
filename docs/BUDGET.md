@@ -95,10 +95,22 @@ matches no existing View (and the cap isn't hit), a "save as View" affordance ap
 Balance's money is the one thing it never touches.
 
 **Trends** (`features/OverviewTrends.tsx`) has three sections sharing one month range (default
-last 6 months; custom From/To picker — `features/TrendsRangePicker.tsx` — lives in the page
-header next to the view switcher, in the same slot Month's month picker uses, since it drives
-all three sections below) and the same shared category filter as Month. Clicking a bar (or a
-matrix month-header) opens that month in the Month view:
+last 6 months) and the same shared category filter as Month.
+
+The range picker
+(`features/TrendsRangePicker.tsx`) sits in the *same* header slot Month's month picker uses,
+wearing the same box, since it drives all three sections below: the label names the live range
+("Apr–Sep 26", spelled out from `sm` up), "Reset" returns to the default where Month has "Today",
+and it opens a **month-grid range calendar** — a year of months with the range painted as a band,
+`‹ 2026 ›` paging back up to four years, future months disabled, and months holding no entry or
+list **faded** (still selectable — a range may span a quiet stretch — but visibly not worth
+extending over; it reads raw data existence, so the category filter doesn't change it). Selection
+is the booking-site two-tap: the first tap anchors a new range, the second closes it, either order
+(the ends sort themselves), and a mouse previews the band in between. Picking a range leaves the
+panel **open** — the charts behind are already live, so a range can be judged and adjusted in
+place; tapping outside (or Esc) is what dismisses it.
+
+Clicking a bar (or a matrix month-header) opens that month in the Month view:
 
 - **Spend by month** (`charts/TrendsBars.tsx`) — a stacked per-month bar chart in the running
   chart's visual language: group colours/stack order matching the donut, and two pill toggles —
@@ -158,7 +170,10 @@ cheap item's history on pennies (sub-£1 grids label ticks at 2dp). An empty cha
   just now" session list that can undo a line. Categories render one group per row, each a
   connected button row (`components/CategoryGrid.tsx`, M3 "connected button group" styling) —
   buttons keep a per-category colour dot and morph to a rounder shape when selected; a row
-  wraps onto a new line rather than scrolling if a group has too many categories to fit.
+  wraps onto a new line rather than scrolling if a group has too many categories to fit. A
+  connected group is a one-row component in M3 and the HIG, so this one measures its laid-out
+  rows to wrap well: corners come from each button's **visual** row, and a last row that would
+  hold a single lone chip pulls its neighbour down for company (3,3,1 → 3,2,2).
 - **List** (`features/AddList.tsx` + the shared `features/ListForm.tsx`) — itemised rows with
   an inline average unit price (price ÷ qty), and three totals: **Full list**, **Your share**
   (what counts), and **Flatmate** (reference only). Flatmate shares are treated as **settled** —
