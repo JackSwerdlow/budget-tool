@@ -4,8 +4,8 @@ import { createView } from './api';
 import { useData } from './data';
 import { fullDate, todayISO } from './lib/dates';
 import { useEscape } from './lib/useEscape';
-import { useSwipeNav } from './lib/useSwipeNav';
-import { Code, Kbd, MonthPicker, Panel, Segmented } from './components/ui';
+import { Code, Kbd, MonthPicker, Panel } from './components/ui';
+import { PinnedTabBar } from './components/PinnedTabBar';
 import { SubTabPager } from './components/SubTabPager';
 import { AddSingle } from './features/AddSingle';
 import { AddList } from './features/AddList';
@@ -30,13 +30,9 @@ const TABS: { id: Tab; label: string }[] = [
 // Mirrors the cap enforced by both data layers (repo.ts / queries.ts) and Manage → Views.
 const MAX_VIEWS = 4;
 
-// Sub-tab order for touch swipe navigation (see useSwipeNav). Clamped at the ends.
+// Sub-tab order — the pager's slide order, and what maps its index back to a view id.
 const OVERVIEW_VIEWS = ['month', 'trends', 'items'] as const;
 const ADD_VIEWS = ['single', 'list', 'monthly'] as const;
-function stepView<const T extends readonly string[]>(views: T, current: T[number], dir: 1 | -1): T[number] {
-  const i = views.indexOf(current);
-  return views[Math.min(views.length - 1, Math.max(0, i + dir))];
-}
 
 export function App() {
   const { data, error, loading, refresh } = useData();
@@ -51,13 +47,9 @@ export function App() {
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [viewName, setViewName] = useState('');
 
-  // Overview's sub-tabs are a swipeable pager (SubTabPager); Add still uses the older detector
-  // until the pattern is proven there — its forms hold state that mounting all three would change.
+  // Every tab's sub-tabs are a swipeable pager (SubTabPager) under a shared PinnedTabBar.
   const onOverviewIndexChange = useCallback((i: number) => setOverviewView(OVERVIEW_VIEWS[i]), []);
-  const addSwipe = useSwipeNav(
-    () => setAddView((v) => stepView(ADD_VIEWS, v, -1)),
-    () => setAddView((v) => stepView(ADD_VIEWS, v, 1)),
-  );
+  const onAddIndexChange = useCallback((i: number) => setAddView(ADD_VIEWS[i]), []);
 
   // A button is "active" when the live filter exactly matches its target set — not tracked
   // state, so it naturally clears once the Categories checklist diverges from the preset.
@@ -176,15 +168,10 @@ export function App() {
 
       {/* On a phone Overview hands scrolling to its pager panels (each keeps its own position);
           every other tab scrolls here instead. Desktop scrolls the page as a whole. */}
-      <main
-        className={`flex min-h-0 flex-1 flex-col py-8 ${
-          tab === 'overview'
-            // No padding of its own on a phone: the control bar butts up under the title row, and
-            // the panels carry their own inset so it scrolls away with the content.
-            ? 'max-sm:overflow-hidden max-sm:py-0'
-            : 'max-sm:overflow-y-auto max-sm:py-4'
-        }`}
-      >
+      {/* No padding of its own on a phone: each tab's control bar butts up under the title row,
+          and the pager's panels carry their own inset so it scrolls away with the content. The
+          panels own the scrolling, so this never scrolls itself. */}
+      <main className="flex min-h-0 flex-1 flex-col py-8 max-sm:overflow-hidden max-sm:py-0">
         {error ? (
           <Panel>
             <p className="text-over">Could not reach the API: {error}</p>
@@ -196,35 +183,25 @@ export function App() {
           <Panel>{loading ? 'Loading the ledger…' : 'No data.'}</Panel>
         ) : tab === 'overview' ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* The control bar stays put while the panels scroll under it, so the sub-tabs are
-                always reachable — only the title above it collapses (Material pins the tab row of
-                a collapsing toolbar for the same reason). The -mx/px pair bleeds the paper
-                background over the container's gutter. Plain header row from sm up. */}
-            {/* On a phone the pinned region ends exactly on this bar's bottom border — no margin
-                under it. The panels below start their scroll right at the line. */}
-            <div className="-mx-3 shrink-0 border-b border-hairline bg-paper px-3 max-sm:pb-1.5 max-sm:pt-1 sm:mx-0 sm:mb-6 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-              {/* Row one is a two-slot flex row that cannot wrap: sub-tabs left, month control
-                  hard against the right. Previously everything shared one `flex-wrap` row, so the
-                  left group filled it at ~360px and pushed the month picker onto a second line. */}
-              <div className="flex items-center justify-between gap-2 sm:gap-3">
-                <div className="min-w-0 shrink">
-                  <Segmented
-                    value={overviewView}
-                    onChange={setOverviewView}
-                    options={[
-                      { id: 'month', label: 'Month' },
-                      { id: 'trends', label: 'Trends' },
-                      { id: 'items', label: 'Items' },
-                    ]}
-                  />
-                </div>
-                {overviewView === 'month' && (
-                  <div className="shrink-0">
-                    <MonthPicker ym={ym} onChange={setYm} />
+            <PinnedTabBar
+              value={overviewView}
+              onChange={setOverviewView}
+              options={[
+                { id: 'month', label: 'Month' },
+                { id: 'trends', label: 'Trends' },
+                { id: 'items', label: 'Items' },
+              ]}
+              right={overviewView === 'month' ? <MonthPicker ym={ym} onChange={setYm} /> : undefined}
+              below={
+                // Inside the bar so it opens attached to the controls it filters.
+                showFilter ? (
+                  <div className="mt-1 w-full">
+                    <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
                   </div>
-                )}
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-2 sm:gap-3">
+                ) : undefined
+              }
+              secondRow={
+                <>
                 {data.views.length > 0 && (
                   <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-hairline bg-raised p-0.5">
                     <button
@@ -306,14 +283,9 @@ export function App() {
                     onResetRange={() => { setTrendsRangeStart(null); setTrendsRangeEnd(null); }}
                   />
                 )}
-              </div>
-              {/* Inside the control bar so it opens attached to the controls it filters. */}
-              {showFilter && (
-                <div className="mt-1 w-full">
-                  <CategoryVisibilityPanel data={data} hiddenCategoryIds={hiddenCategoryIds} onChange={setHiddenCategoryIds} />
-                </div>
-              )}
-            </div>
+                </>
+              }
+            />
             <SubTabPager index={OVERVIEW_VIEWS.indexOf(overviewView)} onIndexChange={onOverviewIndexChange}>
               {[
                 <OverviewMonth key="month" data={data} ym={ym} hiddenCategoryIds={hiddenCategoryIds} />,
@@ -335,27 +307,23 @@ export function App() {
         ) : tab === 'salary' ? (
           <Salary data={data} ym={ym} onYmChange={setYm} />
         ) : tab === 'add' ? (
-          <div>
-            <div className="mb-6">
-              <Segmented
-                value={addView}
-                onChange={setAddView}
-                options={[
-                  { id: 'single', label: 'Single' },
-                  { id: 'list', label: 'List' },
-                  { id: 'monthly', label: 'Monthly' },
-                ]}
-              />
-            </div>
-            <div {...addSwipe}>
-              {addView === 'single' ? (
-                <AddSingle data={data} />
-              ) : addView === 'list' ? (
-                <AddList data={data} />
-              ) : (
-                <AddMonthly data={data} />
-              )}
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <PinnedTabBar
+              value={addView}
+              onChange={setAddView}
+              options={[
+                { id: 'single', label: 'Single' },
+                { id: 'list', label: 'List' },
+                { id: 'monthly', label: 'Monthly' },
+              ]}
+            />
+            <SubTabPager index={ADD_VIEWS.indexOf(addView)} onIndexChange={onAddIndexChange}>
+              {[
+                <AddSingle key="single" data={data} />,
+                <AddList key="list" data={data} />,
+                <AddMonthly key="monthly" data={data} />,
+              ]}
+            </SubTabPager>
           </div>
         ) : (
           <Manage data={data} ym={ym} onYmChange={setYm} />

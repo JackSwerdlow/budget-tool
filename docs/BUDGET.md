@@ -188,7 +188,8 @@ cheap item's history on pennies (sub-£1 grids label ticks at 2dp). An empty cha
 
 ## Manage
 
-`features/manage/` — quieter "back of house", with four areas:
+`features/manage/` — quieter "back of house", with four sub-tabs (Entries / Taxonomy / Views /
+Data):
 
 - **Entries** (`ManageEntries.tsx`) — a date-grouped stream; edit or delete past **entries and
   lists** (list editing reuses `ListForm`); a category filter — the same "Categories ▾"
@@ -207,7 +208,10 @@ cheap item's history on pennies (sub-£1 grids label ticks at 2dp). An empty cha
 - **Views** (`ManageViews.tsx`) — named, saved show/hide presets (max 4) used by Overview's
   category filter; a View just stores which category ids are hidden, so deleting one is a plain
   row delete (no reassignment needed).
-- **Export** (`ExportData.tsx`, below the tabs on every Manage screen) — portable data exports
+- **Export** (`ExportData.tsx`, in the **Data** sub-tab alongside the database tools — it used to
+  render below the tabs on every Manage screen, but panels scroll themselves now, so always-on
+  sections have nowhere to sit; it also keeps the destructive database actions somewhere you
+  arrive deliberately) — portable data exports
   built client-side from the loaded ledger (`lib/export.ts`, tested): **CSV** (one
   spreadsheet-ready row per entry, list item, and delivery fee, using the same per-item share
   maths as the ledger so the my-share column sums exactly) and **JSON** (a full structured

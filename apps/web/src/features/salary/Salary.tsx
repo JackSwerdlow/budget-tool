@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { calcSalary, computeLifetime, computeStudentLoan, type LedgerData, type SalaryConfig } from '@budget/core';
 import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, saveSalaryConfig } from '../../api';
-import { MonthPicker, Panel, Segmented } from '../../components/ui';
+import { MonthPicker, Panel } from '../../components/ui';
+import { PinnedTabBar } from '../../components/PinnedTabBar';
+import { SubTabPager } from '../../components/SubTabPager';
 import { useData } from '../../data';
 import { monthLabel } from '../../lib/dates';
 import { ConfigTab } from './ConfigTab';
@@ -23,10 +25,13 @@ import {
 } from './salaryState';
 
 type Subtab = 'summary' | 'lifetime' | 'config';
+// Slide order for the pager, and what maps its index back to a sub-tab id.
+const SALARY_TABS = ['summary', 'lifetime', 'config'] as const satisfies readonly Subtab[];
 
 export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string; onYmChange: (ym: string) => void }) {
   const { refresh } = useData();
   const [subtab, setSubtab] = useState<Subtab>('summary');
+  const onSubtabIndexChange = useCallback((i: number) => setSubtab(SALARY_TABS[i]), []);
   const [inheritedFrom, setInheritedFrom] = useState<{ year: number; month: number } | null>(null);
   const [hasSavedConfig, setHasSavedConfig] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -173,18 +178,17 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     onClear,
   };
 
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center gap-4">
-        <MonthPicker ym={ym} onChange={onYmChange} />
-        {inheritedFrom && (
-          <span className="text-xs text-ink-muted">
-            Showing values inherited from {monthLabel(`${inheritedFrom.year}-${String(inheritedFrom.month).padStart(2, '0')}`)}
-          </span>
-        )}
-      </div>
+  // The inherited-from note used to sit beside the month picker; the bar's right slot is a
+  // fixed two-slot row now, so it rides above the panel content instead.
+  const inheritedNote = inheritedFrom ? (
+    <p className="mb-4 text-xs text-ink-muted">
+      Showing values inherited from {monthLabel(`${inheritedFrom.year}-${String(inheritedFrom.month).padStart(2, '0')}`)}
+    </p>
+  ) : null;
 
-      <Segmented
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PinnedTabBar
         value={subtab}
         onChange={setSubtab}
         options={[
@@ -192,33 +196,41 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
           { id: 'lifetime', label: 'Lifetime' },
           { id: 'config', label: 'Config' },
         ]}
+        right={<MonthPicker ym={ym} onChange={onYmChange} />}
       />
-
       {loading ? (
         <Panel>Loading salary config…</Panel>
-      ) : subtab === 'summary' ? (
-        <SummaryTab
-          gross={gross}
-          onGrossChange={onGrossChange}
-          note={note}
-          setNote={setNote}
-          configFields={configFields}
-          setConfigFields={setConfigFields}
-          breakdown={breakdown}
-          lifetime={lifetime}
-          studentDebtPence={studentLoan.remainingBalancePence}
-          ym={ym}
-          saveBarProps={saveBarProps}
-        />
-      ) : subtab === 'lifetime' ? (
-        <LifetimeTab lifetime={lifetime} studentLoan={studentLoan} ym={ym} />
       ) : (
-        <ConfigTab
-          key={ym}
-          configFields={configFields}
-          setConfigFields={setConfigFields}
-          saveBarProps={saveBarProps}
-        />
+        <SubTabPager index={SALARY_TABS.indexOf(subtab)} onIndexChange={onSubtabIndexChange}>
+          {[
+            <div key="summary">
+              {inheritedNote}
+              <SummaryTab
+                gross={gross}
+                onGrossChange={onGrossChange}
+                note={note}
+                setNote={setNote}
+                configFields={configFields}
+                setConfigFields={setConfigFields}
+                breakdown={breakdown}
+                lifetime={lifetime}
+                studentDebtPence={studentLoan.remainingBalancePence}
+                ym={ym}
+                saveBarProps={saveBarProps}
+              />
+            </div>,
+            <LifetimeTab key="lifetime" lifetime={lifetime} studentLoan={studentLoan} ym={ym} />,
+            <div key="config">
+              {inheritedNote}
+              <ConfigTab
+                key={ym}
+                configFields={configFields}
+                setConfigFields={setConfigFields}
+                saveBarProps={saveBarProps}
+              />
+            </div>,
+          ]}
+        </SubTabPager>
       )}
     </div>
   );

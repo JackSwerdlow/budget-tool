@@ -68,10 +68,13 @@ Behaviours that differ by **input device** (rather than width) branch on the poi
 (`apps/web/src/lib/pointer.ts`, a `(pointer: coarse)` query). This keeps a narrow desktop window
 on the mouse path and lets DevTools device mode exercise the touch path. Examples: a coarse pointer
 suppresses the Add tab's amount-field autofocus so opening Add doesn't summon the phone keyboard;
-**Overview's sub-tabs are a swipeable pager** (`components/SubTabPager.tsx`, Embla): the panel
-tracks your thumb, snaps back on a short drag and advances on a long one. It replaced a hand-rolled
-detector that only ever fired over the charts — the one place whose `touch-action` reserved
-horizontal drags — and flipped tab instantly with nothing following the finger.
+**Every tab's sub-tabs are a swipeable pager** (`components/SubTabPager.tsx`, Embla) under a shared
+pinned bar (`components/PinnedTabBar.tsx`): the panel tracks your thumb, snaps back on a short drag
+and advances on a long one. It replaced a hand-rolled detector that only ever fired over the charts
+— the one place whose `touch-action` reserved horizontal drags — and flipped tab instantly with
+nothing following the finger. One bar component, so the tabs can't drift apart: row one is a
+two-slot row that cannot wrap (sub-tabs left, the tab's own control hard right), with anything else
+in a wrapped second row.
 
 Three things make it coexist with everything else. Its `dragThreshold` (16px, Android's paging
 touch slop) sits **above** the scrub's 10px arming slop, so the pager cannot have begun moving when
@@ -89,8 +92,19 @@ column under `sm`, with the condensed title row and the control bar pinned above
 why they don't collapse). The footer is desktop-only, since in a fixed column it would sit above
 the bottom tab bar instead of scrolling away.
 
-The **Add** tab still uses the older `lib/useSwipeNav.ts` detector; its three forms hold state that
-mounting all of them at once would change, so it moves to the pager only once the pattern is proven.
+Each tab feeds the bar what it has: Overview puts the month picker in the right slot (Month view
+only) and its view presets / Categories in the second row; Salary puts its month picker there, with
+the inherited-from note moved into the panel; Add has no such control, so the slot is simply
+omitted. **Manage's month picker deliberately stays inside `ManageEntries`** — it's paired with that
+screen's "all months" toggle and disappears with it, so it isn't the tab-level control the slot is
+for.
+
+Because every panel is mounted at once, **panel state no longer resets when you switch sub-tab**:
+Items keeps its search and sort, and Add's three forms keep whatever you'd part-typed. That's the
+main behavioural consequence of the pager, and it's why Manage grew a fourth **Data** sub-tab —
+Export and the database tools used to render under every sub-tab, and there's nowhere for
+always-on sections to live once panels scroll themselves (it also means the destructive database
+actions are somewhere you arrive deliberately).
 
 ## Android-specific pieces (the short list)
 
