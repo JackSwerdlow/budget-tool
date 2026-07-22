@@ -61,24 +61,53 @@ breakdown box — its categories (or the groups), each with this month's total a
 vs-last %, matching the running chart's tooltip; and a **Money flow** sankey
 (`charts/FlowSankey.tsx`) — when the salary engine's net pay for the month exactly equals the
 recorded income (true by construction for months saved via the Salary tab; it fetches
-`getAllSalaryConfigs` and reruns `calcSalary` client-side), the month reads as a payslip-to-
-ledger flow: **Gross pay** (left) splits into the deduction stubs (Pension / Income tax /
-National Ins. / Student loan, a quiet warm-neutral ramp; zero-value ones dropped) and **Net
-pay** (middle), which fans out into the month's groups (right, donut colours/order). One-off
-**untaxed income** (gifts) rides alongside as a second green left-column source feeding Net pay,
-so Gross pay stays true payroll earnings (a £0-gross gift month reads simply as Untaxed → Net pay
-→ groups). A month
-whose income doesn't reconcile (hand-edited, or no config) falls back to a two-column Net pay →
-groups flow rather than drawing a join that doesn't add up. Income − spend shows as a green
-**Left over** band; a month that spent past its income instead gets a red **From savings**
-source beside Net pay filling the difference (a group's ribbon can straddle both sources). The
-middle and spend columns are top-aligned (spend hangs from Net pay's top edge) so the
-deduction-label zone stays ribbon-free. Clicking a group drills it into its categories in place
-(donut-style; "‹ all groups" collapses); hover boxes: a group shows its category make-up, Net
-pay shows where it all went (each row's % is its share of net pay, so an overspent month's rows
-sum past 100%), Gross pay shows the payslip split. Like Net Balance it is real money — the one
-Month chart the category filter never touches (a header note says so while a filter is active),
-since hidden spend would otherwise masquerade as left over.
+`getAllSalaryConfigs` and reruns `calcSalary` client-side), the month reads as a payslip-to-ledger
+flow.
+
+The chart is a **chain of levels, one step at a time** — never the whole hierarchy at once. Each
+level shows a root (left) plus the next layers below it, and clicking a forward section **re-roots**
+the flow one level deeper (its middle column becomes the next level's root); clicking the root
+column — its node or its label — climbs back, as does the **Reset view** button (shown only off the
+first level, styled like MonthPicker's "Today") and a click on the empty background. The levels:
+**L0** Gross pay → the deduction stubs (Pension / Income tax / National Insurance / Student loan, a
+quiet warm-neutral ramp; zero-value ones dropped) · **Net pay** → **Spent** · **Left over**; **L1**
+Net pay → Spent · `[Left over]` → the month's groups (donut colours/order); **L2** Spent → groups →
+categories; **L3** a group → its categories. `[…]` marks an **end node** — money that stops at that
+depth (a deduction stub, Left over, a category); clicking one highlights it rather than descending.
+A node's role follows its position, not its identity: Left over leads onward at L0 and is an end
+node at L1. A group with a single category is drawn as a terminal stub (splitting it would draw one
+ribbon to an identical node), so L2's right column has room to label the rest.
+
+One-off **untaxed income** (gifts) rides alongside Gross pay as a second green source feeding Net
+pay, so Gross stays true payroll earnings (a £0-gross gift month reads simply as Untaxed → Net pay →
+Spent). A month whose income doesn't reconcile (hand-edited, or no config) has no payslip, so its
+chain **starts at Net pay** with nothing above to climb back to. Income − spend shows as a green
+**Left over** band; a month that overspent gets a red **From savings** source beside Net pay filling
+the difference (it has no share of the root — it's a source, so the Gross-pay hover shows it as a
+**+%**). At L0 the middle and sink columns are top-aligned (Spent hangs from Net pay's top edge) so
+the deduction-label zone stays ribbon-free; every deeper level centres its columns.
+
+Re-rooting is **animated** the way d3's zoomable sunburst/icicle does it (verified against d3 docs):
+elements are keyed by identity, so a section in both levels is the *same* node sliding — Net pay
+moves into the left column with its ribbons following — while layers on only one side fade. Nothing
+interpolates path strings; a ribbon's numbers are interpolated and the path is regenerated each
+frame (d3's `attrTween`). `prefers-reduced-motion` lands straight on the new level. Labels carry
+each node's **share of the current root**, re-based every level (a group is a share of Spent at L2,
+of Net pay at L1); the root shows its own spend, the middle shows `£x · y%` (just `y%` on a phone),
+and the right column stays names-only while it's a preview of the level below, printing figures only
+on the final level. The viewBox width is **measured per level** from that level's own labels, so
+each side's margin shrinks to its content and the right column always fits its names — a level that
+needs little label room comes out narrower and, at the container's width, proportionally taller.
+
+Interaction splits by input, not width (`e.pointerType` / `coarsePointer`): a **mouse** previews on
+hover — the same cursor breakdown box as the donut/bars (a group's categories, Net pay's
+destinations, Gross pay's split) — and commits on click; **touch** has no hover, so a tap drills or
+(on an end node) highlights, with the level's root or the tapped node's figures in the inspect
+strip, and a tap on a middle node's **left-hand ribbon** selects it (its share is otherwise
+unreachable, since tapping the node steps past it). `select-none` stops a press selecting label
+text. Like Net Balance it is real money — the one Month chart the category filter never touches (a
+header note says so while a filter is active), since hidden spend would otherwise masquerade as left
+over.
 
 Every Overview summary surface (the totals above, the running chart, the donut, the bars, and
 Trends below) shares one category/group show-hide filter: an "All" + saved-**View** button row

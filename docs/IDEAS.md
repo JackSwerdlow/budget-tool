@@ -21,24 +21,6 @@
 
 - Unpaid-days-off effective rate — display-only effective daily/hourly rate for days actually worked; must never affect tax/NI/SL. Data model supports it.
 
-## Mobile — round 2 (device testing on the 0.2.2 APK)
-
-> Issues found running the signed 0.2.2 APK on a real phone; they refine the mobile pass already
-> shipped (sticky bar, chart inspect strip, swipe, sankey). The **shared touch-gesture layer** the
-> gesture bugs all needed now exists — zoom disabled app-wide, `touch-action`/`user-select`
-> discipline and press-and-hold arming in `apps/web/src/lib/useScrubGesture.ts` (see MOBILE.md).
-> What's left here should **adopt** that layer rather than reinvent it; the sankey in particular
-> still runs its own overlapping pointer handlers.
-
-### Sankey — redesign as a coherent tap-only model
-
-- Currently overlapping `onPointerDown` (hover) + `onClick` (drill), no `user-select:none`, and the strip/box duality make it flaky: a long-press sometimes selects text or shows a non-persistent strip + greys sections; a single tap sometimes hovers, sometimes drills, sometimes both and mis-renders. Want a clean **tap-only** model (no press-and-hold on the sankey):
-  - **Default:** everything highlighted; the summary strip shows the **Gross Pay** breakdown.
-  - **Tap a section →** (a) expand it into its components if it has any; (b) highlight that section **and everything downstream of it** in the flow (Gross → everything; Net pay → the groups; a group → just itself); (c) show that section's breakdown in the summary strip.
-  - After a group expands into sub-categories, the sub-category nodes are non-interactive (no new info to show) — that's fine.
-  - **Tap the currently-selected section again →** return to the default (all highlighted, Gross Pay summary). **Tap a different section →** switch to it.
-  - No text selection; no scrub gesture.
-
 ## Data
 
 - Improve the data export — the shipped CSV/JSON export (Manage → Export) is a first pass kept as-is for now; revisit its format, columns, and scope after real use.

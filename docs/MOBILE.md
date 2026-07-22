@@ -53,6 +53,16 @@ The **grouping donut** and **vs-last-month** are tap-only — no strip, no touch
 tapping a slice or row already drills to that same breakdown. A tap that follows a scrub is
 suppressed for 300ms so the release can't also drill or navigate.
 
+The **money-flow sankey** is tap-driven too but its own shape (see [BUDGET.md](BUDGET.md) for the
+level chain): a tap re-roots one level deeper or, on an end node, highlights it, and the strip shows
+the level's root — or the tapped node's `£ · %`. It has no hover on touch, so tapping a **middle
+node's left-hand ribbon** is the way to read that node's share without stepping past it. Because a
+phone's node labels can't carry values inline, the mobile split is deliberate: the root shows its
+spend, the middle its share (`%` only — room for that, not the amount), the right column names only
+until the final level, where the leaves print `£ · %` underneath. The chart sizes its own viewBox
+per level from the labels that level shows — margins shrink to their content, and a narrower level
+renders taller — so it fills a phone frame without a fixed aspect ratio fighting it.
+
 **Nothing in the strip may move while scrubbing** — dragging across a month should change the
 glyphs and nothing else, or it can't be read at speed. That constrains the layout, and the rules
 are worth keeping if you touch it: charts pass **every** series on every frame (a dash where
