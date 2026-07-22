@@ -1,7 +1,11 @@
-import { computeSalaryYTD, resolveEmploymentStart, type SalaryConfig, type SalaryYTD, type YTDConfigRow } from '@budget/core';
+import { calcSalary, computeSalaryYTD, resolveEmploymentStart, type SalaryConfig, type SalaryYTD, type YTDConfigRow } from '@budget/core';
 import { todayISO } from '../../lib/dates';
 
 export const currentYm = () => todayISO().slice(0, 7);
+
+// UK tax year start year for a calendar month (the year runs Apr–Mar; the app buckets by whole
+// month, so April = the boundary, matching the engine's `month >= 4` split in core/salary.ts).
+const taxYearStartYear = (year: number, month: number) => (month >= 4 ? year : year - 1);
 
 const toYtdRow = (c: SalaryConfig): YTDConfigRow => ({
   year: c.year, month: c.month,
@@ -40,6 +44,39 @@ export function previewYtd(allConfigs: SalaryConfig[], cfg: SalaryConfig): Salar
 
 export function ymToYearMonth(ym: string): { year: number; month: number } {
   return { year: Number(ym.slice(0, 4)), month: Number(ym.slice(5, 7)) };
+}
+
+// Live net take-home for a month that has its OWN saved config, computed from the full config set
+// (so cumulative PAYE reflects every earlier month). Null if the engine can't resolve it.
+export function netForSavedMonth(allConfigs: SalaryConfig[], cfg: SalaryConfig): number | null {
+  try {
+    const ytd = previewYtd(allConfigs, cfg);
+    const anchor = previewEmploymentStart(allConfigs, cfg);
+    return calcSalary(cfg, anchor ?? { year: cfg.year, month: cfg.month }, ytd).netMonthlyPence;
+  } catch {
+    return null;
+  }
+}
+
+// The stored `monthly_income` for a salary month is a cache of the engine's net at save time.
+// Because PAYE is cumulative, editing an earlier month re-derives every *later* month in the same
+// tax year — so their cached net goes stale. This lists the later saved months whose recomputed
+// net no longer matches what's stored, so the caller can refresh them (see Salary onSave). Scoped
+// to the same tax year because cumulation resets each April; a later tax year is unaffected.
+export function staleIncomeAfterSave(
+  allConfigs: SalaryConfig[],
+  storedIncome: (year: number, month: number) => number | null,
+  saved: { year: number; month: number },
+): { year: number; month: number; net: number }[] {
+  const ty = taxYearStartYear(saved.year, saved.month);
+  const updates: { year: number; month: number; net: number }[] = [];
+  for (const c of allConfigs) {
+    const isLater = c.year > saved.year || (c.year === saved.year && c.month > saved.month);
+    if (!isLater || taxYearStartYear(c.year, c.month) !== ty) continue;
+    const net = netForSavedMonth(allConfigs, c);
+    if (net !== null && storedIncome(c.year, c.month) !== net) updates.push({ year: c.year, month: c.month, net });
+  }
+  return updates;
 }
 
 export function poundsToDisplay(pence: number): string {

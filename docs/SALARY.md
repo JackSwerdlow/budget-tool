@@ -68,6 +68,16 @@ forecast surface).
 **only if the saved month ≥ the current calendar month** — update the default income too
 (editing a past month never touches the default).
 
+**On save, later months' income is refreshed too.** `monthly_income` for a salary month is a
+**cache** of the engine's net at save time — and because PAYE is cumulative, editing an earlier
+month re-derives every *later* month in the same tax year, leaving their cache stale (Net Balance
+would read the old figure until each was re-saved by hand). So `onSave` recomputes the later saved
+months in the same tax year (`staleIncomeAfterSave` / `netForSavedMonth` in `salaryState.ts`) and
+writes back only the ones whose net actually moved, via the existing `setIncome` op — no new data
+operation, and the payslip-validated engine is untouched (it's the same `calcSalary`, just re-run).
+Scoped to the tax year because cumulation resets each April. Net is only ever *derived* from gross,
+so a divergence between cache and recompute is always staleness, never a second source of truth.
+
 ## The engine (approach, not formulae)
 
 Per-month PAYE is computed by the **cumulative method** (`core/salary.taxOnCumulative` +

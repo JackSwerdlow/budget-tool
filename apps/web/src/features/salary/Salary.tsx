@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { calcSalary, computeLifetime, computeStudentLoan, type LedgerData, type SalaryConfig } from '@budget/core';
-import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, saveSalaryConfig } from '../../api';
+import { deleteSalaryConfig, getAllSalaryConfigs, getSalaryConfig, saveSalaryConfig, setIncome } from '../../api';
 import { MonthPicker, Panel } from '../../components/ui';
 import { PinnedTabBar } from '../../components/PinnedTabBar';
 import { SubTabPager } from '../../components/SubTabPager';
@@ -18,6 +18,7 @@ import {
   parsePounds,
   previewEmploymentStart,
   previewYtd,
+  staleIncomeAfterSave,
   toYearlyPounds,
   ymToYearMonth,
   type ConfigFields,
@@ -135,8 +136,16 @@ export function Salary({ data, ym, onYmChange }: { data: LedgerData; ym: string;
     setSaveSuccess(false);
     try {
       await saveSalaryConfig(cfg, breakdown.netMonthlyPence);
+      // Cumulative PAYE means this save re-derives every later month in the same tax year, so
+      // refresh their cached income too — otherwise a backdated edit leaves Net Balance stale
+      // until each is re-saved by hand. `data.income` is the pre-save cache we compare against.
+      const updated = await getAllSalaryConfigs();
+      const stored = (y: number, m: number) => data.income.find((r) => r.year === y && r.month === m)?.amount_pence ?? null;
+      for (const u of staleIncomeAfterSave(updated, stored, { year, month })) {
+        await setIncome(u.year, u.month, u.net);
+      }
       await refresh();
-      setAllConfigs(await getAllSalaryConfigs());
+      setAllConfigs(updated);
       setSaveSuccess(true);
       setInheritedFrom(null);
     } catch (e) {

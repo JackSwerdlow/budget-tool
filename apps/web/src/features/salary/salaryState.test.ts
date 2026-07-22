@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calcSalary, type SalaryConfig } from '@budget/core';
-import { configToFields, EMPTY_CONFIG_FIELDS, fieldsToConfig, parsePounds, previewYtd } from './salaryState';
+import { configToFields, EMPTY_CONFIG_FIELDS, fieldsToConfig, netForSavedMonth, parsePounds, previewYtd, staleIncomeAfterSave } from './salaryState';
 
 describe('EMPTY_CONFIG_FIELDS — statutory defaults match payslip-validated TY 2026/27 values', () => {
   // A first-ever month pre-fills these; wrong defaults silently produce wrong figures.
@@ -122,5 +122,33 @@ describe('previewYtd — inherited salary viewed in a later tax year accumulates
     const oneMonth = previewYtd([june2026], june2026).adjustedNetYTDPence; // June 2026 alone
     const ytd = previewYtd([june2026], sept2027);
     expect(ytd.adjustedNetYTDPence).toBeGreaterThan(oneMonth * 5);
+  });
+});
+
+// The stale-income cascade: a saved salary month caches the engine's net, and editing an earlier
+// month re-derives every later month in the same tax year (cumulative PAYE). staleIncomeAfterSave
+// picks exactly the later same-tax-year months whose cached net no longer matches, so onSave can
+// refresh them instead of the user re-saving each by hand.
+describe('staleIncomeAfterSave — refreshes later same-tax-year months whose cached net drifted', () => {
+  const april: SalaryConfig = { ...base, month: 4, gross_yearly_pence: 4_000_000 };
+  const may: SalaryConfig = { ...base, month: 5, gross_yearly_pence: 4_000_000 };
+  const configs = [april, may];
+  const mayNet = netForSavedMonth(configs, may)!;
+
+  it('recomputes a later month when its stored income no longer matches', () => {
+    const stale = staleIncomeAfterSave(configs, (_y, m) => (m === 5 ? mayNet - 5_000 : null), { year: 2026, month: 4 });
+    expect(stale).toEqual([{ year: 2026, month: 5, net: mayNet }]);
+  });
+
+  it('leaves a later month alone when its stored income is already correct', () => {
+    const stale = staleIncomeAfterSave(configs, (_y, m) => (m === 5 ? mayNet : null), { year: 2026, month: 4 });
+    expect(stale).toEqual([]);
+  });
+
+  it('never touches earlier months or a later tax year', () => {
+    const march2026: SalaryConfig = { ...base, year: 2026, month: 3, gross_yearly_pence: 4_000_000 }; // prev tax year
+    const april2027: SalaryConfig = { ...base, year: 2027, month: 4, gross_yearly_pence: 4_000_000 }; // next tax year
+    const stale = staleIncomeAfterSave([march2026, april, may, april2027], () => -1, { year: 2026, month: 4 });
+    expect(stale.map((u) => `${u.year}-${u.month}`)).toEqual(['2026-5']);
   });
 });
