@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   DragOverlay,
@@ -428,7 +429,13 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
         )}
       </div>
 
-      {/* Ghost preview while dragging */}
+      {/* Ghost preview while dragging. Portalled to <body> deliberately: DragOverlay positions
+          itself with `position: fixed`, and the pager wraps every panel in a CSS `transform`
+          (Embla translates the slide track). A transformed ancestor becomes the containing block
+          for fixed descendants, so the overlay measured from the panel's top-left instead of the
+          viewport's — the ghost sat a couple of rows below the finger, and the drop landed where
+          the ghost was. Rendering outside that subtree restores viewport coordinates. */}
+      {createPortal(
       <DragOverlay>
         {activeGroup && (
           <div className="rounded-lg border border-hairline bg-panel p-4 shadow-lg opacity-95">
@@ -452,7 +459,9 @@ export function ManageTaxonomy({ data }: { data: LedgerData }) {
             <span className="text-ink">{activeCat.name}</span>
           </div>
         )}
-      </DragOverlay>
+      </DragOverlay>,
+      document.body,
+      )}
     </DndContext>
   );
 }

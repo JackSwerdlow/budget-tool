@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { isScrubArmed } from '../lib/useScrubGesture';
 
@@ -19,6 +19,16 @@ import { isScrubArmed } from '../lib/useScrubGesture';
 // touch slop: the pager cannot have started moving by the time a hold arms a scrub, so handing the
 // gesture over needs nothing put back.
 const DRAG_THRESHOLD_PX = 16;
+
+// Embla refuses to drag when the gesture starts on a form control (its internal focus-node list),
+// so those keep their caret and selection behaviour. On a phone that leaves the amount field, the
+// salary inputs and every taxonomy row unswipeable — a big share of Add, Salary and Manage. Native
+// pagers don't behave that way: on Android a horizontal drag over an EditText still pages, because
+// text selection there needs a long-press first. So recognise the swipe ourselves on exactly the
+// nodes Embla skips (no double-handling, since it has already stood down for them).
+const EMBLA_FOCUS_NODES = ['INPUT', 'SELECT', 'TEXTAREA'];
+const SWIPE_MIN_DISTANCE_PX = 48;
+const SWIPE_HORIZONTAL_DOMINANCE = 1.5;
 
 export function SubTabPager({ index, onIndexChange, children }: {
   index: number;
@@ -57,8 +67,38 @@ export function SubTabPager({ index, onIndexChange, children }: {
     if (emblaApi && emblaApi.selectedSnap() !== index) emblaApi.goTo(index);
   }, [emblaApi, index]);
 
+  // Swipe fallback for the form controls Embla won't drag on (see EMBLA_FOCUS_NODES). Fires on
+  // pointermove the moment the drag is clearly horizontal — the tab has changed before the finger
+  // lifts, and a cancelled pointer can't lose it.
+  const swipe = useRef<{ x: number; y: number; fired: boolean } | null>(null);
+  const onPointerDown = (e: ReactPointerEvent) => {
+    const el = e.target as Element | null;
+    swipe.current =
+      e.pointerType === 'touch' && el && EMBLA_FOCUS_NODES.includes(el.nodeName)
+        ? { x: e.clientX, y: e.clientY, fired: false }
+        : null;
+  };
+  const onPointerMove = (e: ReactPointerEvent) => {
+    const s = swipe.current;
+    if (!s || s.fired || !emblaApi) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) < SWIPE_MIN_DISTANCE_PX || Math.abs(dx) < Math.abs(dy) * SWIPE_HORIZONTAL_DOMINANCE) return;
+    s.fired = true; // one tab change per gesture
+    if (dx < 0) emblaApi.goToNext();
+    else emblaApi.goToPrev();
+  };
+  const endSwipe = () => { swipe.current = null; };
+
   return (
-    <div ref={emblaRef} className="max-sm:h-full max-sm:overflow-hidden">
+    <div
+      ref={emblaRef}
+      className="max-sm:h-full max-sm:overflow-hidden"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endSwipe}
+      onPointerCancel={endSwipe}
+    >
       {/* The gap is load-bearing, not decoration: with slides exactly adjacent, a panel whose
           content reaches its own edge (the Month cards' borders do) lands precisely on the
           boundary, and sub-pixel rounding at the device's DPR then draws that 1px hairline down

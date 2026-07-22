@@ -33,7 +33,7 @@
 ### Sticky control bar
 
 - **View-preset buttons wrap; want a space-budgeted row.** The All / saved-view buttons sit in a `flex-wrap` group with no width control, so long names push buttons to a second line. Want a single non-wrapping row budgeted like a segmented control: **no minimum** button width (shrink to fit text when there's room); the **selected** button always shows its full name; non-selected buttons fit to their text if they all fit, otherwise are forced to equal width (remaining width ÷ count) with text **truncated** ("Groc…"); enforce a **max** width with ellipsis. Selecting a button expands it to full text and recomputes the others' equal max width.
-- **Trends row: Categories vs range picker stack.** On the Trends sub-tab the Categories toggle and the month-range picker wrap onto separate lines. Want them on one row: Categories pinned left, the range picker aligned to the far **right** (justify-between).
+- **Trends row: Categories vs range picker stack.** Both now sit in `PinnedTabBar`'s wrapped second row (row one is the non-wrapping sub-tabs + month slot), so on the Trends sub-tab the Categories toggle and the month-range picker can still fall onto separate lines. Want them on one row: Categories pinned left, the range picker aligned to the far **right** (justify-between).
 
 ### Add — category buttons wrap with wrong corners
 
@@ -55,7 +55,7 @@
 
 ## Style / IA
 
-- Sidebar nav + persistent summary figures — replace the top tabs with a left sidebar that also surfaces key balances/figures at all times. (The mobile control bar is now sticky; this larger idea — a persistent sidebar surfacing balances — is still open.)
+- Sidebar nav + persistent summary figures — replace the top tabs with a left sidebar that also surfaces key balances/figures at all times. (On a phone the title row and control bar are now pinned above self-scrolling panels; this larger idea — a persistent sidebar surfacing balances — is still open, and is really a desktop-shape question.)
 
 ## Desktop
 

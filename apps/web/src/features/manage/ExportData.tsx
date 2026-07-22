@@ -43,7 +43,7 @@ export function ExportData({ data }: { data: LedgerData }) {
   };
 
   return (
-    <div className="mt-10 border-t border-hairline pt-6">
+    <div>
       <h3 className="mb-1 text-sm font-medium text-ink">Export</h3>
       <p className="mb-3 text-xs text-ink-faint">
         Take your data with you. <strong>CSV</strong> is one spreadsheet-ready row per entry, list item, and

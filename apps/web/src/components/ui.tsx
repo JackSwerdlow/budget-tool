@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { nextMonth, previousMonth } from '@budget/core';
-import { monthLabel, todayISO } from '../lib/dates';
+import { monthLabel, monthShort, todayISO } from '../lib/dates';
 
 export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -77,26 +77,10 @@ export function MonthPicker({ ym, onChange }: { ym: string; onChange: (ym: strin
   const currentYm = todayISO().slice(0, 7);
   return (
     <div className="inline-flex items-center gap-1.5 sm:gap-2">
-      <div className="inline-flex items-center rounded-lg border border-hairline bg-raised">
-        <button
-          type="button"
-          aria-label="Previous month"
-          onClick={() => onChange(previousMonth(ym))}
-          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
-        >
-          ‹
-        </button>
-        {/* Narrower on a phone so it fits beside the view tabs; full width from sm up. */}
-        <span className="min-w-[5rem] text-center font-serif text-sm text-ink sm:min-w-[8.5rem]">{monthLabel(ym)}</span>
-        <button
-          type="button"
-          aria-label="Next month"
-          onClick={() => onChange(nextMonth(ym))}
-          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
-        >
-          ›
-        </button>
-      </div>
+      {/* "Today" sits to the LEFT of the stepper. The bar right-aligns this whole control, so a
+          button appearing on the right would shove the month box sideways the moment you leave
+          the current month; on the left, the box's right edge is pinned and only the button
+          appears. */}
       {ym !== currentYm && (
         <button
           type="button"
@@ -106,6 +90,30 @@ export function MonthPicker({ ym, onChange }: { ym: string; onChange: (ym: strin
           Today
         </button>
       )}
+      <div className="inline-flex items-center rounded-lg border border-hairline bg-raised">
+        <button
+          type="button"
+          aria-label="Previous month"
+          onClick={() => onChange(previousMonth(ym))}
+          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
+        >
+          ‹
+        </button>
+        {/* Abbreviated on a phone ("Sep 26"), full from sm up. A long month plus the "Today"
+            button made this slot wide enough to run into the sub-tabs beside it — the bar's row
+            is deliberately non-wrapping, so the fix has to be the label not outgrowing its slot
+            rather than the row reflowing. */}
+        <span className="min-w-[3.75rem] text-center font-serif text-sm text-ink sm:hidden">{monthShort(ym)}</span>
+        <span className="hidden text-center font-serif text-sm text-ink sm:inline sm:min-w-[8.5rem]">{monthLabel(ym)}</span>
+        <button
+          type="button"
+          aria-label="Next month"
+          onClick={() => onChange(nextMonth(ym))}
+          className="px-2 py-1 text-ink-muted transition-colors hover:text-ink sm:px-3 sm:py-1.5"
+        >
+          ›
+        </button>
+      </div>
     </div>
   );
 }

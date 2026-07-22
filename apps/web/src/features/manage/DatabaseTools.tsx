@@ -46,7 +46,7 @@ export function DatabaseTools() {
   };
 
   return (
-    <div className="mt-10 border-t border-hairline pt-6">
+    <div>
       <h3 className="mb-1 text-sm font-medium text-ink">Database</h3>
       <p className="mb-3 text-xs text-ink-faint">
         Back up or move your data. <strong>Export</strong> saves a copy of your <code>budget.db</code>;{' '}

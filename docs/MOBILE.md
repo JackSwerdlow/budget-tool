@@ -99,6 +99,24 @@ omitted. **Manage's month picker deliberately stays inside `ManageEntries`** —
 screen's "all months" toggle and disappears with it, so it isn't the tab-level control the slot is
 for.
 
+Two details in the pager are load-bearing rather than cosmetic, and shouldn't be "tidied away": the
+**gutter between panels** (adjacent slides put a panel's edge border exactly on the boundary, where
+sub-pixel rounding at the device's DPR draws it down the neighbouring panel), and the **hidden
+panel scrollbars** (`.no-scrollbar` in `index.css` — per-panel scrollers make the browser paint an
+overlay scrollbar the page-level scroll it replaced never showed).
+
+**Swiping across a form control needs its own path.** Embla refuses to start a drag when the
+gesture begins on an `INPUT`/`SELECT`/`TEXTAREA` so those keep caret and selection behaviour —
+that's a hardcoded module constant, not an option, so it can't be configured away. Left alone it
+makes the amount field, the salary inputs and every taxonomy row unswipeable, which is a large
+share of Add, Salary and Manage; native pagers don't behave that way (on Android a drag over an
+`EditText` still pages, since selection there needs a long-press first). So `SubTabPager`
+recognises the swipe itself on exactly those nodes, and `index.css` gives them `touch-action:
+pan-y` under `sm` — **both halves are required**, since without the second the browser claims the
+horizontal drag for caret/field scrolling and cancels the pointer before the swipe is seen. The
+consequence to know: over a field the tab **jumps** rather than tracking your thumb, because
+Embla won't drag from there at all. If it ever exposes that list, this fallback deletes.
+
 Because every panel is mounted at once, **panel state no longer resets when you switch sub-tab**:
 Items keeps its search and sort, and Add's three forms keep whatever you'd part-typed. That's the
 main behavioural consequence of the pager, and it's why Manage grew a fourth **Data** sub-tab —
