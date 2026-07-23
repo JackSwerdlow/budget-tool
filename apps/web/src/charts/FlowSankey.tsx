@@ -7,11 +7,13 @@ import { coarsePointer } from '../lib/pointer';
 import { CHART_W, ellipsize, useChartFrame, useCursorPos, useDismissOnOutsideTap } from './kit';
 import { ChartInspectStrip, CursorBreakdownBox } from './kitComponents';
 
-// Money flow — a sankey for the viewed month. The payslip (Gross-pay) stage draws for a month with
-// its own saved salary config, where the stored income is the engine's net by construction; a month
-// without one (inherited, or a forecast future month on the flat default income) has no payslip
-// that ties to its income, so its chain simply starts at Net pay (TOP = 1) with nothing above to
-// climb back to. A month that overspent gets a red "From savings" source beside Net pay filling the
+// Money flow — a sankey over a set of months: one on the Month tab, the whole range on Trends (the
+// three derived inputs — income, category totals, payslip — are summed over `months`, so a
+// single-month list is identical to the Month tab and a wider one totals each stage). The payslip
+// (Gross-pay) stage draws only when every income-bearing month in the set has its own saved config,
+// where the stored income is the engine's net by construction; a set with a month that lacks one
+// (inherited, or a forecast future month on the flat default income) has income no payslip accounts
+// for, so its chain simply starts at Net pay (TOP = 1) with nothing above to climb back to. A month that overspent gets a red "From savings" source beside Net pay filling the
 // difference; one that didn't gets a green "Left over" band. Like Net Balance, this is real money:
 // it ignores the category filter (hidden spend would otherwise masquerade as left over).
 //
@@ -273,7 +275,38 @@ function salaryStage(configs: SalaryConfig[], ym: string): { deductions: { key: 
   }
 }
 
-export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: string; filterActive: boolean }) {
+// The payslip summed across a set of months — the Trends range's version of `salaryStage`. Only
+// months with their OWN saved config contribute (their stored income is the engine net, so each
+// balances); a single-month list is byte-identical to `salaryStage`. Deductions keep the canonical
+// ramp order so the summed column stacks the same as a single month's.
+const DEDUCTION_ORDER = ['employeePension', 'incomeTax', 'ni', 'sl'];
+function salaryRange(configs: SalaryConfig[], months: readonly string[]): { deductions: { key: string; value: number }[]; net: number; untaxed: number } | null {
+  const sums = new Map<string, number>();
+  let net = 0;
+  let untaxed = 0;
+  let any = false;
+  for (const ym of months) {
+    const { year, month } = ymToYearMonth(ym);
+    if (!configs.some((c) => c.year === year && c.month === month)) continue;
+    const s = salaryStage(configs, ym);
+    if (!s) continue;
+    any = true;
+    for (const d of s.deductions) sums.set(d.key, (sums.get(d.key) ?? 0) + d.value);
+    net += s.net;
+    untaxed += s.untaxed;
+  }
+  if (!any) return null;
+  const ordered = [...DEDUCTION_ORDER, ...[...sums.keys()].filter((k) => !DEDUCTION_ORDER.includes(k))];
+  return {
+    deductions: ordered.filter((k) => (sums.get(k) ?? 0) > 0).map((k) => ({ key: k, value: sums.get(k)! })),
+    net,
+    untaxed,
+  };
+}
+
+// `months` is the set to sum over: one month on the Month tab (identical to before), the whole
+// range on Trends. Callers may pass a fresh array each render, so everything keys off its content.
+export function FlowSankey({ data, months, filterActive }: { data: LedgerData; months: readonly string[]; filterActive: boolean }) {
   // How deep the chain is, and — only at the last level — which group it's rooted at. A level is
   // only ever changed by one, in either direction.
   const [level, setLevel] = useState(0);
@@ -291,9 +324,13 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   const geom = compact ? SANKEY_GEOM.compact : SANKEY_GEOM.desktop;
   const { MONEY_PX, NAME_MAX } = geom;
   const coarse = coarsePointer();
-  // A month change redraws every node, so the chain restarts at its top (`depth` clamps a level 0
-  // up to the first level a fallback month actually has).
-  useEffect(() => { setLevel(0); setRootGroup(null); setPicked(null); setZoomFrom(null); }, [ym]);
+  // Callers may rebuild `months` each render; key everything off its content so the animation's
+  // per-frame re-renders don't rerun the aggregation below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const monthList = useMemo(() => [...months], [months.join('|')]);
+  // A range change redraws every node, so the chain restarts at its top (`depth` clamps a level 0
+  // up to the first level a fallback range actually has).
+  useEffect(() => { setLevel(0); setRootGroup(null); setPicked(null); setZoomFrom(null); }, [monthList]);
   useEffect(() => {
     let stale = false;
     getAllSalaryConfigs().then((rows) => {
@@ -338,8 +375,12 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
   // a 300ms move into a judder on a phone. The layout maths below is small-array work and is fine
   // to redo per frame.
   const currentYm = todayISO().slice(0, 7);
-  const inc = useMemo(() => income(data, ym, currentYm), [data, ym, currentYm]);
-  const catTotals = useMemo(() => categoryTotals(data, ym), [data, ym]);
+  const inc = useMemo(() => monthList.reduce((s, m) => s + income(data, m, currentYm), 0), [data, monthList, currentYm]);
+  const catTotals = useMemo(() => {
+    const acc = new Map<number, number>();
+    for (const m of monthList) for (const [id, v] of categoryTotals(data, m)) acc.set(id, (acc.get(id) ?? 0) + v);
+    return acc;
+  }, [data, monthList]);
   const groupCats = (groupId: number) =>
     data.categories.filter((c) => c.group_id === groupId && (catTotals.get(c.id) ?? 0) > 0);
   const catNodes = (groupId: number): FlowNode[] =>
@@ -360,19 +401,21 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     ...(leftOver > 0 ? [{ key: 'leftover', name: 'Left over', color: 'var(--color-under)', value: leftOver }] : []),
   ];
 
-  // The gross stage draws only for a month with its **own saved config**: saving keeps that
-  // month's income bit-identical to the engine's net (and the cascade in Salary onSave keeps it
-  // fresh when an earlier month is edited), so gross → deductions → net is guaranteed to balance.
-  // An inherited or default-income month (a forecast future month on the flat default) has no
-  // payslip that ties to its income, so it falls back to the Net-pay-rooted flow. This replaced a
-  // `net === inc` money-equality — always true now for saved months, so the config check says the
-  // same thing without comparing pence for exact equality.
-  const salary = useMemo(() => salaryStage(configs, ym), [configs, ym]);
-  const ownConfig = useMemo(() => {
-    const { year, month } = ymToYearMonth(ym);
-    return configs.some((c) => c.year === year && c.month === month);
-  }, [configs, ym]);
-  const hasGrossStage = salary !== null && inc > 0 && ownConfig;
+  // The gross stage sums the payslips of the months with their **own saved config** — each such
+  // month's stored income is the engine's net by construction (kept fresh by the cascade in Salary
+  // onSave), so every summed pound balances. It draws only when *every* income-bearing month in the
+  // range has one; a month with income but no payslip (a forecast future month on the flat default)
+  // would add income the deductions can't account for, so the whole range falls back to the
+  // Net-pay-rooted flow. Zero-income months don't block it — they contribute via From savings.
+  const salary = useMemo(() => salaryRange(configs, monthList), [configs, monthList]);
+  const allPayslip = useMemo(
+    () => monthList.every((m) => {
+      const { year, month } = ymToYearMonth(m);
+      return income(data, m, currentYm) === 0 || configs.some((c) => c.year === year && c.month === month);
+    }),
+    [configs, data, monthList, currentYm],
+  );
+  const hasGrossStage = salary !== null && inc > 0 && allPayslip;
   // Payroll gross excludes one-off untaxed income (gifts aren't earnings); untaxed enters as its
   // own left-column source feeding Net pay, so gross + untaxed = Σdeductions + net exactly.
   const untaxedIn = hasGrossStage ? salary.untaxed : 0;
@@ -397,7 +440,9 @@ export function FlowSankey({ data, ym, filterActive }: { data: LedgerData; ym: s
     return (
       <>
         <h3 className="font-serif text-base text-ink">Money flow</h3>
-        <p className="py-8 text-center text-sm text-ink-muted">No income or spend recorded for {monthLabel(ym)} yet.</p>
+        <p className="py-8 text-center text-sm text-ink-muted">
+          No income or spend recorded for {monthList.length === 1 ? monthLabel(monthList[0]) : 'the selected range'} yet.
+        </p>
       </>
     );
   }

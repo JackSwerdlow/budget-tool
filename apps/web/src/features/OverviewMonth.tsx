@@ -73,7 +73,7 @@ export function OverviewMonth({ data, ym, hiddenCategoryIds }: { data: LedgerDat
       </Panel>
 
       <Panel>
-        <FlowSankey data={data} ym={ym} filterActive={hiddenCategoryIds.size > 0} />
+        <FlowSankey data={data} months={[ym]} filterActive={hiddenCategoryIds.size > 0} />
       </Panel>
     </div>
   );

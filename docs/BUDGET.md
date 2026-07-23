@@ -172,6 +172,16 @@ Clicking a bar (or a matrix month-header) opens that month in the Month view:
   month columns narrow so more months fit before the horizontal scroll, and the change arrow
   renders inline with the `±%` (rather than the desktop's big left-edge glyph) so it can't
   overlap the cell's £/% text.
+- **Money flow** (the same `charts/FlowSankey.tsx` as Month, rendered bare rather than carded to
+  match the sections above) fed the **summed** inputs over the range instead of one month —
+  `FlowSankey` takes a `months[]`, so a single-month range is byte-identical to the Month tab's and
+  a wider one totals each stage. The gross stage draws when **every income-bearing month in the
+  range has its own saved config** (the range form of Month's own-config rule); zero-income months
+  don't block it, they feed *From savings* — so the summed **From savings** / **Left over** band
+  reads as the net savings direction across the whole span (drawing down vs adding to savings). The
+  same three inputs Month derives (income, category totals, payslip) become range sums
+  (`salaryRange` for the payslip); everything else — the level chain, animation, interaction — is
+  the shared component unchanged.
 
 **Items** (`features/OverviewItems.tsx`, `core/items.ts`) is cross-time item analytics over the
 persisted list-item rows ("how much on milk?"): a searchable table of every item ever bought

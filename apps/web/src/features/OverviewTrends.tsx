@@ -2,6 +2,7 @@ import { categoryTotalsByMonth, previousMonth, type LedgerData } from '@budget/c
 import { TrendsBars } from '../charts/TrendsBars';
 import { TrendsLines } from '../charts/TrendsLines';
 import { TrendsMatrix } from '../charts/TrendsMatrix';
+import { FlowSankey } from '../charts/FlowSankey';
 import { monthsRange } from '../lib/dates';
 
 // The Trends view: the stacked per-month bars, the line chart, and the category×month matrix
@@ -37,6 +38,10 @@ export function OverviewTrends({ data, hiddenCategoryIds, displayStart, displayE
         onOpenMonth={onOpenMonth}
         displayStart={displayStart}
       />
+      {/* The Month tab's money-flow sankey, summed across the whole range: a single-month range is
+          identical to the Month tab's, and a wider one totals each stage — so the From savings /
+          Left over band reads as the net savings direction over the span. */}
+      {months.length > 0 && <FlowSankey data={data} months={months} filterActive={hiddenCategoryIds.size > 0} />}
     </div>
   );
 }
