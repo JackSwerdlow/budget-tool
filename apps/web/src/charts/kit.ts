@@ -40,22 +40,51 @@ export const COMPACT_FRAME: ChartFrame = {
 
 // Frame chosen from the ref'd element's measured CSS width (ResizeObserver). Defaults to
 // DESKTOP_FRAME before the first measurement so SSR-less first paint matches the old output.
+//
+// The observer follows the *current* node rather than being attached once on mount, because a
+// chart's wrapper is unmounted and later remounted as a different node whenever the chart has
+// nothing to draw (step onto a month with no data and FlowSankey renders nothing). A one-shot
+// mount effect kept observing the detached node, and since removing an observed element reports a
+// 0×0 resize, the chart latched into COMPACT and re-mounted at phone geometry on a desktop-width
+// container — a sankey at double height that no later resize could fix. Hence both halves here:
+// re-observe on node change, and never let a zero width decide the frame.
 export function useChartFrame<T extends HTMLElement = HTMLDivElement>(): {
   ref: RefObject<T | null>;
   frame: ChartFrame;
 } {
-  const ref = useRef<T>(null);
   const [compact, setCompact] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      setCompact(entries[0].contentRect.width < 480);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return { ref, frame: compact ? COMPACT_FRAME : DESKTOP_FRAME };
+  const attached = useRef<{ node: T | null; ro: ResizeObserver | null }>({ node: null, ro: null });
+
+  // A ref object with a setter, not useRef: React assigns `.current` on mount *and* unmount, which
+  // is the signal to move the observer. Still a RefObject to callers (useDismissOnOutsideTap).
+  const refBox = useRef<RefObject<T | null> | null>(null);
+  if (!refBox.current) {
+    refBox.current = {
+      get current() {
+        return attached.current.node;
+      },
+      set current(node: T | null) {
+        const state = attached.current;
+        if (node === state.node) return;
+        state.ro?.disconnect();
+        state.node = node;
+        if (!node) {
+          state.ro = null;
+          return;
+        }
+        const ro = new ResizeObserver((entries) => {
+          const w = entries[0].contentRect.width;
+          // 0 = detached, or laid out inside a hidden panel — not a measurement of anything.
+          if (w > 0) setCompact(w < 480);
+        });
+        ro.observe(node);
+        state.ro = ro;
+      },
+    } as RefObject<T | null>;
+  }
+
+  useEffect(() => () => attached.current.ro?.disconnect(), []);
+  return { ref: refBox.current, frame: compact ? COMPACT_FRAME : DESKTOP_FRAME };
 }
 
 export function axisGBP(pence: number): string {
