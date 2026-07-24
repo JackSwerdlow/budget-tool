@@ -56,6 +56,13 @@ breaks:
 - `npm run dev` — web + API, unchanged; no Rust needed.
 - `npm run tauri:dev` / `npm run tauri:build` — the desktop app live / bundled (needs the Rust
   toolchain; on Linux also `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf libssl-dev`).
+  Keep the toolchain current: the pinned `libsqlite3-sys` build script uses `cfg_select!`, which
+  1.93 rejects with `error[E0658]: use of unstable library feature 'cfg_select'` (1.97.1 builds
+  it). `rustup update stable` fixes it.
+- `npm -w @budget/desktop run tauri dev -- --config '{"identifier":"com.budgettool.smoke"}'` — the
+  same dev app against a **throwaway** app-config dir, so a test run can't touch the real
+  `budget.db`. Worth using for anything but deliberate work on your own data. Launching, driving
+  and screenshotting all three targets: the `run-budget-tool` skill.
 - **Release** — push a `desktop-v*` tag → `.github/workflows/release.yml` runs a `tauri-action`
   matrix on real runners → a **draft GitHub Release** with Windows `.exe`, macOS `.dmg`, Linux
   `.AppImage`/`.deb`.

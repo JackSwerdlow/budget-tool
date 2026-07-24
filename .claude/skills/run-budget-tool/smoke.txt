@@ -1,0 +1,50 @@
+# End-to-end smoke: every tab renders, and a saved entry moves the month total.
+# Run: node .claude/skills/run-budget-tool/driver.mjs --serve --script .claude/skills/run-budget-tool/smoke.txt
+
+goto /
+wait text=THIS MONTH
+eval document.body.innerText.match(/THIS MONTH\n([^\n]+)/)[1]
+shot 01-overview-month full
+
+# Add → Single. The amount field takes a sum ("8+8+8+5" → £29.00); the category is picked by
+# typing a prefix into the filter and pressing Enter.
+key a
+wait #amount
+type #amount 8+8+8+5
+type "[aria-label='Filter categories']" nic
+key Enter
+expect document.querySelector('#amount').value === '8+8+8+5'
+click text=Save entry
+sleep 800
+expect document.querySelector('aside').innerText.includes('£29.00')
+shot 02-add-saved
+
+# Click back — hotkeys (a/o/s/m) are ignored while an input has focus, and after a save the
+# focus is still in the form.
+click text=Overview
+sleep 600
+eval document.body.innerText.match(/THIS MONTH\n([^\n]+)/)[1]
+
+click text=Trends
+sleep 900
+shot 03-overview-trends
+
+click text=Salary
+wait text=Gross Pay
+shot 04-salary
+
+click text=Manage
+sleep 800
+shot 05-manage
+
+# Phone width — the UI is mobile-first and Android ships this same build. Resize, then RELOAD:
+# the swipeable sub-tab pager only picks up the new width when it mounts, so resizing in place
+# leaves the pill and the panel showing different sub-tabs.
+size 360 780
+goto /
+wait text=THIS MONTH
+sleep 600
+shot 06-mobile-overview
+click text=Trends
+sleep 900
+shot 07-mobile-trends

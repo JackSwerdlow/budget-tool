@@ -11,9 +11,9 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  // Node-side code: the API and all build/test config files.
+  // Node-side code: the API, all build/test config files, and the agent driver in .claude/skills.
   {
-    files: ['apps/api/**/*.ts', '**/*.config.{ts,mts,js,mjs}'],
+    files: ['apps/api/**/*.ts', '**/*.config.{ts,mts,js,mjs}', '.claude/skills/**/*.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
   // Browser + React code.

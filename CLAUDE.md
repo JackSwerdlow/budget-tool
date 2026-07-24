@@ -64,6 +64,10 @@ changes at a ~360px viewport as well as desktop width.
 Run typechecks, tests, and lint where applicable: `npm run typecheck` · `npm test` · `npm run lint`.
 The salary PAYE engine is payslip-validated — never change it to satisfy a test; see `SALARY.md`.
 
+To *see* a UI change in the running app (rather than only in tests), use the `run-budget-tool`
+skill (`.claude/skills/run-budget-tool/SKILL.md`) — it boots the servers on a throwaway copy of the
+demo DB, drives the app in headless Chrome, and screenshots at desktop and 360px widths.
+
 ## Context7 MCP
 
 Whenever a coding task involves a library, framework, API, or CLI tool, use Context7 MCP to fetch
