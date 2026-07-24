@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   buildMatrix,
   formatGBP,
@@ -205,8 +205,14 @@ function Row({ row, months, onToggle, topBorder, bottomBorder, monthHasSpend, co
   const [hovered, setHovered] = useState(false);
   const isClickable = row.expandable || !row.strong;
 
+  // Row emphasis (accent label, dimmed cells) is mouse-only, as in the charts above: a tap fires
+  // a synthetic enter with no leave to undo it, so the row it expanded would stay lit until the
+  // next touch landed somewhere else.
   const rowHandlers = isClickable
-    ? { onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false) }
+    ? {
+        onPointerEnter: (e: ReactPointerEvent) => { if (e.pointerType !== 'touch') setHovered(true); },
+        onPointerLeave: (e: ReactPointerEvent) => { if (e.pointerType !== 'touch') setHovered(false); },
+      }
     : {};
 
   const labelBg = row.strong

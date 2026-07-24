@@ -160,7 +160,9 @@ Clicking a bar (or a matrix month-header) opens that month in the Month view:
   above only show composition. Clicking a group's line or legend chip drills into that
   group's category lines in place (donut/sankey drill pattern; "‹ all groups" collapses,
   and a filter change that empties the drilled group falls back to the groups view).
-  Hovering a legend chip or line emphasises it; hovering a month shows a crosshair, dots,
+  Hovering a legend chip or line emphasises it — mouse-only, as with the bars' dimming next door,
+  since a tap has no leave to undo it and drills instead; and any emphasis clears on a drill,
+  group and category ids being separate number spaces. Hovering a month shows a crosshair, dots,
   and the bars' breakdown box (per-series values + vs-last-month deltas, sorted desc).
   The segment into the half-finished current month is dashed so the tail-off reads as
   incomplete data, not a collapse.
@@ -171,7 +173,8 @@ Clicking a bar (or a matrix month-header) opens that month in the Month view:
   category's name and colour instead of the group's. On a phone (coarse pointer) the label and
   month columns narrow so more months fit before the horizontal scroll, and the change arrow
   renders inline with the `±%` (rather than the desktop's big left-edge glyph) so it can't
-  overlap the cell's £/% text.
+  overlap the cell's £/% text. Hovering a row lifts its label to accent and dims its cells —
+  mouse-only, like the emphasis above it, so a tap only expands.
 - **Money flow** (the same `charts/FlowSankey.tsx` as Month, rendered bare rather than carded to
   match the sections above) fed the **summed** inputs over the range instead of one month —
   `FlowSankey` takes a `months[]`, so a single-month range is byte-identical to the Month tab's and

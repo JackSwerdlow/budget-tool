@@ -123,6 +123,14 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
 
   const lineOpacity = (id: number) => (emphasisId === null ? 1 : emphasisId === id ? 1 : 0.25);
 
+  // Emphasis belongs to the level you're looking at: group ids and category ids come from
+  // different tables, so one carried across a drill either dims every line (nothing matches it)
+  // or lands on whichever category happens to share the number.
+  const drillTo = (id: number | null) => {
+    setDrillGroupId(id);
+    setEmphasisId(null);
+  };
+
   return (
     <div ref={wrapRef} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -132,7 +140,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
             <span className="flex items-baseline gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setDrillGroupId(null)}
+                onClick={() => drillTo(null)}
                 className="text-ink-muted transition-colors hover:text-accent"
               >
                 ‹ all groups
@@ -149,9 +157,12 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
               key={s.id}
               type="button"
               disabled={drilled}
-              onClick={() => setDrillGroupId(s.id)}
-              onMouseEnter={() => setEmphasisId(s.id)}
-              onMouseLeave={() => setEmphasisId(null)}
+              onClick={() => drillTo(s.id)}
+              // Hover emphasis is a mouse affordance, and touch has no leave to undo it: a tap
+              // here fires a synthetic enter, then drills — and the chips are disabled at
+              // category level, so nothing could clear it again (the fat strokes guard the same).
+              onPointerEnter={(e) => { if (e.pointerType !== 'touch') setEmphasisId(s.id); }}
+              onPointerLeave={(e) => { if (e.pointerType !== 'touch') setEmphasisId(null); }}
               className={`flex items-center gap-1.5 text-xs text-ink-muted transition-colors ${drilled ? '' : 'hover:text-ink'}`}
               style={{ opacity: lineOpacity(s.id) }}
               aria-label={drilled ? s.name : `Show ${s.name}'s categories`}
@@ -263,7 +274,7 @@ export function TrendsLines({ data, months, totalsByMonth, hiddenCategoryIds }: 
               }}
               onClick={() => {
                 if (moved.current || Date.now() < drillBlockedUntil.current) return;
-                if (!drilled) setDrillGroupId(s.id);
+                if (!drilled) drillTo(s.id);
               }}
             />
             {hovered && (
